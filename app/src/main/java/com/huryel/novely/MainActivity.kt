@@ -16,6 +16,7 @@ import com.huryel.novely.ui.theme.TemaLeitura
 class NovelyApp : Application() {
     lateinit var repo: Repositorio
     lateinit var prefs: Preferencias
+    lateinit var importador: com.huryel.novely.data.Importador
     /** Escopo que sobrevive à troca de tela: usado para terminar salvamentos ao sair. */
     val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
     override fun onCreate() {
@@ -23,6 +24,7 @@ class NovelyApp : Application() {
         instancia = this
         repo = Repositorio(this)
         prefs = Preferencias(this)
+        importador = com.huryel.novely.data.Importador(this, repo)
     }
     companion object {
         lateinit var instancia: NovelyApp

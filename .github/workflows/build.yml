@@ -26,7 +26,7 @@ jobs:
       - name: Compilar
         run: |
           set -o pipefail
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          gradle assembleDebug testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee build.log
 
       - name: Mostrar erros
         if: failure()
@@ -34,6 +34,13 @@ jobs:
           grep -vE "^> Task" build.log | grep -E "^e: |rror|What went wrong|Could not|^> |Caused by" | head -40 | while IFS= read -r l; do
             echo "::error::${l:0:900}"
           done
+
+      - name: Resultados de desempenho
+        if: success()
+        run: |
+          if [ -f app/build/desempenho.txt ]; then
+            while IFS= read -r l; do echo "::notice title=Desempenho::$l"; done < app/build/desempenho.txt
+          fi
 
       - name: Publicar APK
         uses: softprops/action-gh-release@v2

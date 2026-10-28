@@ -107,7 +107,9 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
                 "imagem/{id}/{tipo}",
                 listOf(navArgument("id") { type = NavType.LongType }, navArgument("tipo") { type = NavType.StringType }),
             ) { e -> TelaAjusteImagem(e.arguments!!.getLong("id"), e.arguments!!.getString("tipo") ?: "capa", nav) }
-            composable("backup") { TelaSimples("Importar e backup", "Importação de TXT/EPUB (Fase C) e backup (Fase G).", nav) }
+            composable("importar") { TelaImportar(nav, null) }
+            composable("importar/{id}", idArg) { e -> TelaImportar(nav, e.arguments!!.getLong("id")) }
+            composable("backup") { TelaSimples("Backup", "Backup e restauração chegam na Fase G.", nav) }
         }
     }
 }
@@ -152,7 +154,7 @@ private fun TelaInicio(nav: NavHostController) {
                 Button(onClick = { criando = true }, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque),
                     modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Criar obra", fontWeight = FontWeight.Bold) }
                 Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar novel") }
+                OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar novel") }
             }
         } else {
             val continuar = lista.filter { it.lidaEm > 0 && it.ultimoCapituloId != null }.maxByOrNull { it.lidaEm }
@@ -319,7 +321,7 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
         Text("TAMANHO DO TEXTO NO LEITOR · ${tamanho.toInt()}", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
         Slider(value = tamanho, onValueChange = { prefs.definirTamanho(it) }, valueRange = 14f..28f, steps = 13,
             colors = SliderDefaults.colors(thumbColor = p.destaque, activeTrackColor = p.destaque, inactiveTrackColor = p.borda))
-        OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Importar e backup") }
+        OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Importar e backup") }
         Text("Novely 0.2 · Fase B", fontSize = 12.sp, color = p.textoSuave)
     }
 }

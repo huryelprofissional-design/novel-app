@@ -133,6 +133,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
         Box(Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp)) {
             DropdownMenu(expanded = menuObra, onDismissRequest = { menuObra = false }) {
                 DropdownMenuItem(text = { Text("Editar título e descrição") }, onClick = { menuObra = false; dialogo = Dialogo.EditarInfo })
+                DropdownMenuItem(text = { Text("Importar capítulos (TXT/EPUB)") }, onClick = { menuObra = false; nav.navigate("importar/$obraId") })
                 DropdownMenuItem(text = { Text("Trocar capa") }, onClick = { menuObra = false; escolherImagem("capa") })
                 DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuObra = false; escolherImagem("banner") })
                 HorizontalDivider()

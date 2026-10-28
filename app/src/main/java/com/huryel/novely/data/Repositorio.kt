@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class Repositorio(ctx: Context) {
-    private val banco = BancoNovely.criar(ctx)
+    val banco = BancoNovely.criar(ctx)
     val dao = banco.dao()
     val textos = ArquivosTexto(ctx)
     val imagens = ArquivosImagem(ctx)
