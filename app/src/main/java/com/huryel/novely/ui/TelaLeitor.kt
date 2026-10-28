@@ -151,7 +151,7 @@ private enum class Painel { NENHUM, VOZ, BUSCA }
 
 @OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
 @Composable
-fun TelaLeitor(capId: Long, nav: NavHostController) {
+fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = "", ocorrenciaInicial: Int = 0) {
     val app = NovelyApp.instancia
     val repo = app.repo
     val prefs = app.prefs
@@ -172,7 +172,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController) {
     var blocos by remember { mutableStateOf<List<Bloco>?>(null) }
     var lista by remember { mutableStateOf<List<Capitulo>>(emptyList()) }
     var controles by remember { mutableStateOf(true) }
-    var painel by remember { mutableStateOf(Painel.NENHUM) }
+    var painel by remember { mutableStateOf(if (consultaInicial.isNotEmpty()) Painel.BUSCA else Painel.NENHUM) }
     var mostrarAjustes by remember { mutableStateOf(false) }
     var mostrarCapitulos by remember { mutableStateOf(false) }
 
@@ -200,7 +200,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController) {
     val idx = lista.indexOfFirst { it.id == c.id }
     val anterior = lista.getOrNull(idx - 1)
     val proximo = lista.getOrNull(idx + 1)
-    fun irPara(outro: Capitulo) = nav.navigate("leitor/${outro.id}") { popUpTo("leitor/{id}") { inclusive = true } }
+    fun irPara(outro: Capitulo) = nav.navigate("leitor/${outro.id}") { popUpTo(ROTA_LEITOR) { inclusive = true } }
 
     val estado = rememberLazyListState(c.posicaoBloco.coerceIn(0, b.size + 1), c.posicaoDeslocamento)
     val progresso by remember {
@@ -250,7 +250,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController) {
     fun pausar() { tocando = false; voz.parar() }
 
     // ── Busca ──
-    var consulta by remember { mutableStateOf("") }
+    var consulta by remember { mutableStateOf(consultaInicial) }
     val normalizados = remember(b) { lazy { b.map { Texto.normalizar(it.plano) } } }
     val achados by remember(b) {
         derivedStateOf {
@@ -259,13 +259,13 @@ fun TelaLeitor(capId: Long, nav: NavHostController) {
                 val r = ArrayList<Pair<Int, Int>>()
                 normalizados.value.forEachIndexed { bi, t ->
                     var i = t.indexOf(q)
-                    while (i >= 0 && r.size < 5000) { r.add(bi to i); i = t.indexOf(q, i + 1) }
+                    while (i >= 0 && r.size < 5000) { r.add(bi to i); i = t.indexOf(q, i + q.length) }
                 }
                 r
             }
         }
     }
-    var achadoAtual by remember { mutableStateOf(0) }
+    var achadoAtual by remember { mutableStateOf(ocorrenciaInicial) }
     LaunchedEffect(achados, achadoAtual) {
         achados.getOrNull(achadoAtual)?.let { (bi, _) -> estado.animateScrollToItem(bi + 1) }
     }
@@ -407,7 +407,7 @@ private fun destacarBusca(base: AnnotatedString, normal: String, q: String, p: P
         while (i >= 0) {
             val fim = (i + q.length).coerceAtMost(base.length)
             if (i < fim) addStyle(SpanStyle(background = if (i == atual) p.destaque.copy(alpha = 0.75f) else p.destaque.copy(alpha = 0.3f)), i, fim)
-            i = normal.indexOf(q, i + 1)
+            i = normal.indexOf(q, i + q.length)
         }
     }
 }

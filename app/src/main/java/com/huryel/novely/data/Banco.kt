@@ -86,6 +86,8 @@ data class ResumoObra(
     val lidos: Int,
 )
 
+data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, val obraTitulo: String)
+
 @Dao
 interface NovelyDao {
     @Query(
@@ -104,6 +106,15 @@ interface NovelyDao {
     @Query("SELECT * FROM obras WHERE id = :id")
     suspend fun obraAgora(id: Long): Obra?
 
+    @Query("SELECT * FROM obras ORDER BY atualizadaEm DESC")
+    suspend fun todasObras(): List<Obra>
+
+    @Query("SELECT * FROM volumes WHERE obraId = :obraId ORDER BY ordem")
+    suspend fun volumesAgora(obraId: Long): List<Volume>
+
+    @Query("SELECT COUNT(*) FROM capitulos WHERE obraId = :obraId")
+    suspend fun contarCapitulos(obraId: Long): Int
+
     @Insert suspend fun inserirObra(obra: Obra): Long
     @Update suspend fun atualizarObra(obra: Obra)
     @Delete suspend fun excluirObra(obra: Obra)
@@ -120,6 +131,9 @@ interface NovelyDao {
     fun capitulos(obraId: Long): Flow<List<Capitulo>>
     @Query("SELECT * FROM capitulos WHERE obraId = :obraId ORDER BY ordem")
     suspend fun capitulosAgora(obraId: Long): List<Capitulo>
+    @Query("SELECT c.id AS capId, c.obraId, c.titulo AS capTitulo, o.titulo AS obraTitulo FROM capitulos c JOIN obras o ON o.id = c.obraId ORDER BY o.atualizadaEm DESC, c.ordem")
+    suspend fun indiceBusca(): List<ItemIndice>
+
     @Query("SELECT * FROM capitulos WHERE id = :id")
     fun capitulo(id: Long): Flow<Capitulo?>
     @Query("SELECT * FROM capitulos WHERE id = :id")

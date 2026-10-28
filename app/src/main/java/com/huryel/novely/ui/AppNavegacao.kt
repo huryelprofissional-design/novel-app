@@ -48,6 +48,8 @@ import com.huryel.novely.ui.theme.LocalPaleta
 import com.huryel.novely.ui.theme.TemaLeitura
 import kotlinx.coroutines.launch
 
+const val ROTA_LEITOR = "leitor/{id}?q={q}&n={n}"
+
 private data class Aba(val rota: String, val rotulo: String, val icone: ImageVector)
 
 private val abas = listOf(
@@ -98,10 +100,17 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         NavHost(nav, startDestination = "inicio", modifier = Modifier.padding(margem).consumeWindowInsets(margem)) {
             composable("inicio") { TelaInicio(nav) }
             composable("escrever") { TelaEscrever(nav) }
-            composable("buscar") { TelaSimples("Buscar", "A busca em todas as obras chega na Fase F.") }
+            composable("buscar") { TelaBusca(nav) }
             composable("ajustes") { TelaAjustes(temaAtual, aoMudarTema, nav) }
             composable("obra/{id}", idArg) { e -> TelaObra(e.arguments!!.getLong("id"), nav) }
-            composable("leitor/{id}", idArg) { e -> TelaLeitor(e.arguments!!.getLong("id"), nav) }
+            composable(
+                ROTA_LEITOR,
+                listOf(
+                    navArgument("id") { type = NavType.LongType },
+                    navArgument("q") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("n") { type = NavType.IntType; defaultValue = 0 },
+                ),
+            ) { e -> TelaLeitor(e.arguments!!.getLong("id"), nav, e.arguments!!.getString("q") ?: "", e.arguments!!.getInt("n")) }
             composable("editor/{id}", idArg) { e -> TelaEditor(e.arguments!!.getLong("id"), nav) }
             composable(
                 "imagem/{id}/{tipo}",
@@ -110,7 +119,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("historico/{id}", idArg) { e -> TelaHistorico(e.arguments!!.getLong("id"), nav) }
             composable("importar") { TelaImportar(nav, null) }
             composable("importar/{id}", idArg) { e -> TelaImportar(nav, e.arguments!!.getLong("id")) }
-            composable("backup") { TelaSimples("Backup", "Backup e restauração chegam na Fase G.", nav) }
+            composable("backup") { TelaBackup(nav) }
         }
     }
 }

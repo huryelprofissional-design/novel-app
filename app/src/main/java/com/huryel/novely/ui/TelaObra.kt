@@ -70,6 +70,22 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
             else snack.showSnackbar("Não consegui abrir essa imagem.")
         }
     }
+    val bk = NovelyApp.instancia.backup
+    val app = NovelyApp.instancia
+    val exportarNovely = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { u -> if (u != null) app.escopo.launch { bk.exportarBackup(u, obraId) } }
+    val exportarEpub = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/epub+zip")) { u -> if (u != null) app.escopo.launch { bk.exportarEpub(obraId, u) } }
+    val exportarTxt = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { u -> if (u != null) app.escopo.launch { bk.exportarTexto(obraId, u) } }
+    val estadoBk by bk.estado.collectAsState()
+    LaunchedEffect(estadoBk) {
+        when (val e = estadoBk) {
+            is com.huryel.novely.data.EstadoBackup.Feito -> { bk.limpar(); snack.showSnackbar(e.mensagem) }
+            is com.huryel.novely.data.EstadoBackup.Erro -> { bk.limpar(); snack.showSnackbar(e.mensagem) }
+            is com.huryel.novely.data.EstadoBackup.Trabalhando -> snack.showSnackbar(e.mensagem)
+            else -> {}
+        }
+    }
+    fun nomeSeguro(o: Obra) = o.titulo.replace(Regex("[^\\p{L}\\p{N} _-]"), "").trim().ifEmpty { "obra" }
+
     fun escolherImagem(tipo: String) {
         tipoEscolhendo = tipo
         seletor.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -144,6 +160,10 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                         onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(status = s)) } },
                     )
                 }
+                HorizontalDivider()
+                DropdownMenuItem(text = { Text("Exportar EPUB") }, onClick = { menuObra = false; exportarEpub.launch(nomeSeguro(o) + ".epub") })
+                DropdownMenuItem(text = { Text("Exportar TXT / Markdown") }, onClick = { menuObra = false; exportarTxt.launch(nomeSeguro(o) + ".md") })
+                DropdownMenuItem(text = { Text("Backup só desta obra") }, onClick = { menuObra = false; exportarNovely.launch(nomeSeguro(o) + ".novely") })
                 HorizontalDivider()
                 DropdownMenuItem(text = { Text("Excluir obra", color = Color(0xFFE57373)) }, onClick = { menuObra = false; dialogo = Dialogo.ExcluirObra })
             }

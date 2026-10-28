@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.huryel.novely.data.Preferencias
+import kotlinx.coroutines.launch
 import com.huryel.novely.data.Repositorio
 import com.huryel.novely.ui.AppNavegacao
 import com.huryel.novely.ui.theme.NovelyTheme
@@ -17,6 +18,7 @@ class NovelyApp : Application() {
     lateinit var repo: Repositorio
     lateinit var prefs: Preferencias
     lateinit var importador: com.huryel.novely.data.Importador
+    lateinit var backup: com.huryel.novely.data.Backup
     /** Escopo que sobrevive à troca de tela: usado para terminar salvamentos ao sair. */
     val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
     override fun onCreate() {
@@ -25,6 +27,8 @@ class NovelyApp : Application() {
         repo = Repositorio(this)
         prefs = Preferencias(this)
         importador = com.huryel.novely.data.Importador(this, repo)
+        backup = com.huryel.novely.data.Backup(this, repo, prefs)
+        escopo.launch { backup.backupAutomaticoSePreciso() }
     }
     companion object {
         lateinit var instancia: NovelyApp
