@@ -10,21 +10,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extrair projeto do zip
-        run: |
-          rm -rf projeto
-          mkdir projeto
-          unzip -q novel-app.zip -d projeto
-          if [ ! -f projeto/settings.gradle.kts ]; then
-            inner=$(dirname "$(find projeto -name settings.gradle.kts | head -1)")
-            echo "DIR=$inner" >> $GITHUB_ENV
-          else
-            echo "DIR=projeto" >> $GITHUB_ENV
-          fi
 
       - uses: actions/setup-java@v4
         with:
@@ -37,13 +25,20 @@ jobs:
 
       - name: Compilar
         run: |
-          cd "$DIR"
-          gradle assembleDebug --no-daemon --stacktrace
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Mostrar erros
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|Could not|> " build.log | head -40 | while IFS= read -r l; do
+            echo "::error::${l:0:900}"
+          done
 
       - name: Publicar APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: "Novelas build ${{ github.run_number }}"
+          name: "Novely build ${{ github.run_number }}"
           body: "APK gerado automaticamente. Baixe o arquivo .apk abaixo e instale."
-          files: ${{ env.DIR }}/app/build/outputs/apk/debug/*.apk
+          files: app/build/outputs/apk/debug/*.apk

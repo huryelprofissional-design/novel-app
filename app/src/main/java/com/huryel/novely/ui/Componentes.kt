@@ -1,0 +1,145 @@
+package com.huryel.novely.ui
+
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.huryel.novely.data.StatusObra
+import com.huryel.novely.ui.theme.LocalPaleta
+import com.huryel.novely.ui.theme.Serifa
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/** Carrega uma imagem do armazenamento do app fora da thread principal, já reduzida. */
+@Composable
+fun rememberImagem(caminho: String?, ladoMax: Int = 900): ImageBitmap? {
+    val estado by produceState<ImageBitmap?>(null, caminho, ladoMax) {
+        value = if (caminho == null) null else withContext(Dispatchers.IO) {
+            try {
+                val lim = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(caminho, lim)
+                var amostra = 1
+                while (lim.outWidth / (amostra * 2) >= ladoMax || lim.outHeight / (amostra * 2) >= ladoMax) amostra *= 2
+                BitmapFactory.decodeFile(caminho, BitmapFactory.Options().apply { inSampleSize = amostra })?.asImageBitmap()
+            } catch (e: Throwable) { null }
+        }
+    }
+    return estado
+}
+
+/**
+ * Mostra a imagem recortada no enquadramento escolhido:
+ * x/y (0..1) = ponto de foco; zoom >= 1 aproxima em volta desse ponto.
+ */
+@Composable
+fun ImagemEnquadrada(
+    caminho: String?, x: Float, y: Float, zoom: Float, corBase: Long,
+    modifier: Modifier, ladoMax: Int = 900, semImagem: @Composable BoxScope.() -> Unit = {},
+) {
+    val img = rememberImagem(caminho, ladoMax)
+    Box(modifier.background(Color(corBase))) {
+        if (img != null) {
+            Image(
+                bitmap = img, contentDescription = null, contentScale = ContentScale.Crop,
+                alignment = BiasAlignment(x * 2 - 1, y * 2 - 1),
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    scaleX = zoom; scaleY = zoom
+                    transformOrigin = TransformOrigin(x, y)
+                },
+            )
+        } else semImagem()
+    }
+}
+
+@Composable
+fun CapaObra(
+    titulo: String, caminho: String?, x: Float, y: Float, zoom: Float, corBase: Long,
+    modifier: Modifier, tamanhoTitulo: TextUnit = 14.sp,
+) {
+    ImagemEnquadrada(caminho, x, y, zoom, corBase, modifier.clip(RoundedCornerShape(12.dp)), 600) {
+        Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.BottomStart) {
+            Text(titulo, fontFamily = Serifa, fontWeight = FontWeight.Bold, fontSize = tamanhoTitulo,
+                lineHeight = tamanhoTitulo * 1.15f, color = Color(0xFFF5EEE2), maxLines = 4, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+fun nomeStatus(s: String) = when (s) {
+    StatusObra.LENDO -> "Lendo"
+    StatusObra.CONCLUIDA -> "Concluída"
+    else -> "Escrevendo"
+}
+
+fun formatarPalavras(n: Long): String = when {
+    n >= 1_000_000 -> String.format("%.1f mi", n / 1_000_000.0).replace('.', ',')
+    n >= 1_000 -> "${n / 1000} mil"
+    else -> "$n"
+}
+
+@Composable
+fun DialogoTexto(
+    titulo: String, rotulo: String, inicial: String = "", confirmar: String = "Salvar",
+    multilinha: Boolean = false, aoFechar: () -> Unit, aoConfirmar: (String) -> Unit,
+) {
+    var texto by remember { mutableStateOf(inicial) }
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        title = { Text(titulo) },
+        text = {
+            OutlinedTextField(
+                value = texto, onValueChange = { texto = it }, label = { Text(rotulo) },
+                singleLine = !multilinha, minLines = if (multilinha) 3 else 1,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = { TextButton(onClick = { aoConfirmar(texto) }) { Text(confirmar) } },
+        dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
+    )
+}
+
+@Composable
+fun DialogoConfirmar(titulo: String, texto: String, confirmar: String, aoFechar: () -> Unit, aoConfirmar: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        title = { Text(titulo) },
+        text = { Text(texto) },
+        confirmButton = { TextButton(onClick = aoConfirmar) { Text(confirmar, color = Color(0xFFE57373)) } },
+        dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
+    )
+}
+
+@Composable
+fun Chip(texto: String, selecionado: Boolean, aoTocar: () -> Unit) {
+    val p = LocalPaleta.current
+    FilterChip(
+        selected = selecionado, onClick = aoTocar, label = { Text(texto, fontWeight = FontWeight.SemiBold) },
+        shape = RoundedCornerShape(20.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = p.destaque, selectedLabelColor = p.sobreDestaque,
+            containerColor = Color.Transparent, labelColor = p.texto,
+        ),
+        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selecionado, borderColor = p.borda),
+        modifier = Modifier.height(40.dp),
+    )
+}
