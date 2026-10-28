@@ -107,6 +107,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
                 "imagem/{id}/{tipo}",
                 listOf(navArgument("id") { type = NavType.LongType }, navArgument("tipo") { type = NavType.StringType }),
             ) { e -> TelaAjusteImagem(e.arguments!!.getLong("id"), e.arguments!!.getString("tipo") ?: "capa", nav) }
+            composable("historico/{id}", idArg) { e -> TelaHistorico(e.arguments!!.getLong("id"), nav) }
             composable("importar") { TelaImportar(nav, null) }
             composable("importar/{id}", idArg) { e -> TelaImportar(nav, e.arguments!!.getLong("id")) }
             composable("backup") { TelaSimples("Backup", "Backup e restauração chegam na Fase G.", nav) }
@@ -302,27 +303,16 @@ private fun TelaEscrever(nav: NavHostController) {
 @Composable
 private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit, nav: NavHostController) {
     val p = LocalPaleta.current
-    val prefs = NovelyApp.instancia.prefs
-    val tamanho by prefs.tamanho.collectAsState()
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Ajustes", style = MaterialTheme.typography.displaySmall)
-        Text("TEMA", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TemaLeitura.entries.forEach { t ->
-                val sel = t == temaAtual
-                Box(
-                    Modifier.weight(1f).height(60.dp).clip(RoundedCornerShape(16.dp)).background(t.paleta.fundo)
-                        .border(if (sel) 2.dp else 1.dp, if (sel) p.destaque else p.borda, RoundedCornerShape(16.dp))
-                        .clickable { aoMudarTema(t) },
-                    contentAlignment = Alignment.Center,
-                ) { Text(t.paleta.nome, color = t.paleta.texto, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 20.dp)) {
+        item { Text("Ajustes", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { AjustesLeitura() }
+        item {
+            Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
+                OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
+                Text("Novely 0.5 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
-        Text("TAMANHO DO TEXTO NO LEITOR · ${tamanho.toInt()}", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
-        Slider(value = tamanho, onValueChange = { prefs.definirTamanho(it) }, valueRange = 14f..28f, steps = 13,
-            colors = SliderDefaults.colors(thumbColor = p.destaque, activeTrackColor = p.destaque, inactiveTrackColor = p.borda))
-        OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Importar e backup") }
-        Text("Novely 0.2 · Fase B", fontSize = 12.sp, color = p.textoSuave)
     }
 }
 

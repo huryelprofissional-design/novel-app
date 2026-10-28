@@ -101,6 +101,7 @@ class Repositorio(ctx: Context) {
     suspend fun lerTexto(capId: Long) = textos.ler(capId)
 
     suspend fun gravarTexto(c: Capitulo, texto: String) {
+        textos.guardarVersaoSePreciso(c.id)
         textos.gravar(c.id, texto)
         val agora = System.currentTimeMillis()
         dao.atualizarPalavras(c.id, ArquivosTexto.contarPalavras(texto), agora)
@@ -113,14 +114,37 @@ class Repositorio(ctx: Context) {
     }
 }
 
-/** Preferências simples (tema etc.) guardadas no aparelho. */
+/** Preferências guardadas no aparelho (tema, leitor, voz). */
 class Preferencias(ctx: Context) {
     private val sp = ctx.getSharedPreferences("novely_prefs", Context.MODE_PRIVATE)
-    private val _tema = MutableStateFlow(sp.getString("tema", "OLED") ?: "OLED")
-    val tema: StateFlow<String> = _tema
-    fun definirTema(nome: String) { sp.edit().putString("tema", nome).apply(); _tema.value = nome }
 
-    private val _tamanho = MutableStateFlow(sp.getFloat("tamanho", 18f))
-    val tamanho: StateFlow<Float> = _tamanho
-    fun definirTamanho(v: Float) { sp.edit().putFloat("tamanho", v).apply(); _tamanho.value = v }
+    inner class Pref<T>(private val chave: String, padrao: T, ler: (String, T) -> T, private val gravar: (String, T) -> Unit) {
+        private val fluxo = MutableStateFlow(ler(chave, padrao))
+        val estado: StateFlow<T> = fluxo
+        val valor get() = fluxo.value
+        fun definir(v: T) { gravar(chave, v); fluxo.value = v }
+    }
+    private fun texto(k: String, p: String) = Pref(k, p, { c, d -> sp.getString(c, d) ?: d }, { c, v -> sp.edit().putString(c, v).apply() })
+    private fun real(k: String, p: Float) = Pref(k, p, { c, d -> sp.getFloat(c, d) }, { c, v -> sp.edit().putFloat(c, v).apply() })
+    private fun bool(k: String, p: Boolean) = Pref(k, p, { c, d -> sp.getBoolean(c, d) }, { c, v -> sp.edit().putBoolean(c, v).apply() })
+    private fun longo(k: String, p: Long) = Pref(k, p, { c, d -> sp.getLong(c, d) }, { c, v -> sp.edit().putLong(c, v).apply() })
+
+    val temaP = texto("tema", "OLED")
+    val tamanhoP = real("tamanho", 18f)
+    val entrelinhas = real("entrelinhas", 1.7f)
+    val margem = real("margem", 24f)
+    val fonte = texto("fonte", "SERIFA") // SERIFA | SEM_SERIFA
+    val destacarFalas = bool("falas", true)
+    val modoPaginas = bool("paginas", false)
+    val telaLigada = bool("telaLigada", true)
+    val velocidadeVoz = real("voz", 1.0f)
+    val pastaBackup = texto("pastaBackup", "")
+    val ultimoBackup = longo("ultimoBackup", 0L)
+    val backupAuto = bool("backupAuto", false)
+
+    // atalhos usados pelo resto do app
+    val tema: StateFlow<String> get() = temaP.estado
+    fun definirTema(nome: String) = temaP.definir(nome)
+    val tamanho: StateFlow<Float> get() = tamanhoP.estado
+    fun definirTamanho(v: Float) = tamanhoP.definir(v)
 }

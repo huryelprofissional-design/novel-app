@@ -1,0 +1,556 @@
+package com.huryel.novely.ui
+
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
+import com.huryel.novely.NovelyApp
+import com.huryel.novely.data.Capitulo
+import com.huryel.novely.data.Texto
+import com.huryel.novely.ui.theme.LocalPaleta
+import com.huryel.novely.ui.theme.Paleta
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
+
+// ───────── Blocos de texto ─────────
+
+sealed interface Bloco {
+    val plano: String
+    data class Titulo(override val plano: String) : Bloco
+    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean) : Bloco { override val plano: String get() = texto.text }
+    data object Separador : Bloco { override val plano = "" }
+}
+
+private val iniciosDeFala = listOf("—", "–", "―", "-", "“", "\"", "«")
+
+fun ehFala(linha: String): Boolean {
+    val l = linha.trimStart()
+    return iniciosDeFala.any { l.startsWith(it) } && l.length > 1 && !l.startsWith("---")
+}
+
+/** **negrito** e *itálico* */
+fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
+    var i = 0
+    var negrito = false
+    var italico = false
+    while (i < linha.length) {
+        if (linha.startsWith("**", i)) { negrito = !negrito; i += 2; continue }
+        if (linha[i] == '*') { italico = !italico; i++; continue }
+        val ini = i
+        while (i < linha.length && linha[i] != '*') i++
+        pushStyle(SpanStyle(fontWeight = if (negrito) FontWeight.Bold else null, fontStyle = if (italico) FontStyle.Italic else null))
+        append(linha, ini, i)
+        pop()
+    }
+}
+
+/** Texto do capítulo → blocos (um por parágrafo; parágrafos gigantes viram vários blocos). Fora da thread principal. */
+fun montarBlocos(texto: String): List<Bloco> {
+    val saida = ArrayList<Bloco>(texto.length / 300 + 4)
+    texto.lineSequence().forEach { bruta ->
+        val linha = bruta.trim()
+        when {
+            linha.isEmpty() -> {}
+            linha == "* * *" || linha == "***" || linha == "---" || linha == "◆" -> saida.add(Bloco.Separador)
+            linha.startsWith("#") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim()))
+            linha.length > 2500 -> {
+                val fala = ehFala(linha)
+                Texto.dividirEmPedacos(linha, 1500).forEach { saida.add(Bloco.Paragrafo(estilizar(it.trim()), fala)) }
+            }
+            else -> saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha)))
+        }
+    }
+    return saida
+}
+
+// ───────── Leitura em voz alta (motor de voz do próprio Android, funciona offline se a voz estiver instalada) ─────────
+
+class Voz(ctx: android.content.Context, private val aoTerminar: (String) -> Unit) {
+    var pronta by mutableStateOf(false)
+        private set
+    var erro by mutableStateOf<String?>(null)
+        private set
+    private lateinit var tts: TextToSpeech
+    init {
+        tts = TextToSpeech(ctx.applicationContext) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val r = tts.setLanguage(Locale("pt", "BR"))
+                if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) tts.language = Locale.getDefault()
+                pronta = true
+            } else erro = "Nenhum motor de voz disponível. Instale “Serviços de voz do Google” na Play Store."
+        }
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(id: String?) {}
+            override fun onDone(id: String?) { if (id != null) aoTerminar(id) }
+            @Deprecated("Deprecated in Java") override fun onError(id: String?) {}
+        })
+    }
+    fun falar(texto: String, id: String, velocidade: Float) {
+        tts.setSpeechRate(velocidade)
+        tts.speak(texto.take(3900), TextToSpeech.QUEUE_FLUSH, null, id)
+    }
+    fun parar() { tts.stop() }
+    fun liberar() { tts.stop(); tts.shutdown() }
+}
+
+// ───────── Tela ─────────
+
+private enum class Painel { NENHUM, VOZ, BUSCA }
+
+@OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
+@Composable
+fun TelaLeitor(capId: Long, nav: NavHostController) {
+    val app = NovelyApp.instancia
+    val repo = app.repo
+    val prefs = app.prefs
+    val p = LocalPaleta.current
+    val escopo = rememberCoroutineScope()
+    val ctx = LocalContext.current
+
+    val tamanho by prefs.tamanhoP.estado.collectAsState()
+    val entrelinhas by prefs.entrelinhas.estado.collectAsState()
+    val margem by prefs.margem.estado.collectAsState()
+    val fonte by prefs.fonte.estado.collectAsState()
+    val destacarFalas by prefs.destacarFalas.estado.collectAsState()
+    val modoPaginas by prefs.modoPaginas.estado.collectAsState()
+    val telaLigada by prefs.telaLigada.estado.collectAsState()
+    val velocidade by prefs.velocidadeVoz.estado.collectAsState()
+
+    var cap by remember { mutableStateOf<Capitulo?>(null) }
+    var blocos by remember { mutableStateOf<List<Bloco>?>(null) }
+    var lista by remember { mutableStateOf<List<Capitulo>>(emptyList()) }
+    var controles by remember { mutableStateOf(true) }
+    var painel by remember { mutableStateOf(Painel.NENHUM) }
+    var mostrarAjustes by remember { mutableStateOf(false) }
+    var mostrarCapitulos by remember { mutableStateOf(false) }
+
+    LaunchedEffect(capId) {
+        val c = repo.capitulo(capId).filterNotNull().first()
+        cap = c
+        blocos = withContext(Dispatchers.Default) { montarBlocos(repo.lerTexto(capId)) }
+        lista = repo.dao.capitulosAgora(c.obraId)
+    }
+
+    val view = LocalView.current
+    DisposableEffect(telaLigada) {
+        view.keepScreenOn = telaLigada
+        onDispose { view.keepScreenOn = false }
+    }
+
+    val c = cap
+    val b = blocos
+    if (c == null || b == null) {
+        Box(Modifier.fillMaxSize().background(p.fundo)) {
+            LinearProgressIndicator(Modifier.fillMaxWidth(), color = p.destaque, trackColor = p.fundo)
+        }
+        return
+    }
+    val idx = lista.indexOfFirst { it.id == c.id }
+    val anterior = lista.getOrNull(idx - 1)
+    val proximo = lista.getOrNull(idx + 1)
+    fun irPara(outro: Capitulo) = nav.navigate("leitor/${outro.id}") { popUpTo("leitor/{id}") { inclusive = true } }
+
+    val estado = rememberLazyListState(c.posicaoBloco.coerceIn(0, b.size + 1), c.posicaoDeslocamento)
+    val progresso by remember {
+        derivedStateOf {
+            val total = b.size + 2
+            val ultimo = estado.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (ultimo >= total - 1) 1f else ((estado.firstVisibleItemIndex + 1).toFloat() / total).coerceIn(0f, 1f)
+        }
+    }
+    val jaLido = c.progresso >= 0.98f
+    LaunchedEffect(estado) {
+        snapshotFlow { estado.firstVisibleItemIndex to estado.firstVisibleItemScrollOffset }
+            .debounce(700)
+            .collect { (i, d) -> repo.salvarPosicao(c, if (jaLido) 1f else progresso, i, d) }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            val i = estado.firstVisibleItemIndex; val d = estado.firstVisibleItemScrollOffset; val pr = progresso
+            app.escopo.launch { repo.salvarPosicao(c, if (jaLido) 1f else pr, i, d) }
+        }
+    }
+
+    // ── Voz ──
+    var falando by remember { mutableStateOf(-1) }
+    var tocando by remember { mutableStateOf(false) }
+    val falaveis = remember(b) { b.indices.filter { b[it] !is Bloco.Separador && b[it].plano.isNotBlank() } }
+    val voz = remember {
+        Voz(ctx) { id ->
+            val atual = id.toIntOrNull() ?: return@Voz
+            val prox = falaveis.firstOrNull { it > atual }
+            if (prox == null) { tocando = false; falando = -1 } else falando = prox
+        }
+    }
+    DisposableEffect(Unit) { onDispose { voz.liberar() } }
+    LaunchedEffect(falando, tocando) {
+        if (tocando && falando >= 0) {
+            voz.falar(b[falando].plano, falando.toString(), velocidade)
+            val vis = estado.layoutInfo.visibleItemsInfo
+            val item = falando + 1
+            if (vis.none { it.index == item } || vis.lastOrNull()?.index == item) estado.animateScrollToItem(item)
+        }
+    }
+    fun tocar() {
+        if (falando < 0) falando = falaveis.firstOrNull { it >= (estado.firstVisibleItemIndex - 1).coerceAtLeast(0) } ?: return
+        tocando = true
+    }
+    fun pausar() { tocando = false; voz.parar() }
+
+    // ── Busca ──
+    var consulta by remember { mutableStateOf("") }
+    val normalizados = remember(b) { lazy { b.map { Texto.normalizar(it.plano) } } }
+    val achados by remember(b) {
+        derivedStateOf {
+            val q = Texto.normalizar(consulta.trim())
+            if (q.length < 2) emptyList() else {
+                val r = ArrayList<Pair<Int, Int>>()
+                normalizados.value.forEachIndexed { bi, t ->
+                    var i = t.indexOf(q)
+                    while (i >= 0 && r.size < 5000) { r.add(bi to i); i = t.indexOf(q, i + 1) }
+                }
+                r
+            }
+        }
+    }
+    var achadoAtual by remember { mutableStateOf(0) }
+    LaunchedEffect(achados, achadoAtual) {
+        achados.getOrNull(achadoAtual)?.let { (bi, _) -> estado.animateScrollToItem(bi + 1) }
+    }
+
+    val familia = if (fonte == "SEM_SERIFA") FontFamily.SansSerif else FontFamily.Serif
+    val estiloBase = TextStyle(fontFamily = familia, fontSize = tamanho.sp, lineHeight = (tamanho * entrelinhas).sp, color = p.texto)
+    val corNarracao = if (destacarFalas) p.texto.copy(alpha = 0.86f) else p.texto
+    val q = Texto.normalizar(consulta.trim())
+
+    Box(Modifier.fillMaxSize().background(p.fundo)) {
+        LazyColumn(
+            state = estado,
+            modifier = Modifier.fillMaxSize().pointerInput(modoPaginas) {
+                detectTapGestures { pos ->
+                    val w = size.width
+                    if (modoPaginas && pos.x < w * 0.28f) escopo.launch { estado.animateScrollBy(-size.height * 0.88f) }
+                    else if (modoPaginas && pos.x > w * 0.72f) escopo.launch { estado.animateScrollBy(size.height * 0.88f) }
+                    else controles = !controles
+                }
+            },
+            contentPadding = PaddingValues(start = margem.dp, end = margem.dp, top = 84.dp, bottom = 140.dp),
+            verticalArrangement = Arrangement.spacedBy((tamanho * 0.85f).dp),
+        ) {
+            item(key = "cab") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("CAPÍTULO ${idx + 1}", style = MaterialTheme.typography.labelSmall, color = p.destaque)
+                    Text(c.titulo, style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp, lineHeight = 35.sp))
+                    Text("${formatarPalavras(c.palavras.toLong())} palavras · ~${(c.palavras / 230).coerceAtLeast(1)} min", fontSize = 13.sp, color = p.textoSuave)
+                    Spacer(Modifier.height(8.dp))
+                    Box(Modifier.width(48.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque))
+                }
+            }
+            itemsIndexed(b, contentType = { _, x -> x::class }) { i, bloco ->
+                val ativo = i == falando
+                val fundoAtivo = if (ativo) Modifier.clip(RoundedCornerShape(10.dp)).background(p.destaque.copy(alpha = 0.14f)) else Modifier
+                when (bloco) {
+                    is Bloco.Titulo -> Text(bloco.plano, style = MaterialTheme.typography.headlineSmall, modifier = fundoAtivo)
+                    is Bloco.Separador -> Text("◆   ◆   ◆", color = p.destaque, textAlign = TextAlign.Center, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                    is Bloco.Paragrafo -> {
+                        val texto = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
+                        if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
+                        else Text(texto, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo)
+                    }
+                }
+            }
+            item(key = "fim") { FimCapitulo(b.isEmpty(), proximo, ::irPara) }
+        }
+
+        // barra de progresso fininha no topo
+        Box(Modifier.align(Alignment.TopStart).fillMaxWidth(progresso).height(2.dp).background(p.destaque))
+
+        AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
+            Surface(color = p.superficie.copy(alpha = 0.97f)) {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
+                    Column(Modifier.weight(1f)) {
+                        Text(c.titulo, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}", fontSize = 12.sp, color = p.textoSuave)
+                    }
+                    IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar capítulo") }
+                }
+            }
+        }
+
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            AnimatedVisibility(controles && painel == Painel.VOZ, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                PainelVoz(voz, tocando, velocidade, { if (tocando) pausar() else tocar() },
+                    { val ant = falaveis.lastOrNull { it < falando }; if (ant != null) falando = ant },
+                    { val px = falaveis.firstOrNull { it > falando }; if (px != null) falando = px },
+                    { prefs.velocidadeVoz.definir(it) })
+            }
+            AnimatedVisibility(controles && painel == Painel.BUSCA, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                PainelBusca(consulta, { consulta = it; achadoAtual = 0 }, achados.size, achadoAtual,
+                    { if (achados.isNotEmpty()) achadoAtual = (achadoAtual - 1 + achados.size) % achados.size },
+                    { if (achados.isNotEmpty()) achadoAtual = (achadoAtual + 1) % achados.size },
+                    { consulta = ""; painel = Painel.NENHUM })
+            }
+            AnimatedVisibility(controles, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                Surface(color = p.superficie.copy(alpha = 0.97f)) {
+                    Row(Modifier.fillMaxWidth().navigationBarsPadding().height(68.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                        BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, { Icon(Icons.Filled.PlayArrow, null) }) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
+                        BotaoBarra("Buscar", painel == Painel.BUSCA, { Icon(Icons.Filled.Search, null) }) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
+                        BotaoBarra("Capítulos", false, { Icon(Icons.AutoMirrored.Filled.List, null) }) { mostrarCapitulos = true }
+                        BotaoBarra("Leitura", false, { Text("Aa", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { mostrarAjustes = true }
+                    }
+                }
+            }
+        }
+        if (!controles) {
+            Text("${(progresso * 100).toInt()}%", fontSize = 11.sp, color = p.textoSuave.copy(alpha = 0.6f),
+                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(12.dp))
+        }
+    }
+
+    if (mostrarAjustes) ModalBottomSheet(onDismissRequest = { mostrarAjustes = false }, containerColor = p.superficie) { AjustesLeitura() }
+    if (mostrarCapitulos) ModalBottomSheet(onDismissRequest = { mostrarCapitulos = false }, containerColor = p.superficie) {
+        val estadoLista = rememberLazyListState((idx - 3).coerceAtLeast(0))
+        LazyColumn(state = estadoLista, modifier = Modifier.fillMaxHeight(0.7f), contentPadding = PaddingValues(bottom = 24.dp)) {
+            itemsIndexed(lista, key = { _, x -> x.id }) { i, x ->
+                val atual = x.id == c.id
+                Row(
+                    Modifier.fillMaxWidth().clickable { mostrarCapitulos = false; if (!atual) irPara(x) }
+                        .background(if (atual) p.borda else Color.Transparent).padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("${i + 1}", color = if (atual) p.destaque else p.textoSuave, modifier = Modifier.width(48.dp), fontWeight = FontWeight.Bold)
+                    Text(x.titulo, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (x.progresso >= 0.98f && !atual) p.textoSuave else p.texto)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Fala(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Modifier) {
+    // travessão / aspas iniciais na cor de destaque + barra lateral: o leitor vê na hora que alguém está falando
+    val colorido = remember(texto, p) {
+        buildAnnotatedString {
+            append(texto)
+            val t = texto.text
+            var fim = 0
+            while (fim < t.length && (t[fim] in "—–―-“\"«" || t[fim] == ' ')) fim++
+            if (fim > 0) addStyle(SpanStyle(color = p.destaque, fontWeight = FontWeight.Bold), 0, fim)
+        }
+    }
+    Row(extra.height(IntrinsicSize.Min)) {
+        Box(Modifier.width(3.dp).fillMaxHeight().padding(vertical = 4.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque.copy(alpha = 0.55f)))
+        Spacer(Modifier.width(12.dp))
+        Text(colorido, style = estilo.copy(color = p.texto))
+    }
+}
+
+private fun destacarBusca(base: AnnotatedString, normal: String, q: String, p: Paleta, atual: Int?): AnnotatedString {
+    if (!normal.contains(q)) return base
+    return buildAnnotatedString {
+        append(base)
+        var i = normal.indexOf(q)
+        while (i >= 0) {
+            val fim = (i + q.length).coerceAtMost(base.length)
+            if (i < fim) addStyle(SpanStyle(background = if (i == atual) p.destaque.copy(alpha = 0.75f) else p.destaque.copy(alpha = 0.3f)), i, fim)
+            i = normal.indexOf(q, i + 1)
+        }
+    }
+}
+
+@Composable
+private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, ir: (Capitulo) -> Unit) {
+    val p = LocalPaleta.current
+    Column(Modifier.fillMaxWidth().padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (vazio) Text("Este capítulo ainda está vazio.", color = p.textoSuave)
+        Text("◆", color = p.destaque, fontSize = 20.sp)
+        if (proximo != null) {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.superficie)
+                    .border(1.dp, p.destaque.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).clickable { ir(proximo) }.padding(18.dp),
+            ) {
+                Text("PRÓXIMO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.destaque)
+                Text(proximo.titulo, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("${formatarPalavras(proximo.palavras.toLong())} palavras  ›", color = p.textoSuave, fontSize = 13.sp)
+            }
+        } else Text("Você chegou ao último capítulo.", color = p.textoSuave)
+    }
+}
+
+@Composable
+private fun BotaoBarra(rotulo: String, ativo: Boolean, icone: @Composable () -> Unit, aoTocar: () -> Unit) {
+    val p = LocalPaleta.current
+    Column(
+        Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = aoTocar).padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides if (ativo) p.destaque else p.textoSuave) { icone() }
+        Text(rotulo, fontSize = 11.sp, color = if (ativo) p.destaque else p.textoSuave, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit) {
+    val p = LocalPaleta.current
+    Column(
+        Modifier.padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(p.superficie)
+            .border(1.dp, p.destaque.copy(alpha = 0.35f), RoundedCornerShape(22.dp)).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(voz.erro ?: if (tocando) "Lendo em voz alta…" else "Ouvir a partir daqui", fontWeight = FontWeight.Bold, color = p.destaque, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = { definirVel(when { velocidade < 0.95f -> 1.0f; velocidade < 1.15f -> 1.25f; velocidade < 1.4f -> 1.5f; velocidade < 1.9f -> 2.0f; else -> 0.8f }) }) {
+                Text("${"%.2f".format(velocidade).trimEnd('0').trimEnd(',', '.')}×", fontWeight = FontWeight.Bold)
+            }
+            IconButton(onClick = voltar) { Icon(Icons.Filled.KeyboardArrowUp, "Parágrafo anterior") }
+            FilledIconButton(onClick = alternar, enabled = voz.pronta, modifier = Modifier.size(58.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = p.destaque, contentColor = p.sobreDestaque)) {
+                if (tocando) Text("❚❚", fontWeight = FontWeight.Bold) else Icon(Icons.Filled.PlayArrow, "Tocar")
+            }
+            IconButton(onClick = avancar) { Icon(Icons.Filled.KeyboardArrowDown, "Próximo parágrafo") }
+            Spacer(Modifier.width(48.dp))
+        }
+    }
+}
+
+@Composable
+private fun PainelBusca(consulta: String, mudar: (String) -> Unit, total: Int, atual: Int, anterior: () -> Unit, proximo: () -> Unit, fechar: () -> Unit) {
+    val p = LocalPaleta.current
+    Row(
+        Modifier.padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(p.superficie)
+            .border(1.dp, p.destaque.copy(alpha = 0.35f), RoundedCornerShape(18.dp)).padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Search, null, tint = p.destaque)
+        TextField(
+            value = consulta, onValueChange = mudar, singleLine = true, placeholder = { Text("Buscar no capítulo") },
+            colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
+                focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { proximo() }),
+            modifier = Modifier.weight(1f),
+        )
+        if (consulta.length >= 2) Text(if (total == 0) "0" else "${atual + 1}/$total", fontSize = 12.sp, color = p.textoSuave)
+        IconButton(onClick = anterior) { Icon(Icons.Filled.KeyboardArrowUp, "Anterior") }
+        IconButton(onClick = proximo) { Icon(Icons.Filled.KeyboardArrowDown, "Próximo") }
+        IconButton(onClick = fechar) { Icon(Icons.Filled.Close, "Fechar busca") }
+    }
+}
+
+/** Painel “Aa”: aparência da leitura. Também usado na tela de Ajustes. */
+@Composable
+fun AjustesLeitura() {
+    val prefs = NovelyApp.instancia.prefs
+    val p = LocalPaleta.current
+    val tema by prefs.temaP.estado.collectAsState()
+    val tamanho by prefs.tamanhoP.estado.collectAsState()
+    val entrelinhas by prefs.entrelinhas.estado.collectAsState()
+    val margem by prefs.margem.estado.collectAsState()
+    val fonte by prefs.fonte.estado.collectAsState()
+    val falas by prefs.destacarFalas.estado.collectAsState()
+    val paginas by prefs.modoPaginas.estado.collectAsState()
+    val ligada by prefs.telaLigada.estado.collectAsState()
+    val cores = SliderDefaults.colors(thumbColor = p.destaque, activeTrackColor = p.destaque, inactiveTrackColor = p.borda)
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Leitura", style = MaterialTheme.typography.headlineSmall)
+        Text("TEMA", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.huryel.novely.ui.theme.TemaLeitura.entries.forEach { t ->
+                val sel = t.name == tema
+                Box(
+                    Modifier.weight(1f).height(54.dp).clip(RoundedCornerShape(14.dp)).background(t.paleta.fundo)
+                        .border(if (sel) 2.dp else 1.dp, if (sel) p.destaque else p.borda, RoundedCornerShape(14.dp))
+                        .clickable { prefs.definirTema(t.name) },
+                    contentAlignment = Alignment.Center,
+                ) { Text(t.paleta.nome, color = t.paleta.texto, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Com serifa", fonte == "SERIFA") { prefs.fonte.definir("SERIFA") }
+            Chip("Sem serifa", fonte == "SEM_SERIFA") { prefs.fonte.definir("SEM_SERIFA") }
+        }
+        LinhaSlider("Tamanho", "${tamanho.toInt()}", tamanho, 14f..30f, cores) { prefs.tamanhoP.definir(it) }
+        LinhaSlider("Entrelinhas", "%.1f".format(entrelinhas), entrelinhas, 1.3f..2.2f, cores) { prefs.entrelinhas.definir(it) }
+        LinhaSlider("Margens", "${margem.toInt()}", margem, 8f..48f, cores) { prefs.margem.definir(it) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Rolagem contínua", !paginas) { prefs.modoPaginas.definir(false) }
+            Chip("Páginas por toque", paginas) { prefs.modoPaginas.definir(true) }
+        }
+        if (paginas) Text("Toque na borda direita para avançar e na esquerda para voltar.", fontSize = 12.sp, color = p.textoSuave)
+        LinhaInterruptor("Destacar falas de personagens", falas) { prefs.destacarFalas.definir(it) }
+        LinhaInterruptor("Manter tela ligada lendo", ligada) { prefs.telaLigada.definir(it) }
+    }
+}
+
+@Composable
+private fun LinhaSlider(rotulo: String, valorTxt: String, v: Float, faixa: ClosedFloatingPointRange<Float>, cores: SliderColors, mudar: (Float) -> Unit) {
+    val p = LocalPaleta.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(rotulo, modifier = Modifier.width(96.dp), fontSize = 14.sp)
+        Slider(v, mudar, valueRange = faixa, colors = cores, modifier = Modifier.weight(1f))
+        Text(valorTxt, modifier = Modifier.width(36.dp), textAlign = TextAlign.End, fontSize = 13.sp, color = p.textoSuave)
+    }
+}
+
+@Composable
+fun LinhaInterruptor(rotulo: String, valor: Boolean, mudar: (Boolean) -> Unit) {
+    val p = LocalPaleta.current
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { mudar(!valor) }, verticalAlignment = Alignment.CenterVertically) {
+        Text(rotulo, modifier = Modifier.weight(1f), fontSize = 14.sp)
+        Switch(valor, mudar, colors = SwitchDefaults.colors(checkedThumbColor = p.sobreDestaque, checkedTrackColor = p.destaque))
+    }
+}

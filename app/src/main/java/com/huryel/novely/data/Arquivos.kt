@@ -47,7 +47,32 @@ class ArquivosTexto(ctx: Context) {
         }
     }
 
+    // ── Histórico de versões: guarda uma cópia antes de sobrescrever, no máximo a cada 10 min ──
+    private val pastaVersoes = File(raiz.parentFile, "versoes").apply { mkdirs() }
+    private fun dirVersoes(capId: Long) = File(pastaVersoes, "$capId")
+
+    data class Versao(val arquivo: File, val quando: Long, val palavras: Int, val inicio: String)
+
+    suspend fun guardarVersaoSePreciso(capId: Long, forcar: Boolean = false) = withContext(Dispatchers.IO) {
+        val atual = arquivo(capId)
+        if (!atual.exists() || atual.length() == 0L) return@withContext
+        val dir = dirVersoes(capId).apply { mkdirs() }
+        val ultima = dir.listFiles()?.maxOfOrNull { it.name.substringBefore('.').toLongOrNull() ?: 0L } ?: 0L
+        val agora = System.currentTimeMillis()
+        if (!forcar && agora - ultima < 10 * 60_000) return@withContext
+        atual.copyTo(File(dir, "$agora.md"), overwrite = true)
+        dir.listFiles()?.sortedByDescending { it.name }?.drop(30)?.forEach { it.delete() }
+    }
+
+    suspend fun versoes(capId: Long): List<Versao> = withContext(Dispatchers.IO) {
+        (dirVersoes(capId).listFiles() ?: emptyArray()).sortedByDescending { it.name }.map { f ->
+            val t = f.readText(Charsets.UTF_8)
+            Versao(f, f.name.substringBefore('.').toLongOrNull() ?: 0L, contarPalavras(t), t.take(220))
+        }
+    }
+
     suspend fun apagar(capId: Long) = withContext(Dispatchers.IO) {
+        dirVersoes(capId).deleteRecursively()
         arquivo(capId).delete()
         File(raiz, "$capId.md.bak").delete()
         File(raiz, "$capId.md.tmp").delete()
