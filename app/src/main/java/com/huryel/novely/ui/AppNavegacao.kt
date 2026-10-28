@@ -223,6 +223,15 @@ private fun TelaInicio(nav: NavHostController) {
                 )
                 DropdownMenu(menuNovo, { menuNovo = false }) {
                     DropdownMenuItem(text = { Text("Criar obra") }, onClick = { menuNovo = false; criando = true })
+                    DropdownMenuItem(text = { Text("Página em branco (escrever já)") }, onClick = {
+                        menuNovo = false
+                        escopo.launch {
+                            val id = repo.criarObra("Nova história", "", StatusObra.ESCREVENDO)
+                            val cap = repo.novoCapitulo(id, "Capítulo 1", null)
+                            nav.navigate("obra/$id")
+                            nav.navigate("editor/$cap")
+                        }
+                    })
                     DropdownMenuItem(text = { Text("Importar TXT / EPUB") }, onClick = { menuNovo = false; nav.navigate("importar") })
                 }
             }
@@ -463,7 +472,7 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
-                Text("Novely 0.5 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                Text("Novely 0.6 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }
