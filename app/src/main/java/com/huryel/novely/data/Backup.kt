@@ -31,7 +31,7 @@ sealed interface EstadoBackup {
 }
 
 /**
- * Backup portátil: um arquivo .novely (ZIP comum) com manifest.json + textos/*.md + imagens.
+ * Backup portátil: um arquivo .novely (ZIP comum) com manifest.json + textos/(id).md + imagens.
  * Pode ser aberto por qualquer programa de ZIP; os textos são Markdown puro.
  * Restaurar NUNCA sobrescreve: cada obra entra como obra nova (duplicatas vêm desmarcadas).
  */

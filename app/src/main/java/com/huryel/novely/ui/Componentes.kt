@@ -1,7 +1,12 @@
 package com.huryel.novely.ui
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -77,10 +82,32 @@ fun CapaObra(
     modifier: Modifier, tamanhoTitulo: TextUnit = 14.sp,
 ) {
     ImagemEnquadrada(caminho, x, y, zoom, corBase, modifier.clip(RoundedCornerShape(12.dp)), 600) {
+        ArteCapa(titulo, corBase)
         Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.BottomStart) {
             Text(titulo, fontFamily = Serifa, fontWeight = FontWeight.Bold, fontSize = tamanhoTitulo,
                 lineHeight = tamanhoTitulo * 1.15f, color = Color(0xFFF5EEE2), maxLines = 4, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+/** Capa gerada (quando não há imagem): formas geométricas únicas para cada título, nas cores da obra. */
+@Composable
+fun ArteCapa(titulo: String, corBase: Long) {
+    val semente = remember(titulo) { titulo.hashCode() }
+    val base = Color(corBase)
+    Canvas(Modifier.fillMaxSize()) {
+        val r = java.util.Random(semente.toLong())
+        val w = size.width; val h = size.height
+        val claro = lerp(base, Color.White, 0.18f)
+        val ambar = Color(0xFFE9A65A)
+        drawCircle(claro, radius = w * (0.55f + r.nextFloat() * 0.3f), center = Offset(w * r.nextFloat(), h * 0.15f * r.nextFloat()))
+        drawCircle(lerp(base, Color.Black, 0.25f), radius = w * 0.45f, center = Offset(w * (0.2f + r.nextFloat() * 0.8f), h * (0.45f + r.nextFloat() * 0.3f)))
+        when (r.nextInt(3)) {
+            0 -> drawCircle(ambar, radius = w * 0.13f, center = Offset(w * (0.25f + r.nextFloat() * 0.5f), h * (0.18f + r.nextFloat() * 0.2f)))
+            1 -> drawLine(ambar, Offset(w * 0.12f, h * 0.3f), Offset(w * 0.88f, h * 0.3f), strokeWidth = 3f)
+            else -> drawCircle(ambar, radius = w * 0.2f, center = Offset(w * 0.7f, h * 0.28f), style = Stroke(width = 3f))
+        }
+        drawRect(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0xAA000000)))
     }
 }
 

@@ -1,6 +1,24 @@
 package com.huryel.novely.ui
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -97,7 +115,11 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         },
     ) { margem ->
         val idArg = listOf(navArgument("id") { type = NavType.LongType })
-        NavHost(nav, startDestination = "inicio", modifier = Modifier.padding(margem).consumeWindowInsets(margem)) {
+        NavHost(nav, startDestination = "inicio", modifier = Modifier.padding(margem).consumeWindowInsets(margem),
+            enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 10 } },
+            exitTransition = { fadeOut(tween(160)) },
+            popEnterTransition = { fadeIn(tween(220)) },
+            popExitTransition = { fadeOut(tween(160)) }) {
             composable("inicio") { TelaInicio(nav) }
             composable("escrever") { TelaEscrever(nav) }
             composable("buscar") { TelaBusca(nav) }
@@ -146,80 +168,64 @@ private fun TelaInicio(nav: NavHostController) {
     val obras by remember { repo.resumos() }.collectAsState(initial = null)
     var filtro by rememberSaveable { mutableStateOf("TODAS") }
     var criando by remember { mutableStateOf(false) }
+    var menuNovo by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
         val lista = obras
         if (lista == null) {
             Box(Modifier.fillMaxSize())
         } else if (lista.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize().padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-            ) {
-                Image(painterResource(R.drawable.logo_novely), contentDescription = null, modifier = Modifier.size(140.dp))
-                Text("Novely", style = MaterialTheme.typography.displaySmall)
-                Spacer(Modifier.height(8.dp))
-                Text("Sua estante está vazia. Crie sua primeira obra ou importe uma novel.", color = p.textoSuave)
-                Spacer(Modifier.height(24.dp))
-                Button(onClick = { criando = true }, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque),
-                    modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Criar obra", fontWeight = FontWeight.Bold) }
-                Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar novel") }
-            }
+            EstanteVazia({ criando = true }, { nav.navigate("importar") })
         } else {
             val continuar = lista.filter { it.lidaEm > 0 && it.ultimoCapituloId != null }.maxByOrNull { it.lidaEm }
-            val filtradas = when (filtro) {
-                "TODAS" -> lista
-                else -> lista.filter { it.status == filtro }
-            }
+            val escrevendo = lista.filter { it.status == StatusObra.ESCREVENDO }
+            val filtradas = if (filtro == "TODAS") lista else lista.filter { it.status == filtro }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 110.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 120.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(painterResource(R.drawable.logo_novely), contentDescription = null,
-                            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)))
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("NOVELY", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
-                            Text("Sua estante", style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp))
+                item(span = { GridItemSpan(maxLineSpan) }) { CabecalhoInicio(lista) }
+                if (continuar != null) item(span = { GridItemSpan(maxLineSpan) }) {
+                    HeroContinuar(continuar) { nav.navigate("leitor/${continuar.ultimoCapituloId}") }
+                }
+                if (escrevendo.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        TituloSecao("Escrevendo agora", "${escrevendo.size}")
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(escrevendo, key = { it.id }) { o -> CartaoEscrita(o) { nav.navigate("obra/${o.id}") } }
                         }
                     }
                 }
-                if (continuar != null) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        CartaoContinuar(continuar) { nav.navigate("leitor/${continuar.ultimoCapituloId}") }
-                    }
-                }
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip("Todas · ${lista.size}", filtro == "TODAS") { filtro = "TODAS" }
-                        Chip("Escrevendo", filtro == StatusObra.ESCREVENDO) { filtro = StatusObra.ESCREVENDO }
-                        Chip("Lendo", filtro == StatusObra.LENDO) { filtro = StatusObra.LENDO }
-                        Chip("Concluídas", filtro == StatusObra.CONCLUIDA) { filtro = StatusObra.CONCLUIDA }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        TituloSecao("Sua estante", "${lista.size}")
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Chip("Todas", filtro == "TODAS") { filtro = "TODAS" }
+                            Chip("Escrevendo", filtro == StatusObra.ESCREVENDO) { filtro = StatusObra.ESCREVENDO }
+                            Chip("Lendo", filtro == StatusObra.LENDO) { filtro = StatusObra.LENDO }
+                            Chip("Concluídas", filtro == StatusObra.CONCLUIDA) { filtro = StatusObra.CONCLUIDA }
+                        }
                     }
                 }
                 items(filtradas, key = { it.id }) { o ->
-                    Column(Modifier.clickable { nav.navigate("obra/${o.id}") }) {
-                        CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-                            Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-                        Spacer(Modifier.height(6.dp))
-                        Text(o.titulo, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(linhaStatus(o), fontSize = 12.sp, color = p.textoSuave, maxLines = 1)
-                    }
+                    CapaEstante(o, Modifier.animateItem()) { nav.navigate("obra/${o.id}") }
                 }
             }
         }
         if (!obras.isNullOrEmpty()) {
-            FloatingActionButton(
-                onClick = { criando = true },
-                containerColor = p.destaque, contentColor = p.sobreDestaque, shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-            ) { Icon(Icons.Filled.Add, contentDescription = "Nova obra") }
+            Box(Modifier.align(Alignment.BottomEnd).padding(20.dp)) {
+                ExtendedFloatingActionButton(
+                    onClick = { menuNovo = true }, containerColor = p.destaque, contentColor = p.sobreDestaque,
+                    shape = RoundedCornerShape(20.dp), icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Nova", fontWeight = FontWeight.Bold) },
+                )
+                DropdownMenu(menuNovo, { menuNovo = false }) {
+                    DropdownMenuItem(text = { Text("Criar obra") }, onClick = { menuNovo = false; criando = true })
+                    DropdownMenuItem(text = { Text("Importar TXT / EPUB") }, onClick = { menuNovo = false; nav.navigate("importar") })
+                }
+            }
         }
     }
 
@@ -234,33 +240,155 @@ private fun TelaInicio(nav: NavHostController) {
     }
 }
 
+@Composable
+private fun EstanteVazia(criar: () -> Unit, importar: () -> Unit) {
+    val p = LocalPaleta.current
+    val pulso = rememberInfiniteTransition(label = "logo")
+    val escala by pulso.animateFloat(1f, 1.06f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "escala")
+    Column(
+        Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+    ) {
+        Image(painterResource(R.drawable.logo_novely), contentDescription = null, modifier = Modifier.size(150.dp).graphicsLayer { scaleX = escala; scaleY = escala })
+        Text("Novely", style = MaterialTheme.typography.displaySmall.copy(fontSize = 40.sp))
+        Spacer(Modifier.height(8.dp))
+        Text("Sua estante está vazia. Escreva sua primeira história ou traga uma novel.", color = p.textoSuave, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(28.dp))
+        Button(onClick = criar, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Criar obra", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = importar, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Importar TXT ou EPUB") }
+    }
+}
+
+@Composable
+private fun CabecalhoInicio(lista: List<ResumoObra>) {
+    val p = LocalPaleta.current
+    val hora = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+    val saudacao = when (hora) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
+    val palavras = lista.sumOf { it.totalPalavras }
+    val caps = lista.sumOf { it.totalCapitulos }
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(painterResource(R.drawable.logo_novely), contentDescription = null,
+                modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, p.borda, RoundedCornerShape(14.dp)))
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(saudacao.uppercase(), style = MaterialTheme.typography.labelSmall, color = p.destaque)
+                Text("Novely", style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Numero("${lista.size}", "obras", Modifier.weight(1f))
+            Numero("$caps", "capítulos", Modifier.weight(1f))
+            Numero(formatarPalavras(palavras), "palavras", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun Numero(valor: String, rotulo: String, modifier: Modifier) {
+    val p = LocalPaleta.current
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(p.superficie).padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Text(valor, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = p.destaque)
+        Text(rotulo, fontSize = 12.sp, color = p.textoSuave)
+    }
+}
+
+@Composable
+private fun TituloSecao(titulo: String, extra: String) {
+    val p = LocalPaleta.current
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(titulo, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp), modifier = Modifier.weight(1f))
+        Text(extra, color = p.textoSuave, fontSize = 13.sp)
+    }
+}
+
+/** Cartão grande de "continuar lendo": usa o banner (ou a arte da capa) como fundo. */
+@Composable
+private fun HeroContinuar(o: ResumoObra, aoAbrir: () -> Unit) {
+    val p = LocalPaleta.current
+    val repo = NovelyApp.instancia.repo
+    val obra by remember(o.id) { repo.obra(o.id) }.collectAsState(initial = null)
+    val cap by remember(o.ultimoCapituloId) { repo.capitulo(o.ultimoCapituloId ?: -1) }.collectAsState(initial = null)
+    val alvo = cap?.progresso ?: 0f
+    val prog by animateFloatAsState(alvo, tween(900), label = "prog")
+    val interacao = remember { MutableInteractionSource() }
+    val pressionado by interacao.collectIsPressedAsState()
+    val escala by animateFloatAsState(if (pressionado) 0.97f else 1f, label = "escala")
+    Box(
+        Modifier.fillMaxWidth().height(210.dp).graphicsLayer { scaleX = escala; scaleY = escala }
+            .clip(RoundedCornerShape(26.dp)).clickable(interacao, null, onClick = aoAbrir),
+    ) {
+        val ob = obra
+        if (ob?.banner != null) ImagemEnquadrada(ob.banner, ob.bannerX, ob.bannerY, ob.bannerZoom, o.corBase, Modifier.fillMaxSize(), 1200)
+        else Box(Modifier.fillMaxSize().background(Color(o.corBase))) { ArteCapa(o.titulo + "·hero", o.corBase) }
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x33000000), 1f to Color(0xEE000000))))
+        Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {
+            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(78.dp).height(116.dp), 10.sp)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("CONTINUAR LENDO", style = MaterialTheme.typography.labelSmall, color = p.destaque)
+                Text(o.titulo, fontFamily = com.huryel.novely.ui.theme.Serifa, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 24.sp,
+                    color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(cap?.titulo ?: "", fontSize = 13.sp, color = Color(0xCCFFFFFF), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x44FFFFFF))) {
+                    Box(Modifier.fillMaxWidth(prog).fillMaxHeight().background(p.destaque))
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(26.dp)).background(p.destaque), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.PlayArrow, "Continuar", tint = p.sobreDestaque)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CartaoEscrita(o: ResumoObra, aoAbrir: () -> Unit) {
+    val p = LocalPaleta.current
+    Row(
+        Modifier.width(250.dp).clip(RoundedCornerShape(20.dp)).background(p.superficie)
+            .border(1.dp, p.borda, RoundedCornerShape(20.dp)).clickable(onClick = aoAbrir).padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(56.dp).height(84.dp), 9.sp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(o.titulo, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text("${o.totalCapitulos} caps · ${formatarPalavras(o.totalPalavras)} palavras", fontSize = 12.sp, color = p.textoSuave)
+            Text("✎ continuar", fontSize = 12.sp, color = Color(0xFF6FC2B4), fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CapaEstante(o: ResumoObra, modifier: Modifier, aoAbrir: () -> Unit) {
+    val p = LocalPaleta.current
+    val interacao = remember { MutableInteractionSource() }
+    val pressionado by interacao.collectIsPressedAsState()
+    val escala by animateFloatAsState(if (pressionado) 0.94f else 1f, label = "escala")
+    Column(modifier.graphicsLayer { scaleX = escala; scaleY = escala }.clickable(interacao, null, onClick = aoAbrir)) {
+        Box {
+            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
+                Modifier.fillMaxWidth().aspectRatio(2f / 3f).shadow(10.dp, RoundedCornerShape(12.dp)))
+            if (o.totalCapitulos > 0 && o.status != StatusObra.ESCREVENDO) {
+                val f = o.lidos.toFloat() / o.totalCapitulos
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x55FFFFFF))) {
+                    Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(p.destaque))
+                }
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Text(o.titulo, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(linhaStatus(o), fontSize = 11.sp, color = p.textoSuave, maxLines = 1)
+    }
+}
+
 private fun linhaStatus(o: ResumoObra): String = when (o.status) {
     StatusObra.LENDO -> if (o.totalCapitulos > 0) "Lendo · ${o.lidos}/${o.totalCapitulos}" else "Lendo"
     StatusObra.CONCLUIDA -> "Concluída · ${o.totalCapitulos} caps"
     else -> "Escrevendo · ${o.totalCapitulos} caps"
-}
-
-@Composable
-private fun CartaoContinuar(o: ResumoObra, aoAbrir: () -> Unit) {
-    val p = LocalPaleta.current
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(p.superficie)
-            .border(1.dp, p.borda, RoundedCornerShape(22.dp)).clickable(onClick = aoAbrir).padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(76.dp).height(112.dp), 11.sp)
-        Column(Modifier.weight(1f).height(112.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("CONTINUAR LENDO", style = MaterialTheme.typography.labelSmall, color = p.destaque)
-            Text(o.titulo, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.weight(1f))
-            val prog = if (o.totalCapitulos > 0) o.lidos.toFloat() / o.totalCapitulos else 0f
-            LinearProgressIndicator(
-                progress = { prog }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                color = p.destaque, trackColor = p.borda, drawStopIndicator = {},
-            )
-            Text("${o.lidos} de ${o.totalCapitulos} capítulos lidos", fontSize = 12.sp, color = p.textoSuave)
-        }
-    }
 }
 
 @Composable

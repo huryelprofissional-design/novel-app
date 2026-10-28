@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,8 +95,9 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
     val o = obra ?: run { Box(Modifier.fillMaxSize()); return }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
-            item { Cabecalho(o, nav, aoMenu = { menuObra = true }, aoBanner = { dialogo = Dialogo.MenuImagem("banner") }, aoCapa = { dialogo = Dialogo.MenuImagem("capa") }) }
+        val listaEstado = androidx.compose.foundation.lazy.rememberLazyListState()
+        LazyColumn(Modifier.fillMaxSize(), state = listaEstado, contentPadding = PaddingValues(bottom = 40.dp)) {
+            item { Cabecalho(o, nav, { if (listaEstado.firstVisibleItemIndex == 0) listaEstado.firstVisibleItemScrollOffset.toFloat() else 0f }, aoMenu = { menuObra = true }, aoBanner = { dialogo = Dialogo.MenuImagem("banner") }, aoCapa = { dialogo = Dialogo.MenuImagem("capa") }) }
             item {
                 Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (o.descricao.isNotBlank()) Text(o.descricao, color = p.textoSuave, fontSize = 14.sp, lineHeight = 21.sp)
@@ -240,11 +242,11 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
 }
 
 @Composable
-private fun Cabecalho(o: Obra, nav: NavHostController, aoMenu: () -> Unit, aoBanner: () -> Unit, aoCapa: () -> Unit) {
+private fun Cabecalho(o: Obra, nav: NavHostController, desloc: () -> Float, aoMenu: () -> Unit, aoBanner: () -> Unit, aoCapa: () -> Unit) {
     val p = LocalPaleta.current
     Box(Modifier.fillMaxWidth().height(300.dp)) {
         ImagemEnquadrada(o.banner, o.bannerX, o.bannerY, o.bannerZoom, o.corBase,
-            Modifier.fillMaxWidth().height(210.dp).clickable(onClick = aoBanner), ladoMax = 1400) {
+            Modifier.fillMaxWidth().height(210.dp).graphicsLayer { translationY = desloc() * 0.45f }.clickable(onClick = aoBanner), ladoMax = 1400) {
             Text("Toque para colocar um banner", color = Color(0x99FFFFFF), fontSize = 13.sp, modifier = Modifier.align(Alignment.Center))
         }
         Box(Modifier.fillMaxWidth().height(210.dp).background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to p.fundo)))
