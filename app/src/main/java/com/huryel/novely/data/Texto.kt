@@ -20,6 +20,20 @@ object Texto {
         return regexCapitulo.matches(l) || regexEspecial.matches(l) || regexMarkdown.matches(l)
     }
 
+    /** "PRÓLOGO" / "EPÍLOGO" / "INTERLÚDIO" quando o título é especial; senão null. */
+    fun tipoEspecial(titulo: String): String? {
+        val t = normalizar(titulo.trim())
+        return when {
+            t.startsWith("prologo") || t.startsWith("prologue") -> "PRÓLOGO"
+            t.startsWith("epilogo") || t.startsWith("epilogue") -> "EPÍLOGO"
+            t.startsWith("interludio") || t.startsWith("interlude") -> "INTERLÚDIO"
+            else -> null
+        }
+    }
+
+    /** Remove o travessão/hífen solto no fim: "Prólogo —" vira "Prólogo". */
+    fun tituloLimpo(linha: String) = limparTitulo(linha).trimEnd('—', '–', '-', ':', ' ').ifEmpty { limparTitulo(linha) }
+
     fun limparTitulo(linha: String) = linha.trim().trimStart('#').trim().take(120)
 
     fun contarPalavras(texto: CharSequence): Int {

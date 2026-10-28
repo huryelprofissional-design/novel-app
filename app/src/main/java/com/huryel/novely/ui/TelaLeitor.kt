@@ -141,6 +141,15 @@ class Voz(ctx: android.content.Context, private val aoTerminar: (String) -> Unit
         tts.setSpeechRate(velocidade)
         tts.speak(texto.take(3900), TextToSpeech.QUEUE_FLUSH, null, id)
     }
+    fun vozes(): List<android.speech.tts.Voice> = try {
+        val todas = tts.voices?.toList() ?: emptyList()
+        val pt = todas.filter { it.locale.language == "pt" }
+        (pt.ifEmpty { todas }).sortedWith(compareBy({ it.isNetworkConnectionRequired }, { it.name }))
+    } catch (e: Exception) { emptyList() }
+    fun usarVoz(nome: String) {
+        if (nome.isEmpty()) return
+        try { tts.voices?.firstOrNull { it.name == nome }?.let { tts.voice = it } } catch (_: Exception) {}
+    }
     fun parar() { tts.stop() }
     fun liberar() { tts.stop(); tts.shutdown() }
 }
@@ -167,6 +176,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     val modoPaginas by prefs.modoPaginas.estado.collectAsState()
     val telaLigada by prefs.telaLigada.estado.collectAsState()
     val velocidade by prefs.velocidadeVoz.estado.collectAsState()
+    val narrador by prefs.narrador.estado.collectAsState()
 
     var cap by remember { mutableStateOf<Capitulo?>(null) }
     var blocos by remember { mutableStateOf<List<Bloco>?>(null) }
@@ -235,6 +245,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         }
     }
     DisposableEffect(Unit) { onDispose { voz.liberar() } }
+    LaunchedEffect(voz.pronta, narrador) { if (voz.pronta) voz.usarVoz(narrador) }
     LaunchedEffect(falando, tocando) {
         if (tocando && falando >= 0) {
             voz.falar(b[falando].plano, falando.toString(), velocidade)
@@ -291,8 +302,22 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         ) {
             item(key = "cab") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("CAPÍTULO ${idx + 1}", style = MaterialTheme.typography.labelSmall, color = p.destaque)
-                    Text(c.titulo, style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp, lineHeight = 35.sp))
+                    val especial = Texto.tipoEspecial(c.titulo)
+                    if (especial != null) {
+                        Spacer(Modifier.height(24.dp))
+                        Text("◆", color = p.destaque, fontSize = 22.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                        Text(especial, color = p.destaque, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 6.sp,
+                            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                        val sub = c.titulo.substringAfter('—', c.titulo.substringAfter(':', "")).trim()
+                        Text(sub.ifEmpty { especial.lowercase().replaceFirstChar { it.uppercase() } },
+                            style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp, lineHeight = 40.sp, fontStyle = FontStyle.Italic),
+                            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(16.dp))
+                    } else {
+                        val numero = lista.take(idx + 1).count { Texto.tipoEspecial(it.titulo) == null }
+                        Text("CAPÍTULO $numero", style = MaterialTheme.typography.labelSmall, color = p.destaque)
+                        Text(c.titulo, style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp, lineHeight = 35.sp))
+                    }
                     Text("${formatarPalavras(c.palavras.toLong())} palavras · ~${(c.palavras / 230).coerceAtLeast(1)} min", fontSize = 13.sp, color = p.textoSuave)
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.width(48.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque))
@@ -335,7 +360,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                 PainelVoz(voz, tocando, velocidade, { if (tocando) pausar() else tocar() },
                     { val ant = falaveis.lastOrNull { it < falando }; if (ant != null) falando = ant },
                     { val px = falaveis.firstOrNull { it > falando }; if (px != null) falando = px },
-                    { prefs.velocidadeVoz.definir(it) })
+                    { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it); voz.usarVoz(it) })
             }
             AnimatedVisibility(controles && painel == Painel.BUSCA, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 PainelBusca(consulta, { consulta = it; achadoAtual = 0 }, achados.size, achadoAtual,
@@ -382,20 +407,26 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
 
 @Composable
 private fun Fala(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Modifier) {
-    // travessão / aspas iniciais na cor de destaque + barra lateral: o leitor vê na hora que alguém está falando
+    // travessão/aspas em âmbar + barra lateral forte + fundo levemente tingido: dá pra ver na hora que alguém fala
     val colorido = remember(texto, p) {
         buildAnnotatedString {
             append(texto)
             val t = texto.text
             var fim = 0
             while (fim < t.length && (t[fim] in "—–―-“\"«" || t[fim] == ' ')) fim++
-            if (fim > 0) addStyle(SpanStyle(color = p.destaque, fontWeight = FontWeight.Bold), 0, fim)
+            if (fim > 0) addStyle(SpanStyle(color = p.destaque, fontWeight = FontWeight.ExtraBold), 0, fim)
+            // travessões no meio da fala ("— disse ela. —") também em âmbar
+            var k = fim
+            while (k < t.length) { if (t[k] == '—') addStyle(SpanStyle(color = p.destaque), k, k + 1); k++ }
         }
     }
-    Row(extra.height(IntrinsicSize.Min)) {
-        Box(Modifier.width(3.dp).fillMaxHeight().padding(vertical = 4.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque.copy(alpha = 0.55f)))
+    Row(
+        extra.height(IntrinsicSize.Min).clip(RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
+            .background(p.destaque.copy(alpha = 0.07f)),
+    ) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(p.destaque.copy(alpha = 0.9f)))
         Spacer(Modifier.width(12.dp))
-        Text(colorido, style = estilo.copy(color = p.texto))
+        Text(colorido, style = estilo.copy(color = p.texto, fontWeight = FontWeight.Medium), modifier = Modifier.padding(vertical = 6.dp).padding(end = 10.dp))
     }
 }
 
@@ -444,8 +475,10 @@ private fun BotaoBarra(rotulo: String, ativo: Boolean, icone: @Composable () -> 
 }
 
 @Composable
-private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit) {
+private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit,
+                      narrador: String, definirNarrador: (String) -> Unit) {
     val p = LocalPaleta.current
+    var escolhendo by remember { mutableStateOf(false) }
     Column(
         Modifier.padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(p.superficie)
             .border(1.dp, p.destaque.copy(alpha = 0.35f), RoundedCornerShape(22.dp)).padding(14.dp),
@@ -462,8 +495,24 @@ private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: (
                 if (tocando) Text("❚❚", fontWeight = FontWeight.Bold) else Icon(Icons.Filled.PlayArrow, "Tocar")
             }
             IconButton(onClick = avancar) { Icon(Icons.Filled.KeyboardArrowDown, "Próximo parágrafo") }
-            Spacer(Modifier.width(48.dp))
+            Box {
+                TextButton(onClick = { escolhendo = true }, enabled = voz.pronta) { Text("Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                DropdownMenu(escolhendo, { escolhendo = false }, modifier = Modifier.heightIn(max = 380.dp)) {
+                    val lista = remember(voz.pronta) { voz.vozes() }
+                    if (lista.isEmpty()) DropdownMenuItem(text = { Text("Nenhuma voz encontrada") }, onClick = { escolhendo = false })
+                    lista.forEachIndexed { n, v ->
+                        val rotulo = "Narrador ${n + 1} · ${v.locale.displayCountry.ifEmpty { v.locale.displayLanguage }}" +
+                            (if (v.isNetworkConnectionRequired) " · precisa de internet" else "") +
+                            (if (v.name.contains("female", true)) " · feminina" else if (v.name.contains("male", true)) " · masculina" else "")
+                        DropdownMenuItem(
+                            text = { Text(rotulo, fontWeight = if (v.name == narrador) FontWeight.Bold else FontWeight.Normal, color = if (v.name == narrador) p.destaque else p.texto) },
+                            onClick = { escolhendo = false; definirNarrador(v.name) },
+                        )
+                    }
+                }
+            }
         }
+        if (narrador.isNotEmpty()) Text("Toque em “Narrador” para trocar a voz. Para mais vozes: Configurações do Android › Saída de texto para voz.", fontSize = 11.sp, color = p.textoSuave)
     }
 }
 

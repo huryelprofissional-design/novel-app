@@ -154,6 +154,57 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
     val estilo = TextStyle(fontFamily = familia, fontSize = 17.sp, lineHeight = 29.sp, color = p.texto)
     val realce = remember(p) { RealceEditor(p) }
     val lista = rememberLazyListState()
+    var dividindo by remember { mutableStateOf(false) }
+
+    // Capítulo automático: "Capítulo 2 — Título" ou "Prólogo" numa linha própria (depois de uma linha
+    // vazia, ou no começo do texto) + Enter → o que vem abaixo vira um capítulo novo.
+    fun verificarTitulo(i: Int, posNl: Int) {
+        val c = cap ?: return
+        val t = pedacos[i].valor.text
+        val ini = t.lastIndexOf('\n', posNl - 1) + 1
+        val linha = t.substring(ini, posNl)
+        if (!Texto.ehTituloCapitulo(linha)) return
+        val antes = StringBuilder()
+        for (k in 0 until i) antes.append(pedacos[k].valor.text)
+        antes.append(t, 0, ini)
+        val textoAntes = antes.toString()
+        val noComeco = textoAntes.isBlank()
+        if (!noComeco && !textoAntes.trimEnd(' ', '\t').endsWith("\n\n")) return
+        val depois = StringBuilder(t.substring(posNl + 1))
+        for (k in i + 1 until pedacos.size) depois.append(pedacos[k].valor.text)
+        val titulo = Texto.tituloLimpo(linha)
+        if (noComeco) {
+            // título no topo: só renomeia este capítulo
+            val resto = depois.toString()
+            pedacos.clear()
+            Texto.dividirEmPedacos(resto, 3000).forEach { pedacos.add(Pedaco(proximoId++, TextFieldValue(it))) }
+            if (pedacos.isEmpty()) pedacos.add(Pedaco(proximoId++, TextFieldValue("")))
+            val novo = c.copy(titulo = titulo)
+            cap = novo
+            app.escopo.launch { repo.salvarCapitulo(novo) }
+            versao++
+            estadoSalvo = "Capítulo renomeado: $titulo"
+        } else {
+            dividindo = true
+            versaoSalva = versao
+            estadoSalvo = "Criando capítulo…"
+            app.escopo.launch {
+                val id = repo.dividirCapitulo(c, textoAntes.trimEnd() + "\n", titulo, depois.toString().trimStart('\n'))
+                withContext(Dispatchers.Main) { nav.navigate("editor/$id") { popUpTo("editor/{id}") { inclusive = true } } }
+            }
+        }
+    }
+
+    fun aoMudar(i: Int, pd: Pedaco, novo: TextFieldValue) {
+        if (dividindo) return
+        val antigo = pd.valor
+        if (novo.text != antigo.text) versao++
+        pd.valor = novo
+        if (novo.text.length == antigo.text.length + 1 && novo.selection.collapsed) {
+            val pos = novo.selection.start - 1
+            if (pos >= 0 && pos < novo.text.length && novo.text[pos] == '\n') verificarTitulo(i, pos)
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(p.fundo).imePadding()) {
         Topo(cap?.titulo ?: "", nav) {
@@ -163,6 +214,20 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mais opções") }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(text = { Text("Ver como leitor") }, onClick = { menu = false; nav.navigate("leitor/$capId") })
+                    DropdownMenuItem(text = { Text("Separar capítulos pelos títulos") }, onClick = {
+                        menu = false
+                        val c = cap ?: return@DropdownMenuItem
+                        dividindo = true
+                        versaoSalva = versao
+                        val t = textoCompleto()
+                        app.escopo.launch {
+                            val n = repo.separarPorTitulos(c, t)
+                            withContext(Dispatchers.Main) {
+                                if (n == 0 && repo.dao.capituloAgora(c.id)?.titulo == c.titulo) { dividindo = false; estadoSalvo = "Nenhum título encontrado" }
+                                else nav.navigate("editor/${c.id}") { popUpTo("editor/{id}") { inclusive = true } }
+                            }
+                        }
+                    })
                     DropdownMenuItem(text = { Text("Histórico de versões") }, onClick = { menu = false; nav.navigate("historico/$capId") })
                     cap?.let { c ->
                         DropdownMenuItem(text = { Text(if (c.rascunho) "Marcar como concluído" else "Voltar para rascunho") }, onClick = {
@@ -182,7 +247,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
                 itemsIndexed(pedacos, key = { _, x -> x.id }) { i, pd ->
                     BasicTextField(
                         value = pd.valor,
-                        onValueChange = { novo -> if (novo.text != pd.valor.text) versao++; pd.valor = novo },
+                        onValueChange = { novo -> aoMudar(i, pd, novo) },
                         textStyle = estilo,
                         cursorBrush = SolidColor(p.destaque),
                         visualTransformation = realce,

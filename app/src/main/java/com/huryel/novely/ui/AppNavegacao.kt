@@ -230,11 +230,15 @@ private fun TelaInicio(nav: NavHostController) {
     }
 
     if (criando) {
-        DialogoNovaObra(aoFechar = { criando = false }) { titulo, status ->
+        DialogoNovaObra(aoFechar = { criando = false }) { titulo, status, emBranco ->
             criando = false
             escopo.launch {
                 val id = repo.criarObra(titulo, "", status)
                 nav.navigate("obra/$id")
+                if (emBranco) {
+                    val cap = repo.novoCapitulo(id, "Capítulo 1", null)
+                    nav.navigate("editor/$cap")
+                }
             }
         }
     }
@@ -392,9 +396,10 @@ private fun linhaStatus(o: ResumoObra): String = when (o.status) {
 }
 
 @Composable
-fun DialogoNovaObra(aoFechar: () -> Unit, aoCriar: (String, String) -> Unit) {
+fun DialogoNovaObra(aoFechar: () -> Unit, aoCriar: (String, String, Boolean) -> Unit) {
     var titulo by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(StatusObra.ESCREVENDO) }
+    var paginaEmBranco by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = aoFechar,
         title = { Text("Nova obra") },
@@ -405,9 +410,20 @@ fun DialogoNovaObra(aoFechar: () -> Unit, aoCriar: (String, String) -> Unit) {
                     Chip("Vou escrever", status == StatusObra.ESCREVENDO) { status = StatusObra.ESCREVENDO }
                     Chip("Vou ler", status == StatusObra.LENDO) { status = StatusObra.LENDO }
                 }
+                if (status == StatusObra.ESCREVENDO) {
+                    Text("COMEÇAR COM", style = MaterialTheme.typography.labelSmall, color = LocalPaleta.current.textoSuave)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip("Capítulos", !paginaEmBranco) { paginaEmBranco = false }
+                        Chip("Página em branco", paginaEmBranco) { paginaEmBranco = true }
+                    }
+                    Text(
+                        "Nos dois modos: escreva “Capítulo 2 — Título” ou “Prólogo” numa linha própria (depois de uma linha vazia) e aperte Enter. O texto abaixo vira um capítulo novo automaticamente.",
+                        fontSize = 12.sp, color = LocalPaleta.current.textoSuave,
+                    )
+                }
             }
         },
-        confirmButton = { TextButton(onClick = { aoCriar(titulo, status) }) { Text("Criar") } },
+        confirmButton = { TextButton(onClick = { aoCriar(titulo, status, paginaEmBranco && status == StatusObra.ESCREVENDO) }) { Text("Criar") } },
         dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
 }

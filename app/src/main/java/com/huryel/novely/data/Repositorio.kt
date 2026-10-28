@@ -80,6 +80,58 @@ class Repositorio(ctx: Context) {
         return id
     }
 
+    /**
+     * Divide um capítulo: o texto antes do título fica no capítulo atual; o título vira um capítulo
+     * novo logo depois dele, com o texto que vinha abaixo. Retorna o id do capítulo novo.
+     */
+    suspend fun dividirCapitulo(c: Capitulo, textoAntes: String, titulo: String, textoDepois: String): Long {
+        val lista = dao.capitulosAgora(c.obraId)
+        val i = lista.indexOfFirst { it.id == c.id }
+        val prox = lista.getOrNull(i + 1)
+        val ordem = if (prox != null) (c.ordem + prox.ordem) / 2 else c.ordem + 1
+        gravarTexto(c, textoAntes)
+        val id = dao.inserirCapitulo(Capitulo(obraId = c.obraId, volumeId = c.volumeId, titulo = titulo, ordem = ordem))
+        textos.gravar(id, textoDepois)
+        dao.atualizarPalavras(id, Texto.contarPalavras(textoDepois), System.currentTimeMillis())
+        return id
+    }
+
+    /**
+     * Procura linhas de título ("Capítulo 3 — …", "Prólogo", "# …") que estejam sozinhas depois de uma
+     * linha vazia (ou no começo) e separa cada uma em um capítulo próprio, logo após o atual.
+     * Retorna quantos capítulos novos foram criados.
+     */
+    suspend fun separarPorTitulos(c: Capitulo, texto: String): Int {
+        data class Parte(val titulo: String?, val sb: StringBuilder)
+        val partes = arrayListOf(Parte(null, StringBuilder()))
+        var anteriorVazia = true
+        texto.lineSequence().forEach { linha ->
+            if (anteriorVazia && Texto.ehTituloCapitulo(linha)) partes.add(Parte(Texto.tituloLimpo(linha), StringBuilder()))
+            else partes.last().sb.append(linha).append('\n')
+            anteriorVazia = linha.isBlank()
+        }
+        if (partes.size == 1) return 0
+        var atual = c
+        val primeira = partes[0]
+        var resto = partes.drop(1)
+        if (primeira.sb.isBlank()) {
+            atual = c.copy(titulo = resto[0].titulo!!)
+            salvarCapitulo(atual)
+            gravarTexto(atual, resto[0].sb.toString().trim('\n') + "\n")
+            resto = resto.drop(1)
+        } else gravarTexto(atual, primeira.sb.toString().trimEnd() + "\n")
+        val lista = dao.capitulosAgora(c.obraId)
+        val prox = lista.getOrNull(lista.indexOfFirst { it.id == c.id } + 1)
+        val passo = if (prox != null) (prox.ordem - c.ordem) / (resto.size + 1) else 1.0
+        resto.forEachIndexed { k, pt ->
+            val id = dao.inserirCapitulo(Capitulo(obraId = c.obraId, volumeId = c.volumeId, titulo = pt.titulo!!, ordem = c.ordem + passo * (k + 1)))
+            val t = pt.sb.toString().trim('\n') + "\n"
+            textos.gravar(id, t)
+            dao.atualizarPalavras(id, Texto.contarPalavras(t), System.currentTimeMillis())
+        }
+        return resto.size + if (primeira.sb.isBlank()) 0 else 0
+    }
+
     suspend fun salvarCapitulo(c: Capitulo) = dao.atualizarCapitulo(c.copy(atualizadoEm = System.currentTimeMillis()))
 
     suspend fun excluirCapitulo(c: Capitulo) {
@@ -138,6 +190,7 @@ class Preferencias(ctx: Context) {
     val modoPaginas = bool("paginas", false)
     val telaLigada = bool("telaLigada", true)
     val velocidadeVoz = real("voz", 1.0f)
+    val narrador = texto("narrador", "")
     val pastaBackup = texto("pastaBackup", "")
     val ultimoBackup = longo("ultimoBackup", 0L)
     val backupAuto = bool("backupAuto", false)
