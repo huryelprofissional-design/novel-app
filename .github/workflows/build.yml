@@ -31,7 +31,7 @@ jobs:
       - name: Mostrar erros
         if: failure()
         run: |
-          grep -E "^e: |error:|What went wrong|Could not|> " build.log | head -40 | while IFS= read -r l; do
+          grep -vE "^> Task" build.log | grep -E "^e: |rror|What went wrong|Could not|^> |Caused by" | head -40 | while IFS= read -r l; do
             echo "::error::${l:0:900}"
           done
 
