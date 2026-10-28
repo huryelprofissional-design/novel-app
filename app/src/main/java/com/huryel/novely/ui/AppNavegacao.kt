@@ -67,7 +67,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets.safeDrawing,
+        contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
         bottomBar = {
             if (mostrarBarra) {
                 NavigationBar(containerColor = p.superficie) {
@@ -95,7 +95,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         },
     ) { margem ->
         val idArg = listOf(navArgument("id") { type = NavType.LongType })
-        NavHost(nav, startDestination = "inicio", modifier = Modifier.padding(margem)) {
+        NavHost(nav, startDestination = "inicio", modifier = Modifier.padding(margem).consumeWindowInsets(margem)) {
             composable("inicio") { TelaInicio(nav) }
             composable("escrever") { TelaEscrever(nav) }
             composable("buscar") { TelaSimples("Buscar", "A busca em todas as obras chega na Fase F.") }
