@@ -84,6 +84,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
     var estadoSalvo by remember { mutableStateOf("Salvo") }
     var focado by remember { mutableStateOf(-1) }
     var menu by remember { mutableStateOf(false) }
+    var editandoResumo by remember { mutableStateOf(false) }
     var proximoId by remember { mutableStateOf(0) }
 
     LaunchedEffect(capId) {
@@ -207,6 +208,14 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
         }
     }
 
+    if (editandoResumo) cap?.let { c ->
+        DialogoResumo(c, { editandoResumo = false }) { r ->
+            editandoResumo = false
+            val novo = c.copy(resumo = r.trim())
+            cap = novo
+            app.escopo.launch { repo.salvarCapitulo(novo) }
+        }
+    }
     Column(Modifier.fillMaxSize().background(p.fundo).imePadding()) {
         Topo(cap?.titulo?.ifEmpty { "Página em branco" } ?: "", nav) {
             Text(estadoSalvo, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
@@ -229,6 +238,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
                             }
                         }
                     })
+                    DropdownMenuItem(text = { Text("Resumo do capítulo") }, onClick = { menu = false; editandoResumo = true })
                     DropdownMenuItem(text = { Text("Histórico de versões") }, onClick = { menu = false; nav.navigate("historico/$capId") })
                     cap?.let { c ->
                         DropdownMenuItem(text = { Text(if (c.rascunho) "Marcar como concluído" else "Voltar para rascunho") }, onClick = {
@@ -271,6 +281,11 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
             }
         }
     }
+}
+
+@Composable
+private fun DialogoResumo(c: Capitulo, aoFechar: () -> Unit, aoSalvar: (String) -> Unit) {
+    DialogoTexto("Resumo do capítulo", "O que acontece neste capítulo (2–4 frases)", c.resumo, multilinha = true, aoFechar = aoFechar, aoConfirmar = aoSalvar)
 }
 
 @Composable

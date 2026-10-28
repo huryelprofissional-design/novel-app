@@ -67,6 +67,8 @@ data class Capitulo(
     val posicaoBloco: Int = 0,
     val posicaoDeslocamento: Int = 0,
     val atualizadoEm: Long = System.currentTimeMillis(),
+    /** Resumo curto escrito pelo autor (aparece no início do capítulo e como "Anteriormente"). */
+    @ColumnInfo(defaultValue = "") val resumo: String = "",
 )
 
 /** Resumo leve para listas: sem texto, só o necessário. */
@@ -157,7 +159,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class], version = 1, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class], version = 2, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -165,6 +167,11 @@ abstract class BancoNovely : RoomDatabase() {
         fun criar(ctx: Context): BancoNovely =
             Room.databaseBuilder(ctx, BancoNovely::class.java, "novely.db")
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
+                .addMigrations(object : androidx.room.migration.Migration(1, 2) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE capitulos ADD COLUMN resumo TEXT NOT NULL DEFAULT ''")
+                    }
+                })
                 .build()
     }
 }

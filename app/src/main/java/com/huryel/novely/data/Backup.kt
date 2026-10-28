@@ -99,7 +99,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                     caps.put(JSONObject().put("volumeId", c.volumeId ?: JSONObject.NULL).put("titulo", c.titulo).put("ordem", c.ordem)
                         .put("rascunho", c.rascunho).put("palavras", c.palavras).put("progresso", c.progresso.toDouble())
                         .put("posicaoBloco", c.posicaoBloco).put("posicaoDeslocamento", c.posicaoDeslocamento)
-                        .put("atualizadoEm", c.atualizadoEm).put("arquivo", entrada).put("crc", crc.value))
+                        .put("atualizadoEm", c.atualizadoEm).put("resumo", c.resumo).put("arquivo", entrada).put("crc", crc.value))
                 }
                 jo.put("capitulos", caps)
                 arr.put(jo)
@@ -193,7 +193,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                                 obraId = obraId, volumeId = volAntigo?.let { mapaVol[it] }, titulo = c.getString("titulo"), ordem = c.getDouble("ordem"),
                                 rascunho = c.optBoolean("rascunho"), palavras = c.optInt("palavras"), progresso = c.optDouble("progresso", 0.0).toFloat(),
                                 posicaoBloco = c.optInt("posicaoBloco"), posicaoDeslocamento = c.optInt("posicaoDeslocamento"),
-                                atualizadoEm = c.optLong("atualizadoEm", System.currentTimeMillis()),
+                                atualizadoEm = c.optLong("atualizadoEm", System.currentTimeMillis()), resumo = c.optString("resumo", ""),
                             ))
                             val ent = zip.getEntry(c.getString("arquivo"))
                             val destino = repo.textos.arquivo(id)
