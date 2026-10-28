@@ -99,10 +99,14 @@ fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
 /** Texto do capítulo → blocos (um por parágrafo; parágrafos gigantes viram vários blocos). Fora da thread principal. */
 fun montarBlocos(texto: String): List<Bloco> {
     val saida = ArrayList<Bloco>(texto.length / 300 + 4)
+    var anteriorVazia = true
     texto.lineSequence().forEach { bruta ->
         val linha = bruta.trim()
+        val podeSerTitulo = anteriorVazia
+        anteriorVazia = linha.isEmpty()
         when {
             linha.isEmpty() -> {}
+            podeSerTitulo && Texto.ehTituloCapitulo(linha) && !linha.startsWith("#") -> saida.add(Bloco.Titulo(Texto.tituloLimpo(linha)))
             linha == "* * *" || linha == "***" || linha == "---" || linha == "◆" -> saida.add(Bloco.Separador)
             linha.startsWith("#") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim()))
             linha.length > 2500 -> {
@@ -137,21 +141,48 @@ class Voz(ctx: android.content.Context, private val aoTerminar: (String) -> Unit
             @Deprecated("Deprecated in Java") override fun onError(id: String?) {}
         })
     }
+    private var vozEscolhida: String = ""
+
     fun falar(texto: String, id: String, velocidade: Float) {
+        aplicarVoz()
         tts.setSpeechRate(velocidade)
         tts.speak(texto.take(3900), TextToSpeech.QUEUE_FLUSH, null, id)
     }
+
+    /** Só vozes do Brasil que funcionam sem internet. */
     fun vozes(): List<android.speech.tts.Voice> = try {
-        val todas = tts.voices?.toList() ?: emptyList()
-        val pt = todas.filter { it.locale.language == "pt" }
-        (pt.ifEmpty { todas }).sortedWith(compareBy({ it.isNetworkConnectionRequired }, { it.name }))
+        (tts.voices?.toList() ?: emptyList())
+            .filter { it.locale.language == "pt" && it.locale.country.equals("BR", true) && !it.isNetworkConnectionRequired && !it.features.contains("notInstalled") }
+            .sortedWith(compareBy({ generoVoz(it.name) ?: "z" }, { it.name }))
     } catch (e: Exception) { emptyList() }
-    fun usarVoz(nome: String) {
-        if (nome.isEmpty()) return
-        try { tts.voices?.firstOrNull { it.name == nome }?.let { tts.voice = it } } catch (_: Exception) {}
+
+    fun usarVoz(nome: String) { vozEscolhida = nome; aplicarVoz() }
+
+    /** Reaplica a voz antes de cada fala: alguns motores esquecem a escolha depois de stop(). */
+    private fun aplicarVoz() {
+        if (vozEscolhida.isEmpty()) return
+        try {
+            val v = tts.voices?.firstOrNull { it.name == vozEscolhida } ?: return
+            if (tts.voice?.name != v.name) tts.voice = v
+        } catch (_: Exception) {}
     }
+
     fun parar() { tts.stop() }
     fun liberar() { tts.stop(); tts.shutdown() }
+}
+
+/** "Mulher" / "Homem" pelo nome técnico da voz (Google, Samsung e outros); null se não der para saber. */
+fun generoVoz(nome: String): String? {
+    val n = nome.lowercase()
+    return when {
+        "female" in n || "feminin" in n -> "Mulher"
+        "male" in n || "masculin" in n -> "Homem"
+        Regex("smt[f]\\d").containsMatchIn(n) -> "Mulher"
+        Regex("smt[m]\\d").containsMatchIn(n) -> "Homem"
+        "-afs" in n || "-pte" in n || "pt-br-language" in n -> "Mulher"
+        "-ptd" in n || "-ptz" in n -> "Homem"
+        else -> null
+    }
 }
 
 // ───────── Tela ─────────
@@ -327,7 +358,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                 val ativo = i == falando
                 val fundoAtivo = if (ativo) Modifier.clip(RoundedCornerShape(10.dp)).background(p.destaque.copy(alpha = 0.14f)) else Modifier
                 when (bloco) {
-                    is Bloco.Titulo -> Text(bloco.plano, style = MaterialTheme.typography.headlineSmall, modifier = fundoAtivo)
+                    is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, fundoAtivo)
                     is Bloco.Separador -> Text("◆   ◆   ◆", color = p.destaque, textAlign = TextAlign.Center, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
                     is Bloco.Paragrafo -> {
                         val texto = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
@@ -360,7 +391,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                 PainelVoz(voz, tocando, velocidade, { if (tocando) pausar() else tocar() },
                     { val ant = falaveis.lastOrNull { it < falando }; if (ant != null) falando = ant },
                     { val px = falaveis.firstOrNull { it > falando }; if (px != null) falando = px },
-                    { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it); voz.usarVoz(it) })
+                    { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it); voz.usarVoz(it); if (tocando && falando >= 0) voz.falar(b[falando].plano, falando.toString(), velocidade) })
             }
             AnimatedVisibility(controles && painel == Painel.BUSCA, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 PainelBusca(consulta, { consulta = it; achadoAtual = 0 }, achados.size, achadoAtual,
@@ -401,6 +432,27 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                         color = if (x.progresso >= 0.98f && !atual) p.textoSuave else p.texto)
                 }
             }
+        }
+    }
+}
+
+/** Títulos dentro do texto: prólogo/epílogo centralizados com ◆; capítulos em âmbar. */
+@Composable
+private fun TituloNoTexto(t: String, p: Paleta, extra: Modifier) {
+    val esp = Texto.tipoEspecial(t)
+    if (esp != null) {
+        Column(extra.fillMaxWidth().padding(vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("◆", color = p.destaque, fontSize = 20.sp)
+            Text(esp, color = p.destaque, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 6.sp)
+            val sub = t.substringAfter('—', t.substringAfter(':', "")).trim()
+            if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp, lineHeight = 34.sp, fontStyle = FontStyle.Italic),
+                textAlign = TextAlign.Center)
+            Box(Modifier.width(48.dp).height(2.dp).background(p.destaque.copy(alpha = 0.6f)))
+        }
+    } else {
+        Column(extra.fillMaxWidth().padding(top = 22.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(t, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp, lineHeight = 29.sp), color = p.destaque)
+            Box(Modifier.width(40.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque))
         }
     }
 }
@@ -499,11 +551,15 @@ private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: (
                 TextButton(onClick = { escolhendo = true }, enabled = voz.pronta) { Text("Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                 DropdownMenu(escolhendo, { escolhendo = false }, modifier = Modifier.heightIn(max = 380.dp)) {
                     val lista = remember(voz.pronta) { voz.vozes() }
-                    if (lista.isEmpty()) DropdownMenuItem(text = { Text("Nenhuma voz encontrada") }, onClick = { escolhendo = false })
-                    lista.forEachIndexed { n, v ->
-                        val rotulo = "Narrador ${n + 1} · ${v.locale.displayCountry.ifEmpty { v.locale.displayLanguage }}" +
-                            (if (v.isNetworkConnectionRequired) " · precisa de internet" else "") +
-                            (if (v.name.contains("female", true)) " · feminina" else if (v.name.contains("male", true)) " · masculina" else "")
+                    if (lista.isEmpty()) DropdownMenuItem(text = { Text("Nenhuma voz brasileira offline. Instale em Configurações › Saída de texto para voz.") }, onClick = { escolhendo = false })
+                    var mulher = 0; var homem = 0; var outra = 0
+                    lista.forEach { v ->
+                        val g = generoVoz(v.name)
+                        val rotulo = when (g) {
+                            "Mulher" -> "♀ Mulher · voz ${++mulher}"
+                            "Homem" -> "♂ Homem · voz ${++homem}"
+                            else -> "◦ Voz ${++outra}"
+                        }
                         DropdownMenuItem(
                             text = { Text(rotulo, fontWeight = if (v.name == narrador) FontWeight.Bold else FontWeight.Normal, color = if (v.name == narrador) p.destaque else p.texto) },
                             onClick = { escolhendo = false; definirNarrador(v.name) },

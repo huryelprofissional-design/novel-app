@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
@@ -207,7 +208,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
     }
 
     Column(Modifier.fillMaxSize().background(p.fundo).imePadding()) {
-        Topo(cap?.titulo ?: "", nav) {
+        Topo(cap?.titulo?.ifEmpty { "Página em branco" } ?: "", nav) {
             Text(estadoSalvo, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                 color = if (estadoSalvo == "Salvo") Color(0xFF6FC2B4) else p.destaque, modifier = Modifier.padding(end = 4.dp))
             Box {
@@ -295,6 +296,10 @@ private class RealceEditor(private val p: Paleta) : VisualTransformation {
                     val c = t[k]
                     if (c == '—' || c == '–' || c == '“' || (c == '-' && k + 1 < fim && t[k + 1] == ' ')) {
                         addStyle(SpanStyle(color = p.destaque, fontWeight = FontWeight.Bold), k, k + 1)
+                    } else if (Texto.ehTituloCapitulo(t.substring(k, fim))) {
+                        val esp = Texto.tipoEspecial(t.substring(k, fim)) != null
+                        addStyle(SpanStyle(color = p.destaque, fontWeight = FontWeight.Bold, fontSize = 1.3.em,
+                            fontStyle = if (esp) FontStyle.Italic else FontStyle.Normal, letterSpacing = if (esp) 0.08.em else 0.em), k, fim)
                     } else if (c == '#') {
                         addStyle(SpanStyle(fontWeight = FontWeight.Bold, color = p.destaque), k, fim)
                     } else if (t.startsWith("* * *", k)) {

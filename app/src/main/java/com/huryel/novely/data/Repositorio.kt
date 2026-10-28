@@ -70,9 +70,9 @@ class Repositorio(ctx: Context) {
         dao.excluirVolume(v)
     }
 
-    suspend fun novoCapitulo(obraId: Long, titulo: String, volumeId: Long?): Long {
+    suspend fun novoCapitulo(obraId: Long, titulo: String, volumeId: Long?, emBranco: Boolean = false): Long {
         val id = dao.inserirCapitulo(
-            Capitulo(obraId = obraId, volumeId = volumeId, titulo = titulo.trim().ifEmpty { "Novo capítulo" },
+            Capitulo(obraId = obraId, volumeId = volumeId, titulo = if (emBranco) titulo.trim() else titulo.trim().ifEmpty { "Novo capítulo" },
                 ordem = dao.maiorOrdemCapitulo(obraId) + 1)
         )
         textos.gravar(id, "")

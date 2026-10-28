@@ -227,7 +227,7 @@ private fun TelaInicio(nav: NavHostController) {
                         menuNovo = false
                         escopo.launch {
                             val id = repo.criarObra("Nova história", "", StatusObra.ESCREVENDO)
-                            val cap = repo.novoCapitulo(id, "Capítulo 1", null)
+                            val cap = repo.novoCapitulo(id, "", null, emBranco = true)
                             nav.navigate("obra/$id")
                             nav.navigate("editor/$cap")
                         }
@@ -245,7 +245,7 @@ private fun TelaInicio(nav: NavHostController) {
                 val id = repo.criarObra(titulo, "", status)
                 nav.navigate("obra/$id")
                 if (emBranco) {
-                    val cap = repo.novoCapitulo(id, "Capítulo 1", null)
+                    val cap = repo.novoCapitulo(id, "", null, emBranco = true)
                     nav.navigate("editor/$cap")
                 }
             }
@@ -472,7 +472,7 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
-                Text("Novely 0.6 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                Text("Novely 0.7 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }

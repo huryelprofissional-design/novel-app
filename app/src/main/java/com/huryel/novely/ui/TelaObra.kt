@@ -313,7 +313,10 @@ private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(c.titulo, fontSize = 15.sp, fontWeight = if (atual) FontWeight.Bold else FontWeight.Normal,
+            val especial = com.huryel.novely.data.Texto.tipoEspecial(c.titulo)
+            if (especial != null) Text(especial, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp, color = p.destaque)
+            Text(c.titulo.ifEmpty { "(sem título — escreva o título na 1ª linha)" }, fontSize = 15.sp, fontWeight = if (atual) FontWeight.Bold else FontWeight.Normal,
+                fontStyle = if (especial != null) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
                 color = if (lido && !atual) p.textoSuave else p.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${formatarPalavras(c.palavras.toLong())} palavras", fontSize = 12.sp, color = p.textoSuave)
