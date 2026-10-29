@@ -37,6 +37,8 @@ data class Obra(
     val lidaEm: Long = 0,
     /** Coleção/pasta na estante (vazio = nenhuma). */
     @ColumnInfo(defaultValue = "") val colecao: String = "",
+    /** true = obra escrita pelo usuário (pode editar); false = obra de outra pessoa (só leitura). */
+    @ColumnInfo(defaultValue = "1") val minha: Boolean = true,
 )
 
 @Entity(
@@ -269,7 +271,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class], version = 4, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class], version = 5, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -297,6 +299,11 @@ abstract class BancoNovely : RoomDatabase() {
                         db.execSQL("CREATE INDEX IF NOT EXISTS `index_marcadores_capId` ON `marcadores` (`capId`)")
                         db.execSQL("CREATE TABLE IF NOT EXISTS `eventos` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `obraId` INTEGER NOT NULL, `capId` INTEGER, `quando` TEXT NOT NULL, `titulo` TEXT NOT NULL, `descricao` TEXT NOT NULL, `ordem` REAL NOT NULL, FOREIGN KEY(`obraId`) REFERENCES `obras`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
                         db.execSQL("CREATE INDEX IF NOT EXISTS `index_eventos_obraId` ON `eventos` (`obraId`)")
+                    }
+                }, object : androidx.room.migration.Migration(4, 5) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE obras ADD COLUMN minha INTEGER NOT NULL DEFAULT 1")
+                        db.execSQL("UPDATE obras SET minha = 0 WHERE status = 'LENDO'")
                     }
                 })
                 .build()

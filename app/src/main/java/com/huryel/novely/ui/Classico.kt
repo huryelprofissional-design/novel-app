@@ -258,7 +258,7 @@ private fun Fileira(lista: List<ResumoObra>, nav: NavHostController) {
 
 class AcoesObra(
     val voltar: () -> Unit, val menu: () -> Unit, val banner: () -> Unit, val capa: () -> Unit,
-    val ler: (() -> Unit)?, val novoCap: () -> Unit, val novoVol: () -> Unit,
+    val ler: (() -> Unit)?, val novoCap: (() -> Unit)?, val novoVol: () -> Unit,
 )
 
 @Composable
@@ -291,7 +291,7 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
                 }
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.padding(bottom = 4.dp)) {
-                    Text(nomeStatus(o.status).uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = p.destaque)
+                    Text(nomeStatus(o.status).uppercase() + if (!o.minha) " · SÓ LEITURA" else "", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = p.destaque)
                     Text(o.titulo, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, lineHeight = 26.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 6.dp))
                     Text("${caps.size} caps · ${formatarPalavras(palavras)} palavras" + if (caps.isNotEmpty()) " · ${lidos * 100 / caps.size}% lido" else "",
@@ -311,7 +311,7 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
                         else -> "Ler · ${alvo.titulo.ifEmpty { "sem título" }}"
                     }, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                OutlinedButton(onClick = a.novoCap, shape = RoundedCornerShape(14.dp), modifier = Modifier.height(52.dp),
+                if (a.novoCap != null) OutlinedButton(onClick = a.novoCap, shape = RoundedCornerShape(14.dp), modifier = Modifier.height(52.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, p.borda)) { Text("+ Cap.", color = p.texto, fontWeight = FontWeight.Bold) }
             }
             if (o.descricao.isNotBlank()) Text(o.descricao, fontSize = 14.sp, lineHeight = 21.sp, color = p.textoSuave,

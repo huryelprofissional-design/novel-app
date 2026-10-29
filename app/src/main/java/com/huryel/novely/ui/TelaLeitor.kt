@@ -67,6 +67,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import com.huryel.novely.data.StatusObra
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.style.TextDecoration
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -217,6 +223,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     val margem by prefs.margem.estado.collectAsState()
     val fonte by prefs.fonte.estado.collectAsState()
     val destacarFalas by prefs.destacarFalas.estado.collectAsState()
+    val destacarNomes by prefs.destacarNomes.estado.collectAsState()
     val modoPaginas by prefs.modoPaginas.estado.collectAsState()
     val telaLigada by prefs.telaLigada.estado.collectAsState()
     val velocidade by prefs.velocidadeVoz.estado.collectAsState()
@@ -249,8 +256,10 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     val c = cap
     val b = blocos
     if (c == null || b == null) {
-        Box(Modifier.fillMaxSize().background(p.fundo)) {
-            LinearProgressIndicator(Modifier.fillMaxWidth(), color = p.destaque, trackColor = p.fundo)
+        Box(Modifier.fillMaxSize().background(p.fundo), contentAlignment = Alignment.Center) {
+            val pulso = androidx.compose.animation.core.rememberInfiniteTransition(label = "abrindo")
+            val a by pulso.animateFloat(0.25f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "a")
+            Text("◆", color = p.destaque.copy(alpha = a), fontSize = 30.sp)
         }
         return
     }
@@ -371,6 +380,40 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         achados.getOrNull(achadoAtual)?.let { (bi, _) -> estado.animateScrollToItem(bi + 1) }
     }
 
+    // ── Nomes de personagens/lugares destacados (toque abre a ficha) ──
+    val regraNomes = remember(fichas) {
+        val mapa = HashMap<String, com.huryel.novely.data.Ficha>()
+        fichas.forEach { f -> val n = f.nome.trim(); if (n.length >= 3) mapa[n] = f }
+        // primeiro nome também conta ("Lin" para "Lin Feng"), se não for ambíguo
+        fichas.groupBy { it.nome.trim().substringBefore(' ') }.forEach { (pn, fs) ->
+            if (pn.length >= 3 && fs.size == 1 && !mapa.containsKey(pn)) mapa[pn] = fs[0]
+        }
+        if (mapa.isEmpty()) null else Regex("(?<![\\p{L}\\p{N}])(" + mapa.keys.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) } + ")(?![\\p{L}\\p{N}])") to mapa
+    }
+    fun comNomes(t: AnnotatedString): AnnotatedString {
+        val (rx, mapa) = regraNomes ?: return t
+        if (!destacarNomes) return t
+        val achados = rx.findAll(t.text).toList()
+        if (achados.isEmpty()) return t
+        return buildAnnotatedString {
+            append(t)
+            achados.forEach { m ->
+                val f = mapa[m.value] ?: return@forEach
+                addLink(LinkAnnotation.Clickable("ficha${f.id}", TextLinkStyles(SpanStyle(color = p.destaque2, fontWeight = FontWeight.SemiBold,
+                    textDecoration = TextDecoration.None))) { fichaVer = f }, m.range.first, m.range.last + 1)
+            }
+        }
+    }
+    val primeiroParagrafo = remember(b) { b.indexOfFirst { it is Bloco.Paragrafo && !(it as Bloco.Paragrafo).fala && it.plano.length > 40 } }
+
+    // aviso "continuando de onde parou"
+    var avisoRetomar by remember { mutableStateOf(c.posicaoBloco > 2 && blocoInicial < 0 && consultaInicial.isEmpty() && c.progresso < 0.98f) }
+    LaunchedEffect(Unit) { if (avisoRetomar) { kotlinx.coroutines.delay(5000); avisoRetomar = false } }
+    // entrada suave
+    var entrou by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entrou = true }
+    val alfaEntrada by androidx.compose.animation.core.animateFloatAsState(if (entrou) 1f else 0f, androidx.compose.animation.core.tween(420), label = "entrada")
+
     val familia = when (fonte) { "SEM_SERIFA" -> FontFamily.SansSerif; "SERIFA" -> FontFamily.Serif; else -> p.fonteLeitura }
     val estiloBase = TextStyle(fontFamily = familia, fontSize = tamanho.sp, lineHeight = (tamanho * entrelinhas).sp, color = p.texto)
     val corNarracao = if (destacarFalas) p.texto.copy(alpha = 0.86f) else p.texto
@@ -379,7 +422,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     Box(Modifier.fillMaxSize().background(p.fundo)) {
         LazyColumn(
             state = estado,
-            modifier = Modifier.fillMaxSize().pointerInput(modoPaginas) {
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = alfaEntrada; translationY = (1f - alfaEntrada) * 40f }.pointerInput(modoPaginas) {
                 detectTapGestures(
                     onLongPress = { pos ->
                         val item = estado.layoutInfo.visibleItemsInfo.firstOrNull { pos.y >= it.offset && pos.y < it.offset + it.size }
@@ -399,7 +442,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
             verticalArrangement = Arrangement.spacedBy((tamanho * 0.85f).dp),
         ) {
             item(key = "cab") {
-                CabecalhoCapitulo(c, obra, anterior, lista.take(idx + 1).count { Texto.tipoEspecial(it.titulo) == null }, margem, p) { mostrarSobre = true }
+                CabecalhoCapitulo(c, obra, anterior, lista.take(idx + 1).count { Texto.tipoEspecial(it.titulo) == null }, idx + 1, lista.size, margem, p) { mostrarSobre = true }
             }
             itemsIndexed(b, contentType = { _, x -> x::class }) { i, bloco ->
                 val ativo = i == falando
@@ -412,15 +455,27 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                     } else Modifier)
                 when (bloco) {
                     is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, fundoAtivo)
-                    is Bloco.Separador -> Text(p.separador, color = p.destaque, textAlign = TextAlign.Center, fontSize = 12.sp, fontFamily = p.fonteUi, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                    is Bloco.Separador -> Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Box(Modifier.width(56.dp).height(1.dp).background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, p.destaque.copy(alpha = 0.7f)))))
+                        Text("  ◆  ", color = p.destaque, fontSize = 11.sp)
+                        Box(Modifier.width(56.dp).height(1.dp).background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.7f), Color.Transparent))))
+                    }
                     is Bloco.Paragrafo -> {
-                        val texto = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
+                        val base = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
+                        val texto = remember(base, regraNomes, destacarNomes, i == primeiroParagrafo, tamanho) {
+                            val t = comNomes(base)
+                            if (i == primeiroParagrafo) capitular(t, p, tamanho) else t
+                        }
                         if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
-                        else Text(texto, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo)
+                        else Text(texto, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo.then(if (i == primeiroParagrafo) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
                     }
                 }
             }
-            item(key = "fim") { FimCapitulo(b.isEmpty(), proximo, ::irPara) }
+            item(key = "fim") {
+                FimCapitulo(b.isEmpty(), proximo, obra, idx + 1, lista.size, lista.count { it.progresso >= 0.98f || it.id == c.id }, ::irPara,
+                    voltarObra = { nav.popBackStack() },
+                    concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.salvarObra(o.copy(status = StatusObra.CONCLUIDA)) } } })
+            }
         }
 
         // brilho reduzido e luz quente (por cima do texto, sem bloquear toques)
@@ -428,7 +483,8 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         if (luzQuente > 0.01f) Box(Modifier.fillMaxSize().background(Color(0xFFFF8A2A).copy(alpha = luzQuente * 0.28f)))
 
         // barra de progresso fininha no topo
-        Box(Modifier.align(Alignment.TopStart).fillMaxWidth(progresso).height(2.dp).background(p.destaque))
+        Box(Modifier.align(Alignment.TopStart).fillMaxWidth(progresso).height(3.dp)
+            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.35f), p.destaque))))
 
         AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
             Surface(color = p.superficie.copy(alpha = 0.97f)) {
@@ -437,11 +493,24 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                     IconButton(onClick = { irInicio(nav) }) { Icon(Icons.Filled.Home, "Início") }
                     Column(Modifier.weight(1f)) {
                         Text(c.titulo, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}", fontSize = 12.sp, color = p.textoSuave)
+                        val restam = ((1f - progresso) * c.palavras / 230f).toInt()
+                        Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}" + if (restam >= 1 && progresso < 0.99f) " · faltam ~$restam min" else "", fontSize = 12.sp, color = p.textoSuave, maxLines = 1)
                     }
                     IconButton(onClick = { mostrarSobre = true }) { Icon(Icons.Filled.Info, "Sobre a obra") }
-                    IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar capítulo") }
+                    if (obra?.minha == true) IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar capítulo") }
                 }
+            }
+        }
+
+        AnimatedVisibility(avisoRetomar, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 70.dp),
+            enter = fadeIn() + slideInVertically { -it / 2 }, exit = fadeOut()) {
+            Row(
+                Modifier.shadow(10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(p.superficie)
+                    .border(1.dp, p.destaque.copy(alpha = 0.45f), RoundedCornerShape(50)).padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("↺  Continuando de onde parou · ${(c.progresso * 100).toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                TextButton(onClick = { avisoRetomar = false; escopo.launch { estado.animateScrollToItem(0) } }) { Text("Do início", color = p.destaque, fontSize = 13.sp) }
             }
         }
 
@@ -460,8 +529,10 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                     { consulta = ""; painel = Painel.NENHUM })
             }
             AnimatedVisibility(controles, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                Surface(color = p.superficie.copy(alpha = 0.97f)) {
-                    Row(Modifier.fillMaxWidth().navigationBarsPadding().height(68.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp)
+                    .shadow(16.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(p.superficie.copy(alpha = 0.98f))
+                    .border(1.dp, p.borda, RoundedCornerShape(26.dp))) {
+                    Row(Modifier.fillMaxWidth().height(66.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                         BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, { Icon(Icons.Filled.PlayArrow, null) }) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
                         BotaoBarra("Buscar", painel == Painel.BUSCA, { Icon(Icons.Filled.Search, null) }) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
                         BotaoBarra("Capítulos", false, { Icon(Icons.AutoMirrored.Filled.List, null) }) { mostrarCapitulos = true }
@@ -505,55 +576,65 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     }
 }
 
-/** Abertura do capítulo: banner da obra, capa, nome da obra, rótulo, título, tempo e resumos. */
+/** Abertura do capítulo: banner sangrando, capa no centro, número, título, tempo, progresso da obra e resumos. */
 @Composable
-private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, anterior: Capitulo?, numero: Int, margem: Float, p: Paleta, abrirSobre: () -> Unit) {
+private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, anterior: Capitulo?, numero: Int, posicao: Int, total: Int, margem: Float, p: Paleta, abrirSobre: () -> Unit) {
     val especial = Texto.tipoEspecial(c.titulo)
-    var verResumo by remember { mutableStateOf(false) }
+    var verResumo by remember { mutableStateOf(true) }
     var verAnterior by remember { mutableStateOf(false) }
     var verCapa by remember { mutableStateOf(false) }
     if (verCapa && obra != null) VisorCapa(obra) { verCapa = false }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // banner sangrando até as bordas da tela, mesmo com margens de leitura
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // banner sangrando até as bordas da tela, com a capa centralizada na frente
         Box(
             Modifier.layout { m, cs ->
                 val extra = (margem * 2).dp.roundToPx()
                 val w = cs.maxWidth + extra
                 val pl = m.measure(cs.copy(minWidth = w, maxWidth = w))
                 layout(cs.maxWidth, pl.height) { pl.place(-extra / 2, 0) }
-            }.height(250.dp),
+            }.height(330.dp),
         ) {
-            if (obra != null) {
-                if (obra.banner != null) ImagemEnquadrada(obra.banner, obra.bannerX, obra.bannerY, obra.bannerZoom, obra.corBase, Modifier.fillMaxSize(), 1200)
-                else Box(Modifier.fillMaxSize().background(Color(obra.corBase))) { ArteCapa(obra.titulo + "·leitor", obra.corBase) }
-            }
-            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to p.fundo.copy(alpha = 0.35f), 0.55f to p.fundo.copy(alpha = 0.55f), 1f to p.fundo)))
-            if (obra != null) Row(Modifier.align(Alignment.BottomStart).padding(horizontal = margem.dp).padding(bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
-                CapaObra(obra.titulo, obra.capa, obra.capaX, obra.capaY, obra.capaZoom, obra.corBase,
-                    Modifier.width(64.dp).height(94.dp).clickable { verCapa = true }, 9.sp)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f).clickable(onClick = abrirSobre)) {
-                    Text(obra.titulo, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("Sobre a obra  ›", fontSize = 12.sp, color = p.destaque, fontWeight = FontWeight.SemiBold)
+            Box(Modifier.fillMaxWidth().height(250.dp)) {
+                if (obra != null) {
+                    if (obra.banner != null) ImagemEnquadrada(obra.banner, obra.bannerX, obra.bannerY, obra.bannerZoom, obra.corBase, Modifier.fillMaxSize(), 1200)
+                    else Box(Modifier.fillMaxSize().background(Color(obra.corBase))) { ArteCapa(obra.titulo + "·leitor", obra.corBase) }
                 }
+                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to p.fundo.copy(alpha = 0.55f), 0.35f to p.fundo.copy(alpha = 0.25f), 1f to p.fundo)))
+            }
+            if (obra != null) Column(Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
+                CapaObra(obra.titulo, obra.capa, obra.capaX, obra.capaY, obra.capaZoom, obra.corBase,
+                    Modifier.width(118.dp).height(174.dp).shadow(22.dp, RoundedCornerShape(12.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp)).clickable { verCapa = true }, 13.sp)
+                Text(obra.titulo.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, color = p.textoSuave,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 14.dp).padding(horizontal = 40.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = abrirSobre).padding(4.dp))
             }
         }
         if (especial != null) {
-            Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("◆", color = p.destaque, fontSize = 22.sp)
-                Text(especial, color = p.destaque, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 6.sp)
-                val sub = c.titulo.substringAfter('—', c.titulo.substringAfter(':', "")).trim()
-                Text(sub.ifEmpty { especial.lowercase().replaceFirstChar { it.uppercase() } },
-                    style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp, lineHeight = 40.sp, fontStyle = FontStyle.Italic), textAlign = TextAlign.Center)
-            }
+            Text("◆", color = p.destaque, fontSize = 20.sp)
+            Text(especial, color = p.destaque, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 6.sp)
+            val sub = c.titulo.substringAfter('—', c.titulo.substringAfter(':', "")).trim()
+            Text(sub.ifEmpty { especial.lowercase().replaceFirstChar { it.uppercase() } },
+                style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp, lineHeight = 40.sp, fontStyle = FontStyle.Italic), textAlign = TextAlign.Center)
         } else {
-            Text("CAPÍTULO $numero", style = MaterialTheme.typography.labelSmall, color = p.destaque)
-            Text(c.titulo.ifEmpty { "Sem título" }, style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp, lineHeight = 35.sp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(28.dp).height(1.dp).background(p.destaque.copy(alpha = 0.6f)))
+                Text("  CAPÍTULO $numero  ", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp, color = p.destaque)
+                Box(Modifier.width(28.dp).height(1.dp).background(p.destaque.copy(alpha = 0.6f)))
+            }
+            Text(c.titulo.ifEmpty { "Sem título" }, style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp, lineHeight = 36.sp), textAlign = TextAlign.Center)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Etiqueta("${formatarPalavras(c.palavras.toLong())} palavras", p)
-            Etiqueta("~${(c.palavras / 230).coerceAtLeast(1)} min", p)
+            Etiqueta("◷ ${(c.palavras / 230).coerceAtLeast(1)} min", p)
             if (c.progresso in 0.02f..0.97f) Etiqueta("${(c.progresso * 100).toInt()}% lido", p, destaque = true)
+            else if (c.progresso >= 0.98f) Etiqueta("✓ lido", p)
+        }
+        if (total > 1) Column(Modifier.fillMaxWidth(0.7f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(p.borda)) {
+                Box(Modifier.fillMaxWidth(posicao.toFloat() / total).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(p.destaque))
+            }
+            Text("$posicao de $total na obra", fontSize = 11.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
         }
         if (anterior != null && anterior.resumo.isNotBlank()) {
             CaixaResumo("ANTERIORMENTE", anterior.resumo, verAnterior, p) { verAnterior = !verAnterior }
@@ -561,9 +642,21 @@ private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, a
         if (c.resumo.isNotBlank()) {
             CaixaResumo("NESTE CAPÍTULO", c.resumo, verResumo, p) { verResumo = !verResumo }
         }
-        Spacer(Modifier.height(4.dp))
-        Box(Modifier.width(48.dp).height(3.dp).clip(forma(2.dp)).background(p.destaque))
-        Spacer(Modifier.height(4.dp))
+        Text("◆   ◆   ◆", color = p.destaque.copy(alpha = 0.7f), fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp, bottom = 8.dp))
+    }
+}
+
+/** Primeira letra grande em âmbar e primeiras palavras em negrito, como abertura de livro. */
+private fun capitular(t: AnnotatedString, p: Paleta, tamanho: Float): AnnotatedString {
+    val txt = t.text
+    val ini = txt.indexOfFirst { it.isLetterOrDigit() }
+    if (ini < 0) return t
+    var fimPalavras = ini; var palavras = 0
+    while (fimPalavras < txt.length && palavras < 4) { if (txt[fimPalavras] == ' ') palavras++; fimPalavras++ }
+    return buildAnnotatedString {
+        append(t)
+        addStyle(SpanStyle(fontSize = (tamanho * 1.9f).sp, color = p.destaque, fontWeight = FontWeight.Bold), ini, ini + 1)
+        if (fimPalavras > ini + 1) addStyle(SpanStyle(fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp, color = p.texto), ini + 1, fimPalavras.coerceAtMost(txt.length))
     }
 }
 
@@ -705,24 +798,48 @@ private fun destacarBusca(base: AnnotatedString, normal: String, q: String, p: P
 }
 
 @Composable
-private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, ir: (Capitulo) -> Unit) {
+private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, obra: com.huryel.novely.data.Obra?, posicao: Int, total: Int, lidos: Int,
+                        ir: (Capitulo) -> Unit, voltarObra: () -> Unit, concluir: (() -> Unit)?) {
     val p = LocalPaleta.current
-    Column(Modifier.fillMaxWidth().padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = 36.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (vazio) Text("Este capítulo ainda está vazio.", color = p.textoSuave)
         val pulso = androidx.compose.animation.core.rememberInfiniteTransition(label = "fim")
         val brilho by pulso.animateFloat(0.45f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "brilho")
         Text("◆", color = p.destaque.copy(alpha = brilho), fontSize = 26.sp)
-        Text("FIM DO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, letterSpacing = 4.sp)
-        if (proximo != null) {
-            Column(
-                Modifier.fillMaxWidth().clip(forma(20.dp)).background(p.superficie)
-                    .border(1.dp, p.destaque.copy(alpha = 0.4f), forma(20.dp)).clickable { ir(proximo) }.padding(18.dp),
-            ) {
-                Text("PRÓXIMO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.destaque)
-                Text(proximo.titulo, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("${formatarPalavras(proximo.palavras.toLong())} palavras  ›", color = p.textoSuave, fontSize = 13.sp)
+        Text(if (proximo == null) "FIM" else "FIM DO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, letterSpacing = 4.sp)
+        if (total > 0) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(p.superficie).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row {
+                Text("Progresso na obra", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.weight(1f))
+                Text("${lidos * 100 / total}%", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = p.destaque)
             }
-        } else Text("Você chegou ao último capítulo.", color = p.textoSuave)
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(p.borda)) {
+                Box(Modifier.fillMaxWidth(lidos.toFloat() / total).fillMaxHeight().clip(RoundedCornerShape(3.dp))
+                    .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.5f), p.destaque))))
+            }
+            Text("$lidos de $total capítulos lidos · você está no $posicao", fontSize = 12.sp, color = p.textoSuave)
+        }
+        if (proximo != null) {
+            Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(22.dp)).clickable { ir(proximo) }
+                .border(1.dp, p.destaque.copy(alpha = 0.45f), RoundedCornerShape(22.dp))) {
+                if (obra != null) {
+                    if (obra.banner != null) ImagemEnquadrada(obra.banner, obra.bannerX, obra.bannerY, obra.bannerZoom, obra.corBase, Modifier.fillMaxSize(), 900)
+                    else Box(Modifier.fillMaxSize().background(Color(obra.corBase))) { ArteCapa(obra.titulo + "·prox", obra.corBase) }
+                }
+                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.fundo.copy(alpha = 0.95f), p.fundo.copy(alpha = 0.55f)))))
+                Column(Modifier.align(Alignment.CenterStart).padding(18.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("PRÓXIMO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.destaque)
+                    Text(proximo.titulo.ifEmpty { "Sem título" }, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 21.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text("◷ ${(proximo.palavras / 230).coerceAtLeast(1)} min · ${formatarPalavras(proximo.palavras.toLong())} palavras", color = p.textoSuave, fontSize = 13.sp)
+                }
+            }
+            Button(onClick = { ir(proximo) }, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("Ler próximo  ›", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp) }
+        } else {
+            Text("Você chegou ao último capítulo.", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp), textAlign = TextAlign.Center)
+            if (concluir != null) Button(onClick = concluir, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("✓  Marcar obra como lida", fontWeight = FontWeight.ExtraBold) }
+        }
+        TextButton(onClick = voltarObra) { Text("Voltar para a obra", color = p.textoSuave) }
     }
 }
 
@@ -730,7 +847,7 @@ private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, ir: (Capitulo) -> Un
 private fun BotaoBarra(rotulo: String, ativo: Boolean, icone: @Composable () -> Unit, aoTocar: () -> Unit) {
     val p = LocalPaleta.current
     Column(
-        Modifier.clip(forma(14.dp)).clickable(onClick = aoTocar).padding(horizontal = 12.dp, vertical = 6.dp),
+        Modifier.clip(forma(16.dp)).background(if (ativo) p.destaque.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = aoTocar).padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CompositionLocalProvider(LocalContentColor provides if (ativo) p.destaque else p.textoSuave) { icone() }
@@ -849,6 +966,8 @@ fun AjustesLeitura() {
         }
         if (paginas) Text("Toque na borda direita para avançar e na esquerda para voltar.", fontSize = 12.sp, color = p.textoSuave)
         LinhaInterruptor("Destacar falas de personagens", falas) { prefs.destacarFalas.definir(it) }
+        val nomes by prefs.destacarNomes.estado.collectAsState()
+        LinhaInterruptor("Destacar nomes das fichas (toque abre)", nomes) { prefs.destacarNomes.definir(it) }
         LinhaInterruptor("Manter tela ligada lendo", ligada) { prefs.telaLigada.definir(it) }
         val esc by prefs.escurecer.estado.collectAsState()
         val quente by prefs.luzQuente.estado.collectAsState()

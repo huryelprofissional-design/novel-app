@@ -70,7 +70,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
             obras.forEachIndexed { oi, o ->
                 _estado.value = EstadoBackup.Trabalhando("Salvando “${o.titulo}”…", oi.toFloat() / obras.size.coerceAtLeast(1))
                 val jo = JSONObject()
-                    .put("titulo", o.titulo).put("descricao", o.descricao).put("status", o.status)
+                    .put("titulo", o.titulo).put("descricao", o.descricao).put("status", o.status).put("minha", o.minha)
                     .put("capaX", o.capaX.toDouble()).put("capaY", o.capaY.toDouble()).put("capaZoom", o.capaZoom.toDouble())
                     .put("bannerX", o.bannerX.toDouble()).put("bannerY", o.bannerY.toDouble()).put("bannerZoom", o.bannerZoom.toDouble())
                     .put("corBase", o.corBase).put("criadaEm", o.criadaEm).put("atualizadaEm", o.atualizadaEm)
@@ -182,6 +182,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                     repo.banco.withTransaction {
                         val obraId = repo.dao.inserirObra(Obra(
                             titulo = o.getString("titulo"), descricao = o.optString("descricao"), status = o.optString("status", StatusObra.LENDO),
+                            minha = o.optBoolean("minha", o.optString("status", StatusObra.LENDO) != StatusObra.LENDO),
                             capa = imagem("capa"), capaX = o.optDouble("capaX", .5).toFloat(), capaY = o.optDouble("capaY", .5).toFloat(), capaZoom = o.optDouble("capaZoom", 1.0).toFloat(),
                             banner = imagem("banner"), bannerX = o.optDouble("bannerX", .5).toFloat(), bannerY = o.optDouble("bannerY", .5).toFloat(), bannerZoom = o.optDouble("bannerZoom", 1.0).toFloat(),
                             corBase = o.optLong("corBase", 0xFF3B2A4A), criadaEm = o.optLong("criadaEm", System.currentTimeMillis()),

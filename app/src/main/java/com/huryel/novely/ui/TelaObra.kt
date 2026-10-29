@@ -125,7 +125,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                         voltar = { nav.popBackStack() }, menu = { menuObra = true },
                         banner = { dialogo = Dialogo.MenuImagem("banner") }, capa = { dialogo = Dialogo.MenuImagem("capa") },
                         ler = alvo?.let { al -> { nav.navigate("leitor/${al.id}") } },
-                        novoCap = { dialogo = Dialogo.NovoCapitulo }, novoVol = { dialogo = Dialogo.NovoVolume },
+                        novoCap = if (o.minha) ({ dialogo = Dialogo.NovoCapitulo }) else null, novoVol = { dialogo = Dialogo.NovoVolume },
                     ),
                 )
             }
@@ -148,7 +148,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                 items(dele, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo, estilo, numeros[c.id] ?: 0, c.id in selecionados, emSelecao) { alternarSel(c.id) } }
             }
             if (capitulos.isEmpty()) item {
-                Text("Nenhum capítulo ainda. Toque em “+ Capítulo” para começar.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
+                Text(if (o.minha) "Nenhum capítulo ainda. Toque em “+ Cap.” para começar." else "Nenhum capítulo ainda. Use ⋮ › Importar capítulos.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
             }
         }
 
@@ -165,11 +165,17 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                 DropdownMenuItem(text = { Text("Trocar capa") }, onClick = { menuObra = false; escolherImagem("capa") })
                 DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuObra = false; escolherImagem("banner") })
                 HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Sou o autor (permitir editar)") },
+                    leadingIcon = { if (o.minha) Icon(Icons.Filled.Check, null) },
+                    onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(minha = !o.minha)) } },
+                )
+                HorizontalDivider()
                 listOf(StatusObra.ESCREVENDO, StatusObra.LENDO, StatusObra.CONCLUIDA).forEach { s ->
                     DropdownMenuItem(
                         text = { Text("Marcar como ${nomeStatus(s).lowercase()}") },
                         leadingIcon = { if (o.status == s) Icon(Icons.Filled.Check, null) },
-                        onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(status = s)) } },
+                        onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(status = s, minha = if (s == StatusObra.ESCREVENDO) true else o.minha)) } },
                     )
                 }
                 HorizontalDivider()
@@ -379,12 +385,13 @@ private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (
     LinhaCapEstilo(estilo, c, o, atual, lido, numero, abrir = { if (emSelecao) alternar() else nav.navigate("leitor/${c.id}") },
         selecionado = selecionado, emSelecao = emSelecao, segurar = alternar) {
         if (emSelecao) return@LinhaCapEstilo
-        IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar texto", tint = p.textoSuave) }
+        if (o.minha) IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar texto", tint = p.textoSuave) }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Opções do capítulo", tint = p.textoSuave) }
             DropdownMenu(menu, { menu = false }) {
+                if (!o.minha) DropdownMenuItem(text = { Text("Corrigir erro no texto") }, onClick = { menu = false; nav.navigate("editor/${c.id}") })
                 DropdownMenuItem(text = { Text("Renomear") }, onClick = { menu = false; abrir(Dialogo.RenomearCap(c)) })
-                DropdownMenuItem(text = { Text(if (c.rascunho) "Marcar como concluído" else "Voltar para rascunho") },
+                if (o.minha) DropdownMenuItem(text = { Text(if (c.rascunho) "Marcar como concluído" else "Voltar para rascunho") },
                     onClick = { menu = false; escopo.launch { repo.salvarCapitulo(c.copy(rascunho = !c.rascunho)) } })
                 DropdownMenuItem(text = { Text(if (lido) "Marcar como não lido" else "Marcar como lido") },
                     onClick = { menu = false; escopo.launch { repo.salvarCapitulo(c.copy(progresso = if (lido) 0f else 1f)) } })

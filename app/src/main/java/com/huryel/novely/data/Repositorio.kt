@@ -27,7 +27,7 @@ class Repositorio(ctx: Context) {
 
     suspend fun criarObra(titulo: String, descricao: String, status: String): Long =
         dao.inserirObra(
-            Obra(titulo = titulo.trim().ifEmpty { "Sem título" }, descricao = descricao.trim(), status = status,
+            Obra(titulo = titulo.trim().ifEmpty { "Sem título" }, descricao = descricao.trim(), status = status, minha = status != StatusObra.LENDO,
                 corBase = cores[(System.nanoTime() % cores.size).toInt().let { if (it < 0) -it else it }])
         )
 
@@ -312,6 +312,7 @@ class Preferencias(ctx: Context) {
     val margem = real("margem", 24f)
     val fonte = texto("fonteLeitura", "TEMA") // TEMA | SERIFA | SEM_SERIFA
     val destacarFalas = bool("falas", true)
+    val destacarNomes = bool("nomes", true)
     val modoPaginas = bool("paginas", false)
     val telaLigada = bool("telaLigada", true)
     val velocidadeVoz = real("voz", 1.0f)
