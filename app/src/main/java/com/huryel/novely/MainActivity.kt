@@ -28,7 +28,10 @@ class NovelyApp : Application() {
         prefs = Preferencias(this)
         importador = com.huryel.novely.data.Importador(this, repo)
         backup = com.huryel.novely.data.Backup(this, repo, prefs)
+        repo.aoEscreverPalavras = { prefs.registrarPalavras(it) }
+        prefs.conferirDia()
         escopo.launch { backup.backupAutomaticoSePreciso() }
+        escopo.launch { repo.limparLixeiraAntiga() }
     }
     companion object {
         lateinit var instancia: NovelyApp

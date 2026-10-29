@@ -34,6 +34,22 @@ object Texto {
     /** Remove o travessão/hífen solto no fim: "Prólogo —" vira "Prólogo". */
     fun tituloLimpo(linha: String) = limparTitulo(linha).trimEnd('—', '–', '-', ':', ' ').ifEmpty { limparTitulo(linha) }
 
+    private val regexEstritoCap = Regex(
+        """^\s*(cap[ií]tulo|chapter|cap\.)\s*([0-9]{1,5}|[ivxlcdm]{1,8})\s*([—–\-:.]\s*.{0,110})?$""", RegexOption.IGNORE_CASE)
+    private val regexEstritoEsp = Regex(
+        """^\s*(pr[oó]logo|ep[ií]logo|interl[uú]dio|prologue|epilogue|interlude)\s*([—–\-:.]\s*.{0,110})?$""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Versão rígida para o editor: a linha inteira precisa ser só o título
+     * ("Capítulo 12", "Capítulo 12 — Nome", "Prólogo", "Prólogo: Nome"). Frases como
+     * "Capítulo 3 foi difícil" NÃO contam, para não criar capítulos por engano.
+     */
+    fun ehTituloEstrito(linha: String): Boolean {
+        val l = linha.trim()
+        if (l.isEmpty() || l.length > 130) return false
+        return regexEstritoCap.matches(l) || regexEstritoEsp.matches(l)
+    }
+
     fun limparTitulo(linha: String) = linha.trim().trimStart('#').trim().take(120)
 
     fun contarPalavras(texto: CharSequence): Int {

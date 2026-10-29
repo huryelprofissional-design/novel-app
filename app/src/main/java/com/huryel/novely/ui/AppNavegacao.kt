@@ -138,6 +138,12 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
                 "imagem/{id}/{tipo}",
                 listOf(navArgument("id") { type = NavType.LongType }, navArgument("tipo") { type = NavType.StringType }),
             ) { e -> TelaAjusteImagem(e.arguments!!.getLong("id"), e.arguments!!.getString("tipo") ?: "capa", nav) }
+            composable("fichas/{id}", idArg) { e -> TelaFichas(e.arguments!!.getLong("id"), nav) }
+            composable("lixeira") { TelaLixeira(nav) }
+            composable(
+                "comparar/{id}/{quando}",
+                listOf(navArgument("id") { type = NavType.LongType }, navArgument("quando") { type = NavType.LongType }),
+            ) { e -> TelaComparar(e.arguments!!.getLong("id"), e.arguments!!.getLong("quando"), nav) }
             composable("historico/{id}", idArg) { e -> TelaHistorico(e.arguments!!.getLong("id"), nav) }
             composable("importar") { TelaImportar(nav, null) }
             composable("importar/{id}", idArg) { e -> TelaImportar(nav, e.arguments!!.getLong("id")) }
@@ -472,7 +478,8 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
-                Text("Novely 0.8 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                OutlinedButton(onClick = { nav.navigate("lixeira") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lixeira (capítulos excluídos)") }
+                Text("Novely 0.9 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }

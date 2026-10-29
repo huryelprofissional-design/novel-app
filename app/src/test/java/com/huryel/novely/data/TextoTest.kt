@@ -43,6 +43,20 @@ class TextoTest {
         assertTrue(Texto.ehTituloCapitulo("Vol 2 parte", "Vol"))
     }
 
+    @Test fun tituloEstritoDoEditor() {
+        assertTrue(Texto.ehTituloEstrito("Capítulo 2"))
+        assertTrue(Texto.ehTituloEstrito("Capítulo 12 — O Juramento"))
+        assertTrue(Texto.ehTituloEstrito("capitulo 3: Fogo"))
+        assertTrue(Texto.ehTituloEstrito("Prólogo"))
+        assertTrue(Texto.ehTituloEstrito("Prólogo —"))
+        assertTrue(Texto.ehTituloEstrito("Epílogo — Depois"))
+        assertFalse(Texto.ehTituloEstrito("Capítulo 3 foi o pior de todos."))
+        assertFalse(Texto.ehTituloEstrito("O prólogo dele era longo."))
+        assertFalse(Texto.ehTituloEstrito("— Capítulo 2 — disse ela."))
+        assertEquals("Prólogo", Texto.tituloLimpo("Prólogo —"))
+        assertEquals("PRÓLOGO", Texto.tipoEspecial("Prólogo — A Noite"))
+    }
+
     @Test fun contaPalavras() {
         assertEquals(5, Texto.contarPalavras("Olá, mundo — tudo bem? Sim."))
         assertEquals(0, Texto.contarPalavras("  ... — "))

@@ -151,6 +151,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
         Box(Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp)) {
             DropdownMenu(expanded = menuObra, onDismissRequest = { menuObra = false }) {
                 DropdownMenuItem(text = { Text("Editar título e descrição") }, onClick = { menuObra = false; dialogo = Dialogo.EditarInfo })
+                DropdownMenuItem(text = { Text("Personagens e lugares") }, onClick = { menuObra = false; nav.navigate("fichas/$obraId") })
                 DropdownMenuItem(text = { Text("Importar capítulos (TXT/EPUB)") }, onClick = { menuObra = false; nav.navigate("importar/$obraId") })
                 DropdownMenuItem(text = { Text("Trocar capa") }, onClick = { menuObra = false; escolherImagem("capa") })
                 DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuObra = false; escolherImagem("banner") })
@@ -189,13 +190,13 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
         Dialogo.NovoVolume -> DialogoTexto("Novo volume ou arco", "Nome", "Volume ${volumes.size + 1}", "Criar", aoFechar = { dialogo = null }) { t ->
             dialogo = null; escopo.launch { repo.novoVolume(obraId, t) }
         }
-        Dialogo.ExcluirObra -> DialogoConfirmar("Excluir “${o.titulo}”?", "Todos os ${capitulos.size} capítulos e textos serão apagados deste aparelho. Isso não pode ser desfeito.", "Excluir tudo", { dialogo = null }) {
+        Dialogo.ExcluirObra -> DialogoConfirmar("Excluir “${o.titulo}”?", "A obra sai da estante. Os ${capitulos.size} capítulos vão para a Lixeira por 30 dias (Ajustes › Lixeira).", "Excluir tudo", { dialogo = null }) {
             dialogo = null; escopo.launch { repo.excluirObra(o); nav.popBackStack() }
         }
         is Dialogo.RenomearCap -> DialogoTexto("Renomear capítulo", "Título", d.c.titulo, aoFechar = { dialogo = null }) { t ->
             dialogo = null; escopo.launch { repo.salvarCapitulo(d.c.copy(titulo = t.trim().ifEmpty { d.c.titulo })) }
         }
-        is Dialogo.ExcluirCap -> DialogoConfirmar("Excluir “${d.c.titulo}”?", "O texto deste capítulo será apagado.", "Excluir", { dialogo = null }) {
+        is Dialogo.ExcluirCap -> DialogoConfirmar("Excluir “${d.c.titulo}”?", "Ele vai para a Lixeira e pode ser recuperado por 30 dias (Ajustes › Lixeira).", "Excluir", { dialogo = null }) {
             dialogo = null; escopo.launch { repo.excluirCapitulo(d.c) }
         }
         is Dialogo.MoverCap -> AlertDialog(

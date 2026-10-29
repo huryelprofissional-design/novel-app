@@ -69,6 +69,41 @@ data class Capitulo(
     val atualizadoEm: Long = System.currentTimeMillis(),
     /** Resumo curto escrito pelo autor (aparece no início do capítulo e como "Anteriormente"). */
     @ColumnInfo(defaultValue = "") val resumo: String = "",
+    /** Notas privadas do autor — nunca aparecem no leitor. */
+    @ColumnInfo(defaultValue = "") val notas: String = "",
+)
+
+object TipoFicha { const val PERSONAGEM = "PERSONAGEM"; const val LUGAR = "LUGAR"; const val OUTRO = "OUTRO" }
+
+/** Fichas de personagens, lugares e outros elementos da obra. */
+@Entity(
+    tableName = "fichas",
+    foreignKeys = [ForeignKey(entity = Obra::class, parentColumns = ["id"], childColumns = ["obraId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("obraId")],
+)
+data class Ficha(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val obraId: Long,
+    val tipo: String = TipoFicha.PERSONAGEM,
+    val nome: String,
+    val descricao: String = "",
+    val imagem: String? = null,
+    val criadaEm: Long = System.currentTimeMillis(),
+)
+
+/** Capítulos excluídos ficam aqui por 30 dias (texto em files/lixeira/<id>.md). */
+@Entity(tableName = "lixeira")
+data class ItemLixeira(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val obraId: Long,
+    val obraTitulo: String,
+    val volumeId: Long? = null,
+    val titulo: String,
+    val ordem: Double,
+    val palavras: Int,
+    val resumo: String,
+    val notas: String,
+    val excluidoEm: Long = System.currentTimeMillis(),
 )
 
 /** Resumo leve para listas: sem texto, só o necessário. */
@@ -155,11 +190,26 @@ interface NovelyDao {
     @Query("UPDATE capitulos SET palavras = :palavras, atualizadoEm = :quando WHERE id = :id")
     suspend fun atualizarPalavras(id: Long, palavras: Int, quando: Long)
 
+    @Query("SELECT * FROM fichas WHERE obraId = :obraId ORDER BY tipo, nome COLLATE NOCASE")
+    fun fichas(obraId: Long): Flow<List<Ficha>>
+    @Query("SELECT * FROM fichas WHERE obraId = :obraId")
+    suspend fun fichasAgora(obraId: Long): List<Ficha>
+    @Insert suspend fun inserirFicha(f: Ficha): Long
+    @Update suspend fun atualizarFicha(f: Ficha)
+    @Delete suspend fun excluirFicha(f: Ficha)
+
+    @Query("SELECT * FROM lixeira ORDER BY excluidoEm DESC")
+    fun lixeira(): Flow<List<ItemLixeira>>
+    @Query("SELECT * FROM lixeira WHERE excluidoEm < :antes")
+    suspend fun lixeiraAntiga(antes: Long): List<ItemLixeira>
+    @Insert suspend fun inserirLixeira(i: ItemLixeira): Long
+    @Delete suspend fun excluirLixeira(i: ItemLixeira)
+
     @Query("UPDATE obras SET atualizadaEm = :quando WHERE id = :id")
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class], version = 2, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class], version = 3, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -170,6 +220,13 @@ abstract class BancoNovely : RoomDatabase() {
                 .addMigrations(object : androidx.room.migration.Migration(1, 2) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE capitulos ADD COLUMN resumo TEXT NOT NULL DEFAULT ''")
+                    }
+                }, object : androidx.room.migration.Migration(2, 3) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE capitulos ADD COLUMN notas TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `fichas` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `obraId` INTEGER NOT NULL, `tipo` TEXT NOT NULL, `nome` TEXT NOT NULL, `descricao` TEXT NOT NULL, `imagem` TEXT, `criadaEm` INTEGER NOT NULL, FOREIGN KEY(`obraId`) REFERENCES `obras`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS `index_fichas_obraId` ON `fichas` (`obraId`)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `lixeira` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `obraId` INTEGER NOT NULL, `obraTitulo` TEXT NOT NULL, `volumeId` INTEGER, `titulo` TEXT NOT NULL, `ordem` REAL NOT NULL, `palavras` INTEGER NOT NULL, `resumo` TEXT NOT NULL, `notas` TEXT NOT NULL, `excluidoEm` INTEGER NOT NULL)")
                     }
                 })
                 .build()

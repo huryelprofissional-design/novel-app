@@ -99,9 +99,16 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                     caps.put(JSONObject().put("volumeId", c.volumeId ?: JSONObject.NULL).put("titulo", c.titulo).put("ordem", c.ordem)
                         .put("rascunho", c.rascunho).put("palavras", c.palavras).put("progresso", c.progresso.toDouble())
                         .put("posicaoBloco", c.posicaoBloco).put("posicaoDeslocamento", c.posicaoDeslocamento)
-                        .put("atualizadoEm", c.atualizadoEm).put("resumo", c.resumo).put("arquivo", entrada).put("crc", crc.value))
+                        .put("atualizadoEm", c.atualizadoEm).put("resumo", c.resumo).put("notas", c.notas).put("arquivo", entrada).put("crc", crc.value))
                 }
                 jo.put("capitulos", caps)
+                val fs = JSONArray()
+                repo.dao.fichasAgora(o.id).forEach { f ->
+                    val jf = JSONObject().put("tipo", f.tipo).put("nome", f.nome).put("descricao", f.descricao)
+                    imagem(f.imagem, "ficha-${f.id}")?.let { jf.put("imagem", it) }
+                    fs.put(jf)
+                }
+                jo.put("fichas", fs)
                 arr.put(jo)
             }
             manifesto.put("obras", arr)
@@ -185,6 +192,20 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                             val v = vols.getJSONObject(k)
                             mapaVol[v.getLong("id")] = repo.dao.inserirVolume(Volume(obraId = obraId, titulo = v.getString("titulo"), ordem = v.getDouble("ordem")))
                         }
+                        val fichas = o.optJSONArray("fichas") ?: JSONArray()
+                        for (k in 0 until fichas.length()) {
+                            val jf = fichas.getJSONObject(k)
+                            var img: String? = null
+                            jf.optString("imagem", "").takeIf { it.isNotEmpty() }?.let { nome ->
+                                zip.getEntry(nome)?.let { ent ->
+                                    val f = File(File(ctx.filesDir, "imagens").apply { mkdirs() }, "${java.util.UUID.randomUUID()}.jpg")
+                                    zip.getInputStream(ent).use { ins -> f.outputStream().use { ins.copyTo(it) } }
+                                    img = f.absolutePath
+                                }
+                            }
+                            repo.dao.inserirFicha(Ficha(obraId = obraId, tipo = jf.optString("tipo", TipoFicha.PERSONAGEM), nome = jf.optString("nome"),
+                                descricao = jf.optString("descricao"), imagem = img))
+                        }
                         val caps = o.getJSONArray("capitulos")
                         for (k in 0 until caps.length()) {
                             val c = caps.getJSONObject(k)
@@ -193,7 +214,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                                 obraId = obraId, volumeId = volAntigo?.let { mapaVol[it] }, titulo = c.getString("titulo"), ordem = c.getDouble("ordem"),
                                 rascunho = c.optBoolean("rascunho"), palavras = c.optInt("palavras"), progresso = c.optDouble("progresso", 0.0).toFloat(),
                                 posicaoBloco = c.optInt("posicaoBloco"), posicaoDeslocamento = c.optInt("posicaoDeslocamento"),
-                                atualizadoEm = c.optLong("atualizadoEm", System.currentTimeMillis()), resumo = c.optString("resumo", ""),
+                                atualizadoEm = c.optLong("atualizadoEm", System.currentTimeMillis()), resumo = c.optString("resumo", ""), notas = c.optString("notas", ""),
                             ))
                             val ent = zip.getEntry(c.getString("arquivo"))
                             val destino = repo.textos.arquivo(id)
