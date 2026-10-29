@@ -129,6 +129,10 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             ) { e -> TelaAjusteImagem(e.arguments!!.getLong("id"), e.arguments!!.getString("tipo") ?: "capa", nav) }
             composable("fichas/{id}", idArg) { e -> TelaFichas(e.arguments!!.getLong("id"), nav) }
             composable("lixeira") { TelaLixeira(nav) }
+            composable("biblioteca") { TelaBiblioteca(nav) }
+            composable("nomes") { TelaGeradorNomes(nav) }
+            composable("tempo/{id}", idArg) { e -> TelaLinhaTempo(e.arguments!!.getLong("id"), nav) }
+            composable("reordenar/{id}", idArg) { e -> TelaReordenar(e.arguments!!.getLong("id"), nav) }
             composable(
                 "comparar/{id}/{quando}",
                 listOf(navArgument("id") { type = NavType.LongType }, navArgument("quando") { type = NavType.LongType }),
@@ -471,8 +475,9 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
                 OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
                 OutlinedButton(onClick = { nav.navigate("estatisticas") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Estatísticas de leitura") }
+                OutlinedButton(onClick = { nav.navigate("nomes") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Gerador de nomes") }
                 OutlinedButton(onClick = { nav.navigate("lixeira") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lixeira (capítulos excluídos)") }
-                Text("Novely 2.1 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                Text("Novely 2.2 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }

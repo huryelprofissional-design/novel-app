@@ -239,6 +239,13 @@ class Repositorio(ctx: Context) {
 
     fun colecoes() = dao.colecoes()
 
+    suspend fun marcarLidos(ids: List<Long>, lido: Boolean) = banco.withTransaction {
+        ids.forEach { id -> dao.capituloAgora(id)?.let { dao.atualizarCapitulo(it.copy(progresso = if (lido) 1f else 0f)) } }
+    }
+    suspend fun moverParaVolume(ids: List<Long>, volumeId: Long?) = banco.withTransaction {
+        ids.forEach { id -> dao.capituloAgora(id)?.let { dao.atualizarCapitulo(it.copy(volumeId = volumeId)) } }
+    }
+
     /** Reordena capítulos para exatamente a ordem da lista dada (usado no arrastar). */
     suspend fun reordenar(ids: List<Long>) = banco.withTransaction {
         ids.forEachIndexed { i, id -> dao.capituloAgora(id)?.let { dao.atualizarCapitulo(it.copy(ordem = (i + 1).toDouble())) } }

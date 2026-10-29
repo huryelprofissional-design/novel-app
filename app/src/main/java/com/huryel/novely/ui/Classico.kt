@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
@@ -204,7 +205,7 @@ fun InicioClassico(lista: List<ResumoObra>, nav: NavHostController) {
             }
         }
         if (lendo.isNotEmpty()) {
-            item(key = "s1") { Secao("Sua estante", "${lista.size} obras") { } }
+            item(key = "s1") { Secao("Sua estante", "Ver todas (${lista.size}) ›") { nav.navigate("biblioteca") } }
             item(key = "r1") { Fileira(lendo, nav) }
         }
         if (escrevendo.isNotEmpty()) {
@@ -329,10 +330,12 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LinhaCapEstilo(
     estilo: String, c: Capitulo, o: Obra, atual: Boolean, lido: Boolean, numero: Int,
-    abrir: () -> Unit, acoes: @Composable RowScope.() -> Unit,
+    abrir: () -> Unit, selecionado: Boolean = false, emSelecao: Boolean = false, segurar: () -> Unit = {},
+    acoes: @Composable RowScope.() -> Unit,
 ) {
     val p = LocalPaleta.current
     val especial = Texto.tipoEspecial(c.titulo)
@@ -343,16 +346,24 @@ fun LinhaCapEstilo(
         else -> "${formatarPalavras(c.palavras.toLong())} palavras"
     }
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = abrir).padding(start = 20.dp, top = 6.dp, bottom = 6.dp),
+        Modifier.fillMaxWidth().background(if (selecionado) p.destaque.copy(alpha = 0.12f) else Color.Transparent)
+            .combinedClickable(onClick = abrir, onLongClick = segurar).padding(start = 20.dp, top = 6.dp, bottom = 6.dp, end = if (emSelecao) 20.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (emSelecao) {
+            Box(Modifier.padding(end = 12.dp).size(22.dp).clip(CircleShape).background(if (selecionado) p.destaque else Color.Transparent)
+                .border(2.dp, if (selecionado) p.destaque else p.borda, CircleShape), contentAlignment = Alignment.Center) {
+                if (selecionado) Text("✓", fontSize = 12.sp, fontWeight = FontWeight.Black, color = p.sobreDestaque)
+            }
+        }
         Text(if (especial != null) "◆" else "$numero", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp,
             color = if (atual) p.destaque else Color(0xFF6F675B), modifier = Modifier.width(44.dp))
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(c.titulo.ifEmpty { "Sem título" }, fontSize = 15.sp, fontWeight = if (atual) FontWeight.Bold else FontWeight.Medium,
                 color = if (lido && !atual) Color(0xFF6F675B) else p.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(info, fontSize = 12.sp, color = if (atual) p.destaque else if (info.startsWith("rascunho")) p.destaque2 else Color(0xFF6F675B),
-                modifier = Modifier.padding(top = 2.dp))
+            Text(info + c.tags.split(',').filter { it.isNotBlank() }.joinToString("") { "  #${it.trim()}" },
+                fontSize = 12.sp, color = if (atual) p.destaque else if (info.startsWith("rascunho")) p.destaque2 else Color(0xFF6F675B),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
         }
         acoes()
     }

@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -50,6 +52,10 @@ private sealed interface Dialogo {
     data class RenomearVol(val v: Volume) : Dialogo
     data class ExcluirVol(val v: Volume) : Dialogo
     data class MenuImagem(val tipo: String) : Dialogo
+    data class Etiquetas(val c: Capitulo) : Dialogo
+    data object Colecao : Dialogo
+    data object MoverVarios : Dialogo
+    data object ExcluirVarios : Dialogo
 }
 
 @Composable
@@ -95,6 +101,13 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
 
     val o = obra ?: run { Box(Modifier.fillMaxSize()); return }
     val estilo = "CLASSICO"
+    val selecionados = remember { mutableStateListOf<Long>() }
+    val emSelecao = selecionados.isNotEmpty()
+    var filtroTag by remember { mutableStateOf("") }
+    val todasTags = remember(capitulos) { capitulos.flatMap { it.tags.split(',').map { t -> t.trim() } }.filter { it.isNotEmpty() }.distinct().sorted() }
+    val visiveis = if (filtroTag.isEmpty()) capitulos else capitulos.filter { c -> c.tags.split(',').any { it.trim() == filtroTag } }
+    fun alternarSel(id: Long) { if (id in selecionados) selecionados.remove(id) else selecionados.add(id) }
+    androidx.activity.compose.BackHandler(enabled = emSelecao) { selecionados.clear() }
     val numeros = remember(capitulos) {
         var n = 0
         capitulos.associate { c -> c.id to (if (com.huryel.novely.data.Texto.tipoEspecial(c.titulo) == null) ++n else 0) }
@@ -102,7 +115,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
 
     Box(Modifier.fillMaxSize()) {
         val listaEstado = androidx.compose.foundation.lazy.rememberLazyListState()
-        LazyColumn(Modifier.fillMaxSize(), state = listaEstado, contentPadding = PaddingValues(bottom = 40.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listaEstado, contentPadding = PaddingValues(bottom = if (emSelecao) 110.dp else 40.dp)) {
             item {
                 val alvo = capitulos.firstOrNull { it.id == o.ultimoCapituloId } ?: capitulos.firstOrNull { it.progresso < 0.98f } ?: capitulos.firstOrNull()
                 CabecalhoObra(
@@ -117,16 +130,22 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                 )
             }
 
-            val semVolume = capitulos.filter { c -> c.volumeId == null || volumes.none { it.id == c.volumeId } }
+            if (todasTags.isNotEmpty()) item(key = "tags") {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("Todos", filtroTag.isEmpty()) { filtroTag = "" }
+                    todasTags.forEach { t -> Chip("#$t", filtroTag == t) { filtroTag = if (filtroTag == t) "" else t } }
+                }
+            }
+            val semVolume = visiveis.filter { c -> c.volumeId == null || volumes.none { it.id == c.volumeId } }
             if (semVolume.isNotEmpty() && volumes.isNotEmpty()) item { CabecalhoVolume("Sem volume", null, {}, {}) }
-            items(semVolume, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo, estilo, numeros[c.id] ?: 0) }
+            items(semVolume, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo, estilo, numeros[c.id] ?: 0, c.id in selecionados, emSelecao) { alternarSel(c.id) } }
             volumes.forEach { v ->
                 item(key = "v${v.id}") { CabecalhoVolume(v.titulo, v, { dialogo = Dialogo.RenomearVol(v) }, { dialogo = Dialogo.ExcluirVol(v) }) }
-                val dele = capitulos.filter { it.volumeId == v.id }
+                val dele = visiveis.filter { it.volumeId == v.id }
                 if (dele.isEmpty()) item(key = "vazio${v.id}") {
                     Text("Nenhum capítulo aqui. Use ⋮ › Mover para volume.", color = p.textoSuave, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 }
-                items(dele, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo, estilo, numeros[c.id] ?: 0) }
+                items(dele, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo, estilo, numeros[c.id] ?: 0, c.id in selecionados, emSelecao) { alternarSel(c.id) } }
             }
             if (capitulos.isEmpty()) item {
                 Text("Nenhum capítulo ainda. Toque em “+ Capítulo” para começar.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
@@ -137,6 +156,11 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
             DropdownMenu(expanded = menuObra, onDismissRequest = { menuObra = false }) {
                 DropdownMenuItem(text = { Text("Editar título e descrição") }, onClick = { menuObra = false; dialogo = Dialogo.EditarInfo })
                 DropdownMenuItem(text = { Text("Personagens e lugares") }, onClick = { menuObra = false; nav.navigate("fichas/$obraId") })
+                DropdownMenuItem(text = { Text("Linha do tempo") }, onClick = { menuObra = false; nav.navigate("tempo/$obraId") })
+                DropdownMenuItem(text = { Text("Marcadores e grifos") }, onClick = { menuObra = false; nav.navigate("marcadores/$obraId") })
+                DropdownMenuItem(text = { Text("Reordenar capítulos") }, onClick = { menuObra = false; nav.navigate("reordenar/$obraId") })
+                DropdownMenuItem(text = { Text("Selecionar vários") }, onClick = { menuObra = false; capitulos.firstOrNull()?.let { selecionados.add(it.id) } })
+                DropdownMenuItem(text = { Text("Coleção" + if (o.colecao.isNotEmpty()) ": ${o.colecao}" else "…") }, onClick = { menuObra = false; dialogo = Dialogo.Colecao })
                 DropdownMenuItem(text = { Text("Importar capítulos (TXT/EPUB)") }, onClick = { menuObra = false; nav.navigate("importar/$obraId") })
                 DropdownMenuItem(text = { Text("Trocar capa") }, onClick = { menuObra = false; escolherImagem("capa") })
                 DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuObra = false; escolherImagem("banner") })
@@ -154,6 +178,22 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                 DropdownMenuItem(text = { Text("Backup só desta obra") }, onClick = { menuObra = false; exportarNovely.launch(nomeSeguro(o) + ".novely") })
                 HorizontalDivider()
                 DropdownMenuItem(text = { Text("Excluir obra", color = Color(0xFFE57373)) }, onClick = { menuObra = false; dialogo = Dialogo.ExcluirObra })
+            }
+        }
+        if (emSelecao) Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(p.superficie).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${selecionados.size} selecionado(s)", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                TextButton(onClick = { selecionados.clear(); selecionados.addAll(visiveis.map { it.id }) }) { Text("Todos") }
+                TextButton(onClick = { selecionados.clear() }) { Text("Cancelar") }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val ids = selecionados.toList()
+                OutlinedButton(onClick = { escopo.launch { repo.marcarLidos(ids, true); selecionados.clear() } }) { Text("✓ Lidos") }
+                OutlinedButton(onClick = { escopo.launch { repo.marcarLidos(ids, false); selecionados.clear() } }) { Text("Não lidos") }
+                OutlinedButton(onClick = { dialogo = Dialogo.MoverVarios }) { Text("Mover p/ volume") }
+                OutlinedButton(onClick = { dialogo = Dialogo.ExcluirVarios }) { Text("Excluir", color = Color(0xFFE57373)) }
             }
         }
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter))
@@ -203,6 +243,49 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
         }
         is Dialogo.ExcluirVol -> DialogoConfirmar("Excluir “${d.v.titulo}”?", "Os capítulos NÃO serão apagados: eles vão para “Sem volume”.", "Excluir volume", { dialogo = null }) {
             dialogo = null; escopo.launch { repo.excluirVolume(d.v) }
+        }
+        is Dialogo.Etiquetas -> DialogoTexto("Etiquetas do capítulo", "Separe por vírgula (ex.: luta, revelação)", d.c.tags, aoFechar = { dialogo = null }) { t ->
+            dialogo = null
+            val limpo = t.split(',').map { it.trim().lowercase().removePrefix("#") }.filter { it.isNotEmpty() }.distinct().joinToString(",")
+            escopo.launch { repo.salvarCapitulo(d.c.copy(tags = limpo)) }
+        }
+        Dialogo.Colecao -> {
+            val existentes by remember { repo.colecoes() }.collectAsState(initial = emptyList())
+            var nova by remember { mutableStateOf(o.colecao) }
+            AlertDialog(
+                onDismissRequest = { dialogo = null },
+                title = { Text("Coleção") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Agrupe obras na Biblioteca (ex.: Cultivo, Isekai, Minhas).", fontSize = 13.sp, color = p.textoSuave)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            existentes.forEach { c -> Chip(c, nova == c) { nova = c } }
+                        }
+                        OutlinedTextField(nova, { nova = it }, label = { Text("Nome da coleção") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                },
+                confirmButton = { TextButton(onClick = { dialogo = null; escopo.launch { repo.salvarObra(o.copy(colecao = nova.trim())) } }) { Text("Salvar") } },
+                dismissButton = { TextButton(onClick = { dialogo = null; escopo.launch { repo.salvarObra(o.copy(colecao = "")) } }) { Text("Sem coleção") } },
+            )
+        }
+        Dialogo.MoverVarios -> AlertDialog(
+            onDismissRequest = { dialogo = null },
+            title = { Text("Mover ${selecionados.size} para…") },
+            text = {
+                Column {
+                    (listOf<Volume?>(null) + volumes).forEach { v ->
+                        Text(v?.titulo ?: "Sem volume", fontSize = 16.sp, modifier = Modifier.fillMaxWidth().clickable {
+                            val ids = selecionados.toList(); dialogo = null; selecionados.clear()
+                            escopo.launch { repo.moverParaVolume(ids, v?.id) }
+                        }.padding(vertical = 14.dp))
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { dialogo = null }) { Text("Fechar") } },
+        )
+        Dialogo.ExcluirVarios -> DialogoConfirmar("Excluir ${selecionados.size} capítulo(s)?", "Eles vão para a Lixeira por 30 dias.", "Excluir", { dialogo = null }) {
+            val ids = selecionados.toList(); dialogo = null; selecionados.clear()
+            escopo.launch { ids.forEach { id -> repo.dao.capituloAgora(id)?.let { repo.excluirCapitulo(it) } } }
         }
         is Dialogo.MenuImagem -> {
             val nome = if (d.tipo == "banner") "banner" else "capa"
@@ -286,13 +369,16 @@ private fun CabecalhoVolume(titulo: String, v: Volume?, aoRenomear: () -> Unit, 
 }
 
 @Composable
-private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (Dialogo) -> Unit, escopo: kotlinx.coroutines.CoroutineScope, estilo: String, numero: Int) {
+private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (Dialogo) -> Unit, escopo: kotlinx.coroutines.CoroutineScope, estilo: String, numero: Int,
+                          selecionado: Boolean, emSelecao: Boolean, alternar: () -> Unit) {
     val repo = NovelyApp.instancia.repo
     val p = LocalPaleta.current
     var menu by remember { mutableStateOf(false) }
     val atual = c.id == o.ultimoCapituloId
     val lido = c.progresso >= 0.98f
-    LinhaCapEstilo(estilo, c, o, atual, lido, numero, abrir = { nav.navigate("leitor/${c.id}") }) {
+    LinhaCapEstilo(estilo, c, o, atual, lido, numero, abrir = { if (emSelecao) alternar() else nav.navigate("leitor/${c.id}") },
+        selecionado = selecionado, emSelecao = emSelecao, segurar = alternar) {
+        if (emSelecao) return@LinhaCapEstilo
         IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar texto", tint = p.textoSuave) }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Opções do capítulo", tint = p.textoSuave) }
@@ -305,6 +391,7 @@ private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (
                 DropdownMenuItem(text = { Text("Subir") }, onClick = { menu = false; escopo.launch { repo.moverCapitulo(c, -1) } })
                 DropdownMenuItem(text = { Text("Descer") }, onClick = { menu = false; escopo.launch { repo.moverCapitulo(c, 1) } })
                 DropdownMenuItem(text = { Text("Mover para volume") }, onClick = { menu = false; abrir(Dialogo.MoverCap(c)) })
+                DropdownMenuItem(text = { Text("Etiquetas" + if (c.tags.isNotEmpty()) " (${c.tags.split(',').size})" else "") }, onClick = { menu = false; abrir(Dialogo.Etiquetas(c)) })
                 HorizontalDivider()
                 DropdownMenuItem(text = { Text("Excluir", color = Color(0xFFE57373)) }, onClick = { menu = false; abrir(Dialogo.ExcluirCap(c)) })
             }
