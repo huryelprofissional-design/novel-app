@@ -64,9 +64,20 @@ import com.huryel.novely.data.Texto
 import com.huryel.novely.ui.theme.LocalPaleta
 import com.huryel.novely.ui.theme.Paleta
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.boundsInRoot
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.draw.shadow
@@ -113,6 +124,16 @@ fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
 }
 
 /** Texto do capítulo → blocos (um por parágrafo; parágrafos gigantes viram vários blocos). Fora da thread principal. */
+/** Modo livro: cada página é uma lista de pedaços de blocos (parágrafos cortados por linha). */
+private sealed interface ItemPag {
+    data object Cabecalho : ItemPag
+    data class Trecho(val bi: Int, val ini: Int, val fim: Int, val altura: Int) : ItemPag
+    data object Fim : ItemPag
+}
+private class Pagina(val itens: List<ItemPag>) {
+    val primeiroBloco: Int get() = itens.firstNotNullOfOrNull { (it as? ItemPag.Trecho)?.bi } ?: -1
+}
+
 fun montarBlocos(texto: String): List<Bloco> {
     val saida = ArrayList<Bloco>(texto.length / 300 + 4)
     var anteriorVazia = true
@@ -275,15 +296,32 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     fun irPara(outro: Capitulo) = nav.navigate("leitor/${outro.id}") { popUpTo(ROTA_LEITOR) { inclusive = true } }
 
     val estado = rememberLazyListState(c.posicaoBloco.coerceIn(0, b.size + 1), c.posicaoDeslocamento)
+    // modo livro
+    var paginas by remember { mutableStateOf<List<Pagina>?>(null) }
+    val paginador = rememberPagerState { paginas?.size ?: 1 }
+    val emPaginas = modoPaginas && paginas != null
+    fun paginaDoBloco(bi: Int): Int = paginas?.indexOfFirst { pg -> pg.itens.any { it is ItemPag.Trecho && it.bi == bi } }?.takeIf { it >= 0 } ?: 0
+    suspend fun irParaBloco(bi: Int, animar: Boolean = true) {
+        if (modoPaginas && paginas != null) { val pg = paginaDoBloco(bi); if (pg != paginador.currentPage) { if (animar) paginador.animateScrollToPage(pg) else paginador.scrollToPage(pg) } }
+        else if (animar) estado.animateScrollToItem((bi + 1).coerceAtMost(b.size + 1)) else estado.scrollToItem((bi + 1).coerceAtMost(b.size + 1))
+    }
+    fun blocoAtual(): Int = if (modoPaginas && paginas != null) {
+        val pgs = paginas!!; (paginador.currentPage downTo 0).firstNotNullOfOrNull { pgs.getOrNull(it)?.primeiroBloco?.takeIf { x -> x >= 0 } } ?: 0
+    } else (estado.firstVisibleItemIndex - 1).coerceAtLeast(0)
     val progresso by remember {
         derivedStateOf {
-            val total = b.size + 2
-            val ultimo = estado.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            if (ultimo >= total - 1) 1f else ((estado.firstVisibleItemIndex + 1).toFloat() / total).coerceIn(0f, 1f)
+            val pgs = paginas
+            if (modoPaginas && pgs != null) {
+                if (paginador.currentPage >= pgs.size - 1) 1f else ((paginador.currentPage + 1).toFloat() / pgs.size).coerceIn(0f, 1f)
+            } else {
+                val total = b.size + 2
+                val ultimo = estado.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                if (ultimo >= total - 1) 1f else ((estado.firstVisibleItemIndex + 1).toFloat() / total).coerceIn(0f, 1f)
+            }
         }
     }
     val jaLido = c.progresso >= 0.98f
-    LaunchedEffect(blocoInicial) { if (blocoInicial >= 0) estado.scrollToItem((blocoInicial + 1).coerceAtMost(b.size + 1)) }
+    LaunchedEffect(blocoInicial) { if (blocoInicial >= 0 && !modoPaginas) estado.scrollToItem((blocoInicial + 1).coerceAtMost(b.size + 1)) }
 
     // ── Marcadores, fichas, folha do parágrafo ──
     val marcas by remember(c.id) { repo.marcadoresCap(c.id) }.collectAsState(initial = emptyList())
@@ -298,6 +336,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     LaunchedEffect(rolando, velRolagem) {
         while (rolando) {
             withFrameNanos { }
+            if (modoPaginas) { rolando = false; break }
             estado.scrollBy(velRolagem * 1.4f)
             if (!estado.canScrollForward) rolando = false
         }
@@ -322,13 +361,15 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         onDispose { donoCiclo.lifecycle.removeObserver(obs); registrarSessao() }
     }
     LaunchedEffect(estado) {
-        snapshotFlow { estado.firstVisibleItemIndex to estado.firstVisibleItemScrollOffset }
+        snapshotFlow { if (modoPaginas) (if (paginas != null) blocoAtual() + 1 to -1 else -1 to -1) else estado.firstVisibleItemIndex to estado.firstVisibleItemScrollOffset }
             .debounce(700)
-            .collect { (i, d) -> repo.salvarPosicao(c, if (jaLido) 1f else progresso, i, d) }
+            .collect { (i, d) -> if (i >= 0) repo.salvarPosicao(c, if (jaLido) 1f else progresso, i, d.coerceAtLeast(0)) }
     }
     DisposableEffect(Unit) {
         onDispose {
-            val i = estado.firstVisibleItemIndex; val d = estado.firstVisibleItemScrollOffset; val pr = progresso
+            val emLivro = modoPaginas && paginas != null
+            val i = if (emLivro) blocoAtual() + 1 else estado.firstVisibleItemIndex
+            val d = if (emLivro) 0 else estado.firstVisibleItemScrollOffset; val pr = progresso
             app.escopo.launch { repo.salvarPosicao(c, if (jaLido) 1f else pr, i, d) }
         }
     }
@@ -349,13 +390,15 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     LaunchedEffect(falando, tocando) {
         if (tocando && falando >= 0) {
             voz.falar(b[falando].plano, falando.toString(), velocidade)
-            val vis = estado.layoutInfo.visibleItemsInfo
-            val item = falando + 1
-            if (vis.none { it.index == item } || vis.lastOrNull()?.index == item) estado.animateScrollToItem(item)
+            if (modoPaginas) irParaBloco(falando) else {
+                val vis = estado.layoutInfo.visibleItemsInfo
+                val item = falando + 1
+                if (vis.none { it.index == item } || vis.lastOrNull()?.index == item) estado.animateScrollToItem(item)
+            }
         }
     }
     fun tocar() {
-        if (falando < 0) falando = falaveis.firstOrNull { it >= (estado.firstVisibleItemIndex - 1).coerceAtLeast(0) } ?: return
+        if (falando < 0) falando = falaveis.firstOrNull { it >= blocoAtual() } ?: return
         tocando = true
     }
     fun pausar() { tocando = false; voz.parar() }
@@ -382,7 +425,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     }
     var achadoAtual by remember { mutableStateOf(ocorrenciaInicial) }
     LaunchedEffect(achados, achadoAtual) {
-        achados.getOrNull(achadoAtual)?.let { (bi, _) -> estado.animateScrollToItem(bi + 1) }
+        achados.getOrNull(achadoAtual)?.let { (bi, _) -> irParaBloco(bi) }
     }
 
     // ── Nomes de personagens/lugares destacados (toque abre a ficha) ──
@@ -424,10 +467,115 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     val corNarracao = if (destacarFalas) p.texto.copy(alpha = 0.86f) else p.texto
     val q = Texto.normalizar(consulta.trim())
 
+    // texto decorado (nomes + capitular): o mesmo que é medido e desenhado
+    fun decorado(i: Int): AnnotatedString {
+        val bl = b[i] as? Bloco.Paragrafo ?: return AnnotatedString(b[i].plano)
+        val t = comNomes(bl.texto)
+        return if (i == primeiroParagrafo) capitular(t, p, tamanho) else t
+    }
+    val medidor = rememberTextMeasurer(cacheSize = 0)
+    val densidade = androidx.compose.ui.platform.LocalDensity.current
+    var areaLivro by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    val estiloLivro = estiloBase.copy(lineBreak = LineBreak.Simple)
+    val estiloTituloLivro = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp, lineHeight = 29.sp)
+    LaunchedEffect(modoPaginas, b, areaLivro, tamanho, entrelinhas, margem, fonte, destacarFalas, destacarNomes, regraNomes) {
+        if (!modoPaginas) { paginas?.let { pgs -> val bi = blocoAtual(); paginas = null; estado.scrollToItem((bi + 1).coerceAtMost(b.size + 1)) }; return@LaunchedEffect }
+        if (areaLivro.width == 0) return@LaunchedEffect
+        // de onde continuar: posição atual da lista/página, ou a salva ao abrir
+        val ancora = when {
+            paginas != null -> blocoAtual()
+            blocoInicial >= 0 -> blocoInicial
+            else -> (estado.firstVisibleItemIndex - 1).coerceAtLeast(-1)
+        }
+        val novas = withContext(Dispatchers.Default) {
+            paginar(b, ::decorado, medidor, densidade, areaLivro, margem, tamanho, estiloLivro,
+                estiloTituloLivro, destacarFalas, primeiroParagrafo)
+        }
+        paginas = novas
+        val alvo = if (ancora < 0) 0 else novas.indexOfFirst { pg -> pg.itens.any { it is ItemPag.Trecho && it.bi == ancora } }.coerceAtLeast(0)
+        paginador.scrollToPage(alvo.coerceIn(0, novas.size - 1))
+    }
+    var origemLivro by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val limitesTrechos = remember { HashMap<Pair<Int, Int>, androidx.compose.ui.geometry.Rect>() }
+
     Box(Modifier.fillMaxSize().background(p.fundo)) {
-        LazyColumn(
+        if (modoPaginas) Box(
+            Modifier.fillMaxSize()
+                .onGloballyPositioned { areaLivro = it.size; origemLivro = it.positionInRoot() }
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = { pos ->
+                            val raiz = pos + origemLivro
+                            val bi = limitesTrechos.entries.firstOrNull { it.key.first == paginador.currentPage && it.value.contains(raiz) }?.key?.second ?: -1
+                            if (bi in b.indices && b[bi] !is Bloco.Separador) blocoSel = bi
+                        },
+                        onTap = { pos ->
+                            val w = size.width
+                            val n = paginas?.size ?: 1
+                            when {
+                                pos.x < w * 0.25f -> escopo.launch { if (paginador.currentPage > 0) paginador.animateScrollToPage(paginador.currentPage - 1) }
+                                pos.x > w * 0.75f -> escopo.launch { if (paginador.currentPage < n - 1) paginador.animateScrollToPage(paginador.currentPage + 1) }
+                                else -> controles = !controles
+                            }
+                        },
+                    )
+                },
+        ) {
+            val pgs = paginas
+            if (pgs == null) Text("◆", color = p.destaque, fontSize = 26.sp, modifier = Modifier.align(Alignment.Center))
+            else HorizontalPager(paginador, Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it }) { pg ->
+                val pagina = pgs[pg]
+                Box(Modifier.fillMaxSize().graphicsLayer {
+                    // efeito de folha: a página de baixo aparece levemente menor e mais escura
+                    val off = ((paginador.currentPage - pg) + paginador.currentPageOffsetFraction).coerceIn(-1f, 1f)
+                    val a = kotlin.math.abs(off)
+                    scaleX = 1f - a * 0.06f; scaleY = 1f - a * 0.06f; alpha = 1f - a * 0.35f
+                }.background(p.fundo)) {
+                    if (pagina.itens.firstOrNull() == ItemPag.Fim) {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = margem.dp, vertical = 20.dp)) {
+                            FimCapitulo(b.isEmpty(), proximo, obra, idx + 1, lista.size, lista.count { it.progresso >= 0.98f || it.id == c.id }, ::irPara,
+                                voltarObra = { nav.popBackStack() },
+                                concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } })
+                        }
+                    } else Column(
+                        Modifier.fillMaxSize().padding(start = margem.dp, end = margem.dp, top = TOPO_LIVRO.dp, bottom = BASE_LIVRO.dp),
+                        verticalArrangement = Arrangement.spacedBy((tamanho * 0.85f).dp),
+                    ) {
+                        pagina.itens.forEach { item ->
+                            when (item) {
+                                ItemPag.Cabecalho -> CabecalhoPagina(c, obra, lista.take(idx + 1).count { Texto.tipoEspecial(it.titulo) == null }, p) { mostrarSobre = true }
+                                is ItemPag.Trecho -> {
+                                    val bl = b[item.bi]
+                                    val alturaDp = with(densidade) { item.altura.toDp() }
+                                    val mk = marcasPorBloco[item.bi]
+                                    val fundo = Modifier.onGloballyPositioned { limitesTrechos[pg to item.bi] = it.boundsInRoot() }
+                                        .then(if (item.bi == falando) Modifier.clip(forma(10.dp)).background(p.destaque.copy(alpha = 0.14f)) else Modifier)
+                                        .then(if (mk != null && mk.cor.isNotEmpty()) Modifier.clip(forma(6.dp)).background((coresGrifo[mk.cor] ?: p.destaque).copy(alpha = 0.22f)) else Modifier)
+                                    when (bl) {
+                                        is Bloco.Titulo -> Box(Modifier.height(alturaDp).then(fundo)) { TituloNoTexto(bl.plano, p, Modifier) }
+                                        is Bloco.Separador -> Box(Modifier.fillMaxWidth().height(alturaDp), contentAlignment = Alignment.Center) { Text("◆", color = p.destaque, fontSize = 11.sp) }
+                                        is Bloco.Paragrafo -> {
+                                            val inteiro = remember(item.bi, regraNomes, destacarNomes, tamanho) { decorado(item.bi) }
+                                            val comBusca = if (q.length >= 2) destacarBusca(inteiro, normalizados.value[item.bi], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == item.bi }?.second) else inteiro
+                                            val trecho = comBusca.subSequence(item.ini.coerceAtMost(comBusca.length), item.fim.coerceAtMost(comBusca.length))
+                                            if (bl.fala && destacarFalas) Fala(trecho, estiloLivro, p, fundo)
+                                            else Text(trecho, style = estiloLivro.copy(color = corNarracao),
+                                                modifier = fundo.then(if (item.bi == primeiroParagrafo && item.ini == 0) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
+                                        }
+                                    }
+                                }
+                                ItemPag.Fim -> {}
+                            }
+                        }
+                    }
+                    Text("${pg + 1} / ${pgs.size}", fontSize = 11.sp, color = p.textoSuave.copy(alpha = 0.7f),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+                }
+            }
+        }
+        else LazyColumn(
             state = estado,
-            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = alfaEntrada; translationY = (1f - alfaEntrada) * 40f }.pointerInput(modoPaginas) {
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = alfaEntrada; translationY = (1f - alfaEntrada) * 40f }.pointerInput(Unit) {
                 detectTapGestures(
                     onLongPress = { pos ->
                         val item = estado.layoutInfo.visibleItemsInfo.firstOrNull { pos.y >= it.offset && pos.y < it.offset + it.size }
@@ -437,8 +585,6 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                     onTap = { pos ->
                         val w = size.width
                         if (rolando) rolando = false
-                        else if (modoPaginas && pos.x < w * 0.28f) escopo.launch { estado.animateScrollBy(-size.height * 0.88f) }
-                        else if (modoPaginas && pos.x > w * 0.72f) escopo.launch { estado.animateScrollBy(size.height * 0.88f) }
                         else controles = !controles
                     },
                 )
@@ -515,7 +661,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("↺  Continuando de onde parou · ${(c.progresso * 100).toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = { avisoRetomar = false; escopo.launch { estado.animateScrollToItem(0) } }) { Text("Do início", color = p.destaque, fontSize = 13.sp) }
+                TextButton(onClick = { avisoRetomar = false; escopo.launch { if (modoPaginas) paginador.animateScrollToPage(0) else estado.animateScrollToItem(0) } }) { Text("Do início", color = p.destaque, fontSize = 13.sp) }
             }
         }
 
@@ -541,7 +687,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                         BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, { Icon(Icons.Filled.PlayArrow, null) }) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
                         BotaoBarra("Buscar", painel == Painel.BUSCA, { Icon(Icons.Filled.Search, null) }) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
                         BotaoBarra("Capítulos", false, { Icon(Icons.AutoMirrored.Filled.List, null) }) { mostrarCapitulos = true }
-                        BotaoBarra("Rolar", rolando, { Text("⇣", fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
+                        if (!modoPaginas) BotaoBarra("Rolar", rolando, { Text("⇣", fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
                         BotaoBarra("Leitura", false, { Text("Aa", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { mostrarAjustes = true }
                     }
                 }
@@ -967,9 +1113,9 @@ fun AjustesLeitura() {
         LinhaSlider("Margens", "${margem.toInt()}", margem, 8f..48f, cores) { prefs.margem.definir(it) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Rolagem contínua", !paginas) { prefs.modoPaginas.definir(false) }
-            Chip("Páginas por toque", paginas) { prefs.modoPaginas.definir(true) }
+            Chip("Páginas (livro)", paginas) { prefs.modoPaginas.definir(true) }
         }
-        if (paginas) Text("Toque na borda direita para avançar e na esquerda para voltar.", fontSize = 12.sp, color = p.textoSuave)
+        if (paginas) Text("Vire a página deslizando para o lado ou tocando nas bordas. Toque no meio para mostrar os botões.", fontSize = 12.sp, color = p.textoSuave)
         LinhaInterruptor("Destacar falas de personagens", falas) { prefs.destacarFalas.definir(it) }
         val nomes by prefs.destacarNomes.estado.collectAsState()
         LinhaInterruptor("Destacar nomes das fichas (toque abre)", nomes) { prefs.destacarNomes.definir(it) }
@@ -1002,5 +1148,94 @@ fun LinhaInterruptor(rotulo: String, valor: Boolean, mudar: (Boolean) -> Unit) {
         Text(rotulo, modifier = Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = p.texto)
         Switch(valor, mudar, colors = SwitchDefaults.colors(checkedThumbColor = p.sobreDestaque, checkedTrackColor = p.destaque,
             uncheckedThumbColor = p.textoSuave, uncheckedTrackColor = p.superficie, uncheckedBorderColor = p.borda))
+    }
+}
+
+
+// ───────── Modo livro: paginação ─────────
+
+private const val TOPO_LIVRO = 26
+private const val BASE_LIVRO = 34
+private const val CAB_LIVRO = 196
+
+/**
+ * Corta o capítulo em páginas que cabem exatamente na tela: mede cada parágrafo com a mesma fonte,
+ * largura e entrelinhas do desenho e divide parágrafos longos no fim de uma linha.
+ */
+private fun paginar(
+    b: List<Bloco>, decorado: (Int) -> AnnotatedString, medidor: TextMeasurer, d: androidx.compose.ui.unit.Density,
+    area: androidx.compose.ui.unit.IntSize, margem: Float, tamanho: Float, estilo: TextStyle, estiloTitulo: TextStyle,
+    falas: Boolean, primeiro: Int,
+): List<Pagina> = with(d) {
+    val largura = (area.width - 2 * margem.dp.toPx()).toInt().coerceAtLeast(100)
+    val altura = (area.height - (TOPO_LIVRO + BASE_LIVRO + 6).dp.toPx()).toInt().coerceAtLeast(200)
+    val esp = (tamanho * 0.85f).dp.roundToPx()
+    val paginas = ArrayList<Pagina>()
+    var atual = ArrayList<ItemPag>()
+    var y = 0
+    fun fechar() { if (atual.isNotEmpty()) paginas.add(Pagina(atual)); atual = ArrayList(); y = 0 }
+    fun antes() = if (atual.isEmpty()) 0 else esp
+    fun colocar(item: ItemPag, h: Int) { y += antes() + h; atual.add(item) }
+    fun inteiro(item: ItemPag, h: Int) { if (y + antes() + h > altura && atual.isNotEmpty()) fechar(); colocar(item, h) }
+
+    colocar(ItemPag.Cabecalho, CAB_LIVRO.dp.roundToPx())
+    b.forEachIndexed { i, bl ->
+        when (bl) {
+            is Bloco.Titulo -> {
+                val especial = Texto.tipoEspecial(bl.plano) != null
+                val lay = medidor.measure(bl.plano, estiloTitulo, constraints = Constraints(maxWidth = largura))
+                inteiro(ItemPag.Trecho(i, 0, 0, lay.size.height + (if (especial) 110 else 44).dp.roundToPx()), lay.size.height + (if (especial) 110 else 44).dp.roundToPx())
+            }
+            is Bloco.Separador -> inteiro(ItemPag.Trecho(i, 0, 0, 40.dp.roundToPx()), 40.dp.roundToPx())
+            is Bloco.Paragrafo -> {
+                val fala = bl.fala && falas
+                val w = if (fala) largura - 26.dp.roundToPx() else largura
+                val st = if (fala) estilo.copy(fontWeight = FontWeight.Medium) else estilo
+                val lay = medidor.measure(decorado(i), st, constraints = Constraints(maxWidth = w.coerceAtLeast(60)))
+                var l0 = 0
+                while (l0 < lay.lineCount) {
+                    val extra = (if (fala) 12.dp.roundToPx() else 0) + (if (i == primeiro && l0 == 0) (tamanho * 0.5f).dp.roundToPx() else 0)
+                    val livre = altura - y - antes() - extra
+                    val topo = lay.getLineTop(l0)
+                    var l = l0 - 1
+                    while (l + 1 < lay.lineCount && lay.getLineBottom(l + 1) - topo <= livre) l++
+                    if (l < l0) {
+                        if (atual.isNotEmpty()) { fechar(); continue }
+                        l = l0 // nem uma linha cabe (fonte enorme): coloca assim mesmo
+                    }
+                    val h = kotlin.math.ceil(lay.getLineBottom(l) - topo).toInt() + extra
+                    colocar(ItemPag.Trecho(i, lay.getLineStart(l0), lay.getLineEnd(l), h), h)
+                    l0 = l + 1
+                    if (l0 < lay.lineCount) fechar()
+                }
+            }
+        }
+    }
+    fechar()
+    paginas.add(Pagina(listOf(ItemPag.Fim)))
+    paginas
+}
+
+/** Abertura compacta do capítulo na primeira página do modo livro. */
+@Composable
+private fun CabecalhoPagina(c: Capitulo, obra: com.huryel.novely.data.Obra?, numero: Int, p: Paleta, abrirSobre: () -> Unit) {
+    val especial = Texto.tipoEspecial(c.titulo)
+    Column(Modifier.fillMaxWidth().height(CAB_LIVRO.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        if (obra != null) Text(obra.titulo.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, color = p.textoSuave,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable(onClick = abrirSobre).padding(4.dp))
+        Spacer(Modifier.height(18.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(28.dp).height(1.dp).background(p.destaque.copy(alpha = 0.6f)))
+            Text(if (especial != null) "  $especial  " else "  CAPÍTULO $numero  ", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp, color = p.destaque)
+            Box(Modifier.width(28.dp).height(1.dp).background(p.destaque.copy(alpha = 0.6f)))
+        }
+        Spacer(Modifier.height(10.dp))
+        val titulo = if (especial != null) c.titulo.substringAfter('—', c.titulo.substringAfter(':', "")).trim().ifEmpty { c.titulo } else c.titulo.ifEmpty { "Sem título" }
+        Text(titulo, style = MaterialTheme.typography.displaySmall.copy(fontSize = 27.sp, lineHeight = 32.sp, fontStyle = if (especial != null) FontStyle.Italic else FontStyle.Normal),
+            textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(12.dp))
+        Text("◷ ${(c.palavras / 230).coerceAtLeast(1)} min · ${formatarPalavras(c.palavras.toLong())} palavras", fontSize = 12.sp, color = p.textoSuave)
+        Spacer(Modifier.height(14.dp))
+        Text("◆   ◆   ◆", color = p.destaque.copy(alpha = 0.7f), fontSize = 10.sp)
     }
 }

@@ -15,7 +15,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -153,46 +155,16 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
             }
         }
 
-        Box(Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp)) {
-            DropdownMenu(expanded = menuObra, onDismissRequest = { menuObra = false }) {
-                val livre = !o.trancada
-                if (o.minha && livre) DropdownMenuItem(text = { Text("✦ Publicar para leitores", color = p.destaque, fontWeight = FontWeight.Bold) }, onClick = { menuObra = false; dialogo = Dialogo.Publicar })
-                if (livre) DropdownMenuItem(text = { Text("Editar título e descrição") }, onClick = { menuObra = false; dialogo = Dialogo.EditarInfo })
-                DropdownMenuItem(text = { Text("Personagens e lugares") }, onClick = { menuObra = false; nav.navigate("fichas/$obraId") })
-                DropdownMenuItem(text = { Text("Linha do tempo") }, onClick = { menuObra = false; nav.navigate("tempo/$obraId") })
-                DropdownMenuItem(text = { Text("Marcadores e grifos") }, onClick = { menuObra = false; nav.navigate("marcadores/$obraId") })
-                if (livre) DropdownMenuItem(text = { Text("Reordenar capítulos") }, onClick = { menuObra = false; nav.navigate("reordenar/$obraId") })
-                DropdownMenuItem(text = { Text("Selecionar vários") }, onClick = { menuObra = false; capitulos.firstOrNull()?.let { selecionados.add(it.id) } })
-                DropdownMenuItem(text = { Text("Coleção" + if (o.colecao.isNotEmpty()) ": ${o.colecao}" else "…") }, onClick = { menuObra = false; dialogo = Dialogo.Colecao })
-                if (livre) {
-                    DropdownMenuItem(text = { Text("Importar capítulos (TXT/EPUB)") }, onClick = { menuObra = false; nav.navigate("importar/$obraId") })
-                    DropdownMenuItem(text = { Text("Trocar capa") }, onClick = { menuObra = false; escolherImagem("capa") })
-                    DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuObra = false; escolherImagem("banner") })
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text("Sou o autor (permitir editar)") },
-                        leadingIcon = { if (o.minha) Icon(Icons.Filled.Check, null) },
-                        onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(minha = !o.minha)) } },
-                    )
-                }
-                HorizontalDivider()
-                (if (livre) listOf(StatusObra.ESCREVENDO, StatusObra.LENDO, StatusObra.CONCLUIDA) else listOf(StatusObra.LENDO, StatusObra.CONCLUIDA)).forEach { s ->
-                    DropdownMenuItem(
-                        text = { Text("Marcar como ${nomeStatus(s).lowercase()}") },
-                        leadingIcon = { if (o.status == s) Icon(Icons.Filled.Check, null) },
-                        onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(status = s, minha = if (s == StatusObra.ESCREVENDO) true else o.minha)) } },
-                    )
-                }
-                HorizontalDivider()
-                if (livre) {
-                    DropdownMenuItem(text = { Text("Exportar EPUB") }, onClick = { menuObra = false; exportarEpub.launch(nomeSeguro(o) + ".epub") })
-                    DropdownMenuItem(text = { Text("Exportar TXT / Markdown") }, onClick = { menuObra = false; exportarTxt.launch(nomeSeguro(o) + ".md") })
-                }
-                DropdownMenuItem(text = { Text("Backup só desta obra") }, onClick = { menuObra = false; exportarNovely.launch(nomeSeguro(o) + ".novely") })
-                HorizontalDivider()
-                DropdownMenuItem(text = { Text(if (livre) "Excluir obra" else "Remover da biblioteca", color = Color(0xFFE57373)) }, onClick = { menuObra = false; dialogo = Dialogo.ExcluirObra })
-            }
-        }
+        if (menuObra) PainelOpcoesObra(
+            o, fechar = { menuObra = false },
+            abrirDialogo = { dialogo = it }, navegar = { nav.navigate(it) },
+            selecionar = { capitulos.firstOrNull()?.let { selecionados.add(it.id) } },
+            trocarImagem = { escolherImagem(it) },
+            salvar = { escopo.launch { repo.salvarObra(it) } },
+            exportarEpub = { exportarEpub.launch(nomeSeguro(o) + ".epub") },
+            exportarTxt = { exportarTxt.launch(nomeSeguro(o) + ".md") },
+            exportarNovely = { exportarNovely.launch(nomeSeguro(o) + ".novely") },
+        )
         if (emSelecao) Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(p.superficie).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
@@ -437,4 +409,104 @@ private fun DialogoInfo(o: Obra, aoFechar: () -> Unit, aoSalvar: (String, String
         confirmButton = { TextButton(onClick = { aoSalvar(titulo, desc) }) { Text("Salvar") } },
         dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
+}
+
+
+// ───────── Painel de opções da obra (no lugar do menu comprido) ─────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PainelOpcoesObra(
+    o: Obra, fechar: () -> Unit, abrirDialogo: (Dialogo) -> Unit, navegar: (String) -> Unit, selecionar: () -> Unit,
+    trocarImagem: (String) -> Unit, salvar: (Obra) -> Unit, exportarEpub: () -> Unit, exportarTxt: () -> Unit, exportarNovely: () -> Unit,
+) {
+    val p = LocalPaleta.current
+    val livre = !o.trancada
+    fun e(acao: () -> Unit): () -> Unit = { fechar(); acao() }
+    ModalBottomSheet(onDismissRequest = fechar, containerColor = p.superficie) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Text(o.titulo, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (o.minha && livre) Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.destaque).clickable(onClick = e { abrirDialogo(Dialogo.Publicar) }).padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Share, null, tint = p.sobreDestaque)
+                Column(Modifier.padding(start = 14.dp)) {
+                    Text("Publicar para leitores", fontWeight = FontWeight.ExtraBold, color = p.sobreDestaque)
+                    Text("Mande para outras pessoas lerem sem editar", fontSize = 12.sp, color = p.sobreDestaque.copy(alpha = 0.75f))
+                }
+            }
+            GradeOpcoes(listOfNotNull(
+                Triple(Icons.Filled.Person, "Personagens", e { navegar("fichas/${o.id}") }),
+                Triple(Icons.Filled.DateRange, "Linha do tempo", e { navegar("tempo/${o.id}") }),
+                Triple(Icons.Filled.Star, "Grifos", e { navegar("marcadores/${o.id}") }),
+                Triple(Icons.Filled.Favorite, "Coleção", e { abrirDialogo(Dialogo.Colecao) }),
+            ))
+            SecaoOpcoes("Organizar") {
+                GradeOpcoes(listOfNotNull(
+                    if (livre) Triple(Icons.AutoMirrored.Filled.List, "Reordenar", e { navegar("reordenar/${o.id}") }) else null,
+                    Triple(Icons.Filled.Check, "Selecionar", e(selecionar)),
+                    if (livre) Triple(Icons.Filled.Add, "Importar caps", e { navegar("importar/${o.id}") }) else null,
+                ))
+            }
+            if (livre) SecaoOpcoes("Aparência") {
+                GradeOpcoes(listOf(
+                    Triple(Icons.Filled.Create, "Título e sinopse", e { abrirDialogo(Dialogo.EditarInfo) }),
+                    Triple(Icons.Filled.Face, "Capa", e { trocarImagem("capa") }),
+                    Triple(Icons.Filled.Refresh, "Banner", e { trocarImagem("banner") }),
+                ))
+            }
+            SecaoOpcoes("Situação") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (if (livre) listOf(StatusObra.ESCREVENDO, StatusObra.LENDO, StatusObra.CONCLUIDA) else listOf(StatusObra.LENDO, StatusObra.CONCLUIDA)).forEach { st ->
+                        Chip(nomeStatus(st), o.status == st) { salvar(o.copy(status = st, minha = if (st == StatusObra.ESCREVENDO) true else o.minha)) }
+                    }
+                }
+                if (livre) Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Sou o autor", fontWeight = FontWeight.SemiBold)
+                        Text("Mostra o lápis e permite editar o texto", fontSize = 12.sp, color = p.textoSuave)
+                    }
+                    Switch(o.minha, { salvar(o.copy(minha = it)) }, colors = SwitchDefaults.colors(checkedTrackColor = p.destaque, checkedThumbColor = p.sobreDestaque))
+                }
+            }
+            SecaoOpcoes("Exportar") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (livre) Chip("EPUB", false, e(exportarEpub))
+                    if (livre) Chip("TXT", false, e(exportarTxt))
+                    Chip("Backup", false, e(exportarNovely))
+                }
+            }
+            TextButton(onClick = e { abrirDialogo(Dialogo.ExcluirObra) }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (livre) "Excluir obra" else "Remover da biblioteca", color = Color(0xFFE57373), fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecaoOpcoes(titulo: String, conteudo: @Composable ColumnScope.() -> Unit) {
+    val p = LocalPaleta.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(titulo.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = p.textoSuave)
+        conteudo()
+    }
+}
+
+@Composable
+private fun GradeOpcoes(itens: List<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>>) {
+    val p = LocalPaleta.current
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        itens.forEach { (icone, rotulo, acao) ->
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(p.fundo).border(1.dp, p.borda, RoundedCornerShape(16.dp))
+                    .clickable(onClick = acao).padding(vertical = 14.dp, horizontal = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(icone, null, tint = p.destaque)
+                Text(rotulo, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        repeat(4 - itens.size) { Spacer(Modifier.weight(1f)) }
+    }
 }
