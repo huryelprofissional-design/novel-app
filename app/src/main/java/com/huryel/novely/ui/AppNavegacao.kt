@@ -175,6 +175,7 @@ private fun TelaInicio(nav: NavHostController) {
     var filtro by rememberSaveable { mutableStateOf("TODAS") }
     var criando by remember { mutableStateOf(false) }
     var menuNovo by remember { mutableStateOf(false) }
+    val estilo by NovelyApp.instancia.prefs.estilo.estado.collectAsState()
 
     Box(Modifier.fillMaxSize()) {
         val lista = obras
@@ -182,6 +183,12 @@ private fun TelaInicio(nav: NavHostController) {
             Box(Modifier.fillMaxSize())
         } else if (lista.isEmpty()) {
             EstanteVazia({ criando = true }, { nav.navigate("importar") })
+        } else if (estilo != "CLASSICO") {
+            when (estilo) {
+                "REVISTA" -> InicioRevista(lista, nav)
+                "ESTANTE" -> InicioEstante(lista, nav)
+                else -> InicioCinema(lista, nav)
+            }
         } else {
             val continuar = lista.filter { it.lidaEm > 0 && it.ultimoCapituloId != null }.maxByOrNull { it.lidaEm }
             val escrevendo = lista.filter { it.status == StatusObra.ESCREVENDO }
@@ -473,13 +480,14 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
     val p = LocalPaleta.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 20.dp)) {
         item { Text("Ajustes", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { SeletorEstilo() }
         item { AjustesLeitura() }
         item {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
                 OutlinedButton(onClick = { nav.navigate("lixeira") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lixeira (capítulos excluídos)") }
-                Text("Novely 0.9 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                Text("Novely 1.0 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }

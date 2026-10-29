@@ -93,55 +93,39 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
     }
 
     val o = obra ?: run { Box(Modifier.fillMaxSize()); return }
+    val estilo by NovelyApp.instancia.prefs.estilo.estado.collectAsState()
+    val numeros = remember(capitulos) {
+        var n = 0
+        capitulos.associate { c -> c.id to (if (com.huryel.novely.data.Texto.tipoEspecial(c.titulo) == null) ++n else 0) }
+    }
 
     Box(Modifier.fillMaxSize()) {
         val listaEstado = androidx.compose.foundation.lazy.rememberLazyListState()
         LazyColumn(Modifier.fillMaxSize(), state = listaEstado, contentPadding = PaddingValues(bottom = 40.dp)) {
-            item { Cabecalho(o, nav, { if (listaEstado.firstVisibleItemIndex == 0) listaEstado.firstVisibleItemScrollOffset.toFloat() else 0f }, aoMenu = { menuObra = true }, aoBanner = { dialogo = Dialogo.MenuImagem("banner") }, aoCapa = { dialogo = Dialogo.MenuImagem("capa") }) }
             item {
-                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    if (o.descricao.isNotBlank()) Text(o.descricao, color = p.textoSuave, fontSize = 14.sp, lineHeight = 21.sp)
-                    val total = capitulos.size
-                    val palavras = capitulos.sumOf { it.palavras.toLong() }
-                    val lidos = capitulos.count { it.progresso >= 0.98f }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Estatistica("$total", "capítulos", Modifier.weight(1f))
-                        Estatistica(formatarPalavras(palavras), "palavras", Modifier.weight(1f))
-                        Estatistica(if (total > 0) "${lidos * 100 / total}%" else "—", "lido", Modifier.weight(1f))
-                    }
-                    val alvo = capitulos.firstOrNull { it.id == o.ultimoCapituloId } ?: capitulos.firstOrNull { it.progresso < 0.98f } ?: capitulos.firstOrNull()
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(
-                            onClick = { alvo?.let { nav.navigate("leitor/${it.id}") } },
-                            enabled = alvo != null,
-                            colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque),
-                            shape = RoundedCornerShape(16.dp), modifier = Modifier.weight(1f).height(52.dp),
-                        ) {
-                            Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.width(6.dp))
-                            Text(if (alvo == null) "Sem capítulos" else "Ler · ${alvo.titulo}", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        OutlinedButton(
-                            onClick = { dialogo = Dialogo.NovoCapitulo },
-                            shape = RoundedCornerShape(16.dp), modifier = Modifier.height(52.dp),
-                        ) { Text("+ Capítulo") }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Capítulos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { dialogo = Dialogo.NovoVolume }) { Text("+ Volume / arco") }
-                    }
-                }
+                val alvo = capitulos.firstOrNull { it.id == o.ultimoCapituloId } ?: capitulos.firstOrNull { it.progresso < 0.98f } ?: capitulos.firstOrNull()
+                CabecalhoObra(
+                    estilo, o, capitulos, volumes, alvo,
+                    { if (listaEstado.firstVisibleItemIndex == 0) listaEstado.firstVisibleItemScrollOffset.toFloat() else 0f },
+                    AcoesObra(
+                        voltar = { nav.popBackStack() }, menu = { menuObra = true },
+                        banner = { dialogo = Dialogo.MenuImagem("banner") }, capa = { dialogo = Dialogo.MenuImagem("capa") },
+                        ler = alvo?.let { al -> { nav.navigate("leitor/${al.id}") } },
+                        novoCap = { dialogo = Dialogo.NovoCapitulo }, novoVol = { dialogo = Dialogo.NovoVolume },
+                    ),
+                )
             }
 
             val semVolume = capitulos.filter { c -> c.volumeId == null || volumes.none { it.id == c.volumeId } }
             if (semVolume.isNotEmpty() && volumes.isNotEmpty()) item { CabecalhoVolume("Sem volume", null, {}, {}) }
-            items(semVolume, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo) }
+            items(semVolume, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo, estilo, numeros[c.id] ?: 0) }
             volumes.forEach { v ->
                 item(key = "v${v.id}") { CabecalhoVolume(v.titulo, v, { dialogo = Dialogo.RenomearVol(v) }, { dialogo = Dialogo.ExcluirVol(v) }) }
                 val dele = capitulos.filter { it.volumeId == v.id }
                 if (dele.isEmpty()) item(key = "vazio${v.id}") {
                     Text("Nenhum capítulo aqui. Use ⋮ › Mover para volume.", color = p.textoSuave, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 }
-                items(dele, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo) }
+                items(dele, key = { "c${it.id}" }) { c -> LinhaCapitulo(c, o, nav, { dialogo = it }, escopo, estilo, numeros[c.id] ?: 0) }
             }
             if (capitulos.isEmpty()) item {
                 Text("Nenhum capítulo ainda. Toque em “+ Capítulo” para começar.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
@@ -301,31 +285,13 @@ private fun CabecalhoVolume(titulo: String, v: Volume?, aoRenomear: () -> Unit, 
 }
 
 @Composable
-private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (Dialogo) -> Unit, escopo: kotlinx.coroutines.CoroutineScope) {
+private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (Dialogo) -> Unit, escopo: kotlinx.coroutines.CoroutineScope, estilo: String, numero: Int) {
     val repo = NovelyApp.instancia.repo
     val p = LocalPaleta.current
     var menu by remember { mutableStateOf(false) }
     val atual = c.id == o.ultimoCapituloId
     val lido = c.progresso >= 0.98f
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp))
-            .background(if (atual) p.superficie else Color.Transparent)
-            .clickable { nav.navigate("leitor/${c.id}") }.padding(start = 10.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            val especial = com.huryel.novely.data.Texto.tipoEspecial(c.titulo)
-            if (especial != null) Text(especial, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp, color = p.destaque)
-            Text(c.titulo.ifEmpty { "(sem título — escreva o título na 1ª linha)" }, fontSize = 15.sp, fontWeight = if (atual) FontWeight.Bold else FontWeight.Normal,
-                fontStyle = if (especial != null) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
-                color = if (lido && !atual) p.textoSuave else p.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${formatarPalavras(c.palavras.toLong())} palavras", fontSize = 12.sp, color = p.textoSuave)
-                if (c.rascunho && o.status == StatusObra.ESCREVENDO) Text("RASCUNHO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6FC2B4))
-                if (c.progresso in 0.01f..0.979f) Text("${(c.progresso * 100).toInt()}%", fontSize = 12.sp, color = p.destaque, fontWeight = FontWeight.Bold)
-                if (lido) Icon(Icons.Filled.Check, "Lido", tint = p.textoSuave, modifier = Modifier.size(14.dp))
-            }
-        }
+    LinhaCapEstilo(estilo, c, o, atual, lido, numero, abrir = { nav.navigate("leitor/${c.id}") }) {
         IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar texto", tint = p.textoSuave) }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Opções do capítulo", tint = p.textoSuave) }

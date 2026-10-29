@@ -285,6 +285,8 @@ class Preferencias(ctx: Context) {
     val telaLigada = bool("telaLigada", true)
     val velocidadeVoz = real("voz", 1.0f)
     val narrador = texto("narrador", "")
+    /** Estilo visual do Início e da página da obra: CINEMA | REVISTA | ESTANTE */
+    val estilo = texto("estilo", "CINEMA")
     val pastaBackup = texto("pastaBackup", "")
     val ultimoBackup = longo("ultimoBackup", 0L)
     val backupAuto = bool("backupAuto", false)
