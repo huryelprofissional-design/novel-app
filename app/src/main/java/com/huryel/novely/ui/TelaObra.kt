@@ -94,7 +94,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
     }
 
     val o = obra ?: run { Box(Modifier.fillMaxSize()); return }
-    val estilo = when (p.nome) { "Papel", "Terminal" -> "REVISTA"; "Neon" -> "ESTANTE"; else -> "CINEMA" }
+    val estilo = "CLASSICO"
     val numeros = remember(capitulos) {
         var n = 0
         capitulos.associate { c -> c.id to (if (com.huryel.novely.data.Texto.tipoEspecial(c.titulo) == null) ++n else 0) }

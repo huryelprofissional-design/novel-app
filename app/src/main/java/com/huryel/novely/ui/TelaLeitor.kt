@@ -511,6 +511,8 @@ private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, a
     val especial = Texto.tipoEspecial(c.titulo)
     var verResumo by remember { mutableStateOf(false) }
     var verAnterior by remember { mutableStateOf(false) }
+    var verCapa by remember { mutableStateOf(false) }
+    if (verCapa && obra != null) VisorCapa(obra) { verCapa = false }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // banner sangrando até as bordas da tela, mesmo com margens de leitura
         Box(
@@ -528,7 +530,7 @@ private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, a
             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to p.fundo.copy(alpha = 0.35f), 0.55f to p.fundo.copy(alpha = 0.55f), 1f to p.fundo)))
             if (obra != null) Row(Modifier.align(Alignment.BottomStart).padding(horizontal = margem.dp).padding(bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
                 CapaObra(obra.titulo, obra.capa, obra.capaX, obra.capaY, obra.capaZoom, obra.corBase,
-                    Modifier.width(64.dp).height(94.dp).clickable(onClick = abrirSobre), 9.sp)
+                    Modifier.width(64.dp).height(94.dp).clickable { verCapa = true }, 9.sp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f).clickable(onClick = abrirSobre)) {
                     Text(obra.titulo, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -599,7 +601,9 @@ private fun SobreObra(o: com.huryel.novely.data.Obra, lista: List<Capitulo>, atu
             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0.4f to Color.Transparent, 1f to p.superficie)))
         }
         Row(Modifier.padding(horizontal = 20.dp).offset(y = (-56).dp), verticalAlignment = Alignment.Bottom) {
-            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(96.dp).height(140.dp), 12.sp)
+            var verCapa2 by remember { mutableStateOf(false) }
+            if (verCapa2) VisorCapa(o) { verCapa2 = false }
+            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(96.dp).height(140.dp).clickable { verCapa2 = true }, 12.sp)
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(nomeStatus(o.status).uppercase(), style = MaterialTheme.typography.labelSmall, color = p.destaque)
@@ -831,20 +835,8 @@ fun AjustesLeitura() {
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Leitura", style = MaterialTheme.typography.headlineSmall)
-        Text("TEMA", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            com.huryel.novely.ui.theme.TemaLeitura.entries.forEach { t ->
-                val sel = t.name == tema
-                Box(
-                    Modifier.weight(1f).height(54.dp).clip(forma(14.dp)).background(t.paleta.fundo)
-                        .border(if (sel) 2.dp else 1.dp, if (sel) p.destaque else p.borda, forma(14.dp))
-                        .clickable { prefs.definirTema(t.name) },
-                    contentAlignment = Alignment.Center,
-                ) { Text(t.paleta.nome, color = t.paleta.texto, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Do tema", fonte == "TEMA") { prefs.fonte.definir("TEMA") }
+            Chip("Padrão", fonte == "TEMA") { prefs.fonte.definir("TEMA") }
             Chip("Com serifa", fonte == "SERIFA") { prefs.fonte.definir("SERIFA") }
             Chip("Sem serifa", fonte == "SEM_SERIFA") { prefs.fonte.definir("SEM_SERIFA") }
         }
@@ -870,10 +862,12 @@ fun AjustesLeitura() {
 @Composable
 private fun LinhaSlider(rotulo: String, valorTxt: String, v: Float, faixa: ClosedFloatingPointRange<Float>, cores: SliderColors, mudar: (Float) -> Unit) {
     val p = LocalPaleta.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(rotulo, modifier = Modifier.width(96.dp), fontSize = 14.sp)
-        Slider(v, mudar, valueRange = faixa, colors = cores, modifier = Modifier.weight(1f))
-        Text(valorTxt, modifier = Modifier.width(36.dp), textAlign = TextAlign.End, fontSize = 13.sp, color = p.textoSuave)
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(rotulo, modifier = Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = p.texto)
+            Text(valorTxt, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = p.destaque)
+        }
+        Slider(v, mudar, valueRange = faixa, colors = cores, modifier = Modifier.fillMaxWidth().height(32.dp))
     }
 }
 
@@ -881,7 +875,8 @@ private fun LinhaSlider(rotulo: String, valorTxt: String, v: Float, faixa: Close
 fun LinhaInterruptor(rotulo: String, valor: Boolean, mudar: (Boolean) -> Unit) {
     val p = LocalPaleta.current
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { mudar(!valor) }, verticalAlignment = Alignment.CenterVertically) {
-        Text(rotulo, modifier = Modifier.weight(1f), fontSize = 14.sp)
-        Switch(valor, mudar, colors = SwitchDefaults.colors(checkedThumbColor = p.sobreDestaque, checkedTrackColor = p.destaque))
+        Text(rotulo, modifier = Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = p.texto)
+        Switch(valor, mudar, colors = SwitchDefaults.colors(checkedThumbColor = p.sobreDestaque, checkedTrackColor = p.destaque,
+            uncheckedThumbColor = p.textoSuave, uncheckedTrackColor = p.superficie, uncheckedBorderColor = p.borda))
     }
 }

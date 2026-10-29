@@ -34,23 +34,6 @@ val Inter = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal), Font(R.font.inter_semibold, FontWeight.SemiBold),
     Font(R.font.inter_bold, FontWeight.Bold), Font(R.font.inter_bold, FontWeight.ExtraBold), Font(R.font.inter_bold, FontWeight.Black),
 )
-val Unbounded = FontFamily(
-    Font(R.font.unbounded_medium, FontWeight.Normal), Font(R.font.unbounded_medium, FontWeight.Medium),
-    Font(R.font.unbounded_bold, FontWeight.SemiBold), Font(R.font.unbounded_bold, FontWeight.Bold),
-    Font(R.font.unbounded_black, FontWeight.ExtraBold), Font(R.font.unbounded_black, FontWeight.Black),
-)
-val Sora = FontFamily(
-    Font(R.font.sora_regular, FontWeight.Normal), Font(R.font.sora_semibold, FontWeight.SemiBold),
-    Font(R.font.sora_bold, FontWeight.Bold), Font(R.font.sora_bold, FontWeight.ExtraBold), Font(R.font.sora_bold, FontWeight.Black),
-)
-val SpaceMono = FontFamily(
-    Font(R.font.spacemono_regular, FontWeight.Normal), Font(R.font.spacemono_bold, FontWeight.SemiBold),
-    Font(R.font.spacemono_bold, FontWeight.Bold), Font(R.font.spacemono_bold, FontWeight.ExtraBold), Font(R.font.spacemono_bold, FontWeight.Black),
-)
-val ArchivoBlack = FontFamily(Font(R.font.archivoblack_regular, FontWeight.Normal), Font(R.font.archivoblack_regular, FontWeight.Bold),
-    Font(R.font.archivoblack_regular, FontWeight.ExtraBold), Font(R.font.archivoblack_regular, FontWeight.Black))
-val PlexSerif = FontFamily(Font(R.font.plexserif_regular, FontWeight.Normal), Font(R.font.plexserif_italic, FontWeight.Normal, FontStyle.Italic))
-
 /** Como as falas aparecem no leitor. */
 enum class EstiloFala { BARRA, FIO, BALAO, ETIQUETA }
 
@@ -86,28 +69,10 @@ data class Paleta(
 
 enum class TemaLeitura(val paleta: Paleta) {
     OLED(Paleta(
-        "Noite", "Preto puro e âmbar, clássico e econômico",
+        "Noite", "Preto puro e âmbar",
         Color(0xFF000000), Color(0xFF121110), Color(0xFF26231E), Color(0xFFE6DFD3), Color(0xFFA39A8B),
         Color(0xFFE9A65A), Color(0xFF1A1206), Color(0xFF6FC2B4), Color(0xFFE88AA8), true,
-        FontFamily.Serif, FontFamily.Default, FontFamily.Serif, 1f, false, false, false, EstiloFala.BARRA, "◆   ◆   ◆",
-    )),
-    PAPEL(Paleta(
-        "Papel", "Claro como um livro: creme, tinta e vermelho",
-        Color(0xFFF3EDE2), Color(0xFFEAE2D4), Color(0xFFDCD3C4), Color(0xFF1B1714), Color(0xFF6B6157),
-        Color(0xFFB5372A), Color(0xFFFFF8EE), Color(0xFF1B1714), Color(0xFF2F6A5E), false,
-        Newsreader, Inter, Newsreader, 0.7f, false, false, false, EstiloFala.FIO, "⁂",
-    )),
-    NEON(Paleta(
-        "Neon", "Noite elétrica: violeta, ciano e rosa",
-        Color(0xFF0B0820), Color(0xFF151034), Color(0xFF2A2350), Color(0xFFEDEBFF), Color(0xFFA9A3D9),
-        Color(0xFF2EE6D6), Color(0xFF0B0820), Color(0xFF7C5CFF), Color(0xFFFF4FA3), true,
-        Unbounded, Sora, Sora, 1.35f, false, false, true, EstiloFala.BALAO, "✦   ✦   ✦",
-    )),
-    TERMINAL(Paleta(
-        "Terminal", "Cru e direto: grafite, limão e monoespaçado",
-        Color(0xFF0E0F0C), Color(0xFF16180F), Color(0xFF2A2C24), Color(0xFFEDEFE6), Color(0xFF8A8E7E),
-        Color(0xFFC8FF2E), Color(0xFF0E0F0C), Color(0xFFEDEFE6), Color(0xFFFF5C39), true,
-        ArchivoBlack, SpaceMono, PlexSerif, 0f, true, true, false, EstiloFala.ETIQUETA, "// ─── nova cena ─── //",
+        Inter, Inter, Newsreader, 1f, false, false, false, EstiloFala.BARRA, "◆   ◆   ◆",
     )),
 }
 
@@ -147,10 +112,10 @@ fun NovelyTheme(tema: TemaLeitura = TemaLeitura.OLED, content: @Composable () ->
     )
     val ui = p.fonteUi
     val tit = p.fonteTitulo
-    val pesoTitulo = if (tit == ArchivoBlack) FontWeight.Normal else FontWeight.Bold
+    val pesoTitulo = FontWeight.ExtraBold
     val tipografia = Typography(
-        displaySmall = TextStyle(fontFamily = tit, fontWeight = pesoTitulo, fontSize = if (tit == Unbounded) 28.sp else 32.sp),
-        headlineSmall = TextStyle(fontFamily = tit, fontWeight = pesoTitulo, fontSize = if (tit == Unbounded) 19.sp else 22.sp),
+        displaySmall = TextStyle(fontFamily = tit, fontWeight = pesoTitulo, fontSize = 30.sp),
+        headlineSmall = TextStyle(fontFamily = tit, fontWeight = pesoTitulo, fontSize = 21.sp),
         titleMedium = TextStyle(fontFamily = ui, fontWeight = FontWeight.Bold, fontSize = 16.sp),
         bodyLarge = TextStyle(fontFamily = ui, fontSize = 16.sp, lineHeight = 23.sp),
         bodyMedium = TextStyle(fontFamily = ui, fontSize = 14.sp, lineHeight = 20.sp),

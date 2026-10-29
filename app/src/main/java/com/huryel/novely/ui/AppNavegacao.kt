@@ -87,8 +87,8 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     val p = LocalPaleta.current
 
     Scaffold(
-        containerColor = Color.Transparent,
-        modifier = Modifier.fundoTema(),
+        containerColor = p.fundo,
+        contentColor = p.texto,
         contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
         bottomBar = {
             if (mostrarBarra) BarraTema(abas.map { Triple(it.rota, it.rotulo, it.icone) }, rota) { r ->
@@ -173,12 +173,7 @@ private fun TelaInicio(nav: NavHostController) {
         } else if (lista.isEmpty()) {
             EstanteVazia({ criando = true }, { nav.navigate("importar") })
         } else if (true) {
-            when (p.nome) {
-                "Papel" -> InicioPapel(lista, nav)
-                "Neon" -> InicioNeon(lista, nav)
-                "Terminal" -> InicioTerminal(lista, nav)
-                else -> InicioCinema(lista, nav)
-            }
+            InicioClassico(lista, nav)
         } else {
             val continuar = lista.filter { it.lidaEm > 0 && it.ultimoCapituloId != null }.maxByOrNull { it.lidaEm }
             val escrevendo = lista.filter { it.status == StatusObra.ESCREVENDO }
@@ -470,7 +465,6 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
     val p = LocalPaleta.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 20.dp)) {
         item { Text("Ajustes", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(horizontal = 20.dp)) }
-        item { SeletorTema(temaAtual, aoMudarTema) }
         item { AjustesLeitura() }
         item {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -478,7 +472,7 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
                 OutlinedButton(onClick = { nav.navigate("estatisticas") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Estatísticas de leitura") }
                 OutlinedButton(onClick = { nav.navigate("lixeira") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lixeira (capítulos excluídos)") }
-                Text("Novely 2.0 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                Text("Novely 2.1 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }
