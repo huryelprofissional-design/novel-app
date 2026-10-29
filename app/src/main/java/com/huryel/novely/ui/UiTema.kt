@@ -286,8 +286,9 @@ fun InicioNeon(lista: List<ResumoObra>, nav: NavHostController) {
         item { Text("estante", fontFamily = p.fonteTitulo, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 22.dp, top = 26.dp, bottom = 12.dp)) }
         item {
             val cores = listOf(p.destaque, p.destaque2, p.destaque3)
+            val lst = ordenadas(lista)
             LazyRow(contentPadding = PaddingValues(horizontal = 22.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                itemsIndexed(ordenadas(lista), key = { _, o -> o.id }) { i, o ->
+                itemsIndexed(lst, key = { _, o -> o.id }) { i, o ->
                     Column(Modifier.width(112.dp).clickable { nav.navigate("obra/${o.id}") }) {
                         CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
                             Modifier.fillMaxWidth().height(164.dp).shadow(14.dp, forma(20.dp), ambientColor = cores[i % 3], spotColor = cores[i % 3]), 12.sp)
