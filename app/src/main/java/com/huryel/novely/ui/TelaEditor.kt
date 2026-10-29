@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -333,6 +334,15 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
         }
     }
 
+    /** Desce o máximo possível, sem procurar cursor (evita pular para o meio do texto). */
+    fun irAoFimMaximo() {
+        escopo.launch {
+            val total = lista.layoutInfo.totalItemsCount
+            if (total > 0) lista.scrollToItem(total - 1)
+            repeat(3) { lista.scrollBy(1_000_000f); delay(16) }
+        }
+    }
+
     // ── Busca e substituir ──
     var consulta by remember { mutableStateOf("") }
     var substituto by remember { mutableStateOf("") }
@@ -539,7 +549,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = if (textoSelecionado.isNotEmpty()) 124.dp else 76.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 BotaoRedondoPequeno(Icons.Filled.KeyboardArrowUp, "Ir ao início", p) { irPara(0, 0) }
-                BotaoRedondoPequeno(Icons.Filled.KeyboardArrowDown, "Ir ao fim", p) { val u = pedacos.lastIndex; irPara(u, pedacos[u].valor.text.length) }
+                BotaoRedondoPequeno(Icons.Filled.KeyboardArrowDown, "Ir ao fim", p) { irAoFimMaximo() }
             }
         }
         if (modoFoco) {
@@ -570,7 +580,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
                 }
                 if (m.isEmpty()) item { Text("Nenhum título ou troca de cena ainda.", color = p.textoSuave, modifier = Modifier.padding(20.dp)) }
                 item {
-                    Row(Modifier.fillMaxWidth().clickable { mostrarMapa = false; val u = pedacos.lastIndex; irPara(u, pedacos[u].valor.text.length) }
+                    Row(Modifier.fillMaxWidth().clickable { mostrarMapa = false; irAoFimMaximo() }
                         .padding(horizontal = 20.dp, vertical = 12.dp)) { Text("⤓  Fim", color = p.textoSuave) }
                 }
             }
