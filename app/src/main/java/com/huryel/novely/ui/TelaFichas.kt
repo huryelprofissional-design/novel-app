@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -110,7 +111,7 @@ private fun DialogoFicha(inicial: Ficha, fechar: () -> Unit) {
         onDismissRequest = fechar,
         title = { Text(if (inicial.id == 0L) "Nova ficha" else "Editar ficha") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.size(64.dp).clip(CircleShape).background(p.borda).clickable {
                         seletor.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -125,8 +126,17 @@ private fun DialogoFicha(inicial: Ficha, fechar: () -> Unit) {
                     }
                 }
                 OutlinedTextField(f.nome, { f = f.copy(nome = it) }, label = { Text("Nome") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(f.descricao, { f = f.copy(descricao = it) }, label = { Text("Descrição, aparência, personalidade, história…") },
-                    minLines = 4, maxLines = 10, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(f.apelidos, { f = f.copy(apelidos = it) }, label = { Text("Apelidos (separe com vírgula)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (f.tipo == TipoFicha.PERSONAGEM) {
+                    OutlinedTextField(f.idade, { f = f.copy(idade = it) }, label = { Text("Idade") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(f.aparencia, { f = f.copy(aparencia = it) }, label = { Text("Aparência") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(f.poder, { f = f.copy(poder = it) }, label = { Text("Poder / habilidade") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(f.faccao, { f = f.copy(faccao = it) }, label = { Text("Facção / clã / seita") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(f.relacoes, { f = f.copy(relacoes = it) }, label = { Text("Relações (ex.: irmão de Li Mei, rival de Kael)") }, modifier = Modifier.fillMaxWidth())
+                }
+                OutlinedTextField(f.descricao, { f = f.copy(descricao = it) }, label = { Text("Anotações") },
+                    minLines = 3, maxLines = 10, modifier = Modifier.fillMaxWidth())
+                Text("Dica: no texto, escreva @Nome, descrição… (ou &Lugar, …) e a ficha é criada e completada sozinha.", fontSize = 12.sp, color = p.textoSuave)
                 if (inicial.id != 0L) TextButton(onClick = { confirmarExclusao = true }) { Text("Excluir ficha", color = Color(0xFFE57373)) }
             }
         },
@@ -144,11 +154,12 @@ private fun DialogoFicha(inicial: Ficha, fechar: () -> Unit) {
 
 /** Lixeira: capítulos excluídos ficam 30 dias. */
 @Composable
-fun TelaLixeira(nav: NavHostController) {
+fun TelaLixeira(nav: NavHostController, obraId: Long? = null) {
     val app = NovelyApp.instancia
     val repo = app.repo
     val p = LocalPaleta.current
-    val itens by remember { repo.lixeira() }.collectAsState(initial = emptyList())
+    val todos by remember { repo.lixeira() }.collectAsState(initial = emptyList())
+    val itens = if (obraId == null) todos else todos.filter { it.obraId == obraId }
     val fmt = remember { SimpleDateFormat("dd/MM 'às' HH:mm", Locale("pt", "BR")) }
     var apagar by remember { mutableStateOf<ItemLixeira?>(null) }
     val snack = remember { SnackbarHostState() }

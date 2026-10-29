@@ -60,6 +60,8 @@ import com.huryel.novely.NovelyApp
 import com.huryel.novely.data.ArquivosTexto
 import com.huryel.novely.data.Capitulo
 import com.huryel.novely.data.Texto
+import com.huryel.novely.data.Marcas
+import com.huryel.novely.data.TipoFicha
 import com.huryel.novely.ui.theme.LocalPaleta
 import com.huryel.novely.ui.theme.Paleta
 import kotlinx.coroutines.Dispatchers
@@ -175,7 +177,8 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
             if (v == versaoSalva || ocupado) return@collect
             estadoSalvo = "Salvando…"
             val t = textoCompleto()
-            repo.gravarTexto(c, t)
+            val novos = repo.gravarTexto(c, t)
+            if (novos.isNotEmpty()) escopo.launch { snack.showSnackbar("✓ Ficha criada: ${novos.joinToString(", ")}") }
             palavras = withContext(Dispatchers.Default) { Texto.contarPalavras(t) }
             versaoSalva = v
             estadoSalvo = "Salvo"
@@ -420,6 +423,18 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
 
     // ── Seleção atual ──
     val pdFocado = pedacos.getOrNull(focado)
+    // ── @Personagem / &Lugar: sugestões enquanto digita ──
+    val fichasObra by remember(cap?.obraId) { cap?.let { repo.fichas(it.obraId) } ?: kotlinx.coroutines.flow.flowOf(emptyList()) }.collectAsState(initial = emptyList())
+    val digitandoMarca = pdFocado?.valor?.let { v ->
+        if (!v.selection.collapsed) null else { val cur = v.selection.start.coerceIn(0, v.text.length); Marcas.digitando(v.text.substring((cur - 60).coerceAtLeast(0), cur)) }
+    }
+    fun completarMarca(simbolo: Char, termo: String, nome: String, definir: Boolean) {
+        val i = focado.takeIf { it in pedacos.indices } ?: return
+        val pd = pedacos[i]; val v = pd.valor; val cur = v.selection.start
+        val ini = (cur - termo.length - 1).coerceAtLeast(0)
+        val ins = "$simbolo$nome" + if (definir) ", " else " "
+        aoMudar(i, pd, TextFieldValue(v.text.substring(0, ini) + ins + v.text.substring(cur), TextRange(ini + ins.length)))
+    }
     val selecao = pdFocado?.valor?.selection
     val textoSelecionado = if (pdFocado != null && selecao != null && !selecao.collapsed)
         pdFocado.valor.text.substring(selecao.min, selecao.max) else ""
@@ -531,8 +546,29 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
                                 TextButton(onClick = { moverSelecao(1) }) { Text("Mover p/ próximo ›", fontSize = 12.sp) }
                             }
                         }
+                        digitandoMarca?.let { (simb, termo) ->
+                            val lugar = simb == '&'
+                            val opcoes = fichasObra.filter { (it.tipo == TipoFicha.LUGAR) == lugar && (termo.isBlank() || it.nome.contains(termo.trim(), true) || it.apelidos.contains(termo.trim(), true)) }.take(12)
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (lugar) "LUGARES" else "PERSONAGENS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = p.textoSuave)
+                                opcoes.forEach { f ->
+                                    Text(f.nome, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (lugar) p.destaque else p.destaque2,
+                                        modifier = Modifier.clip(forma(14.dp)).background(p.fundo).clickable { completarMarca(simb, termo, f.nome, false) }
+                                            .padding(horizontal = 12.dp, vertical = 7.dp))
+                                }
+                                if (termo.trim().length >= 2 && opcoes.none { it.nome.equals(termo.trim(), true) }) {
+                                    Text("+ Criar “${termo.trim()}”", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = p.sobreDestaque,
+                                        modifier = Modifier.clip(forma(14.dp)).background(p.destaque).clickable { completarMarca(simb, termo, termo.trim(), true) }
+                                            .padding(horizontal = 12.dp, vertical = 7.dp))
+                                }
+                                if (opcoes.isEmpty() && termo.trim().length < 2) Text("digite o nome… (vírgula depois do nome = descrever)", fontSize = 12.sp, color = p.textoSuave)
+                            }
+                        }
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically) {
+                            BotaoFerramenta("@", p, FontWeight.ExtraBold, cor = p.destaque2) { inserir("@", false) }
+                            BotaoFerramenta("&", p, FontWeight.ExtraBold, cor = p.destaque) { inserir("&", false) }
                             key(contadorPilhas) {
                                 BotaoFerramenta("↶", p, ativo = desfazer.isNotEmpty()) { aplicarPasso(desfazer, refazer) }
                                 BotaoFerramenta("↷", p, ativo = refazer.isNotEmpty()) { aplicarPasso(refazer, desfazer) }
@@ -721,6 +757,11 @@ private class RealceEditor(private val p: Paleta, private val busca: String, pri
                     j = t.indexOf('*', j + 1)
                 }
                 inicio = fim + 1
+            }
+            if ('@' in t || '&' in t) Marcas.REGRA.findAll(t).forEach { m ->
+                val fimNome = m.groups[2]!!.range.last + 1
+                addStyle(SpanStyle(color = if (m.groupValues[1] == "&") p.destaque else p.destaque2, fontWeight = FontWeight.Bold), m.range.first, fimNome)
+                m.groups[3]?.let { g -> addStyle(SpanStyle(color = p.textoSuave), g.range.first, g.range.last + 1) }
             }
             if (busca.isNotEmpty()) {
                 val base = if (ignorarCaixa) Texto.normalizar(t) else t

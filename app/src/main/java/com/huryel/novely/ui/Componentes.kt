@@ -126,6 +126,7 @@ fun ArteCapa(titulo: String, corBase: Long) {
 fun nomeStatus(s: String) = when (s) {
     StatusObra.LENDO -> "Lendo"
     StatusObra.CONCLUIDA -> "Concluída"
+    StatusObra.QUERO -> "Quero ler"
     else -> "Escrevendo"
 }
 

@@ -274,7 +274,42 @@ class Repositorio(ctx: Context) {
 
     suspend fun lerTexto(capId: Long) = textos.ler(capId)
 
-    suspend fun gravarTexto(c: Capitulo, texto: String) {
+    /**
+     * Lê as marcas @Personagem e &Lugar do capítulo: cria fichas que faltam, junta apelidos
+     * e guarda os parágrafos de definição como trechos (por capítulo). Retorna os nomes das fichas novas.
+     */
+    suspend fun indexarFichas(c: Capitulo, texto: String): List<String> {
+        val achados = Marcas.encontrar(texto)
+        if (achados.isEmpty() && dao.contarTrechosCap(c.id) == 0) return emptyList()
+        val novos = ArrayList<String>()
+        banco.withTransaction {
+            val fichas = dao.fichasAgora(c.obraId).toMutableList()
+            dao.apagarTrechosCap(c.id)
+            achados.forEachIndexed { i, (m, trecho) ->
+                fun casa(f: Ficha) = f.nome.equals(m.nome, true) || f.apelidos.split(',').any { it.trim().equals(m.nome, true) }
+                var f = fichas.firstOrNull { casa(it) }
+                if (f == null) {
+                    val nova = Ficha(obraId = c.obraId, tipo = if (m.lugar) TipoFicha.LUGAR else TipoFicha.PERSONAGEM, nome = m.nome, apelidos = m.apelidos.joinToString(", "))
+                    f = nova.copy(id = dao.inserirFicha(nova)); fichas.add(f); novos.add(m.nome)
+                } else if (m.apelidos.isNotEmpty()) {
+                    val atuais = f.apelidos.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                    val juntos = (atuais + m.apelidos).distinctBy { it.lowercase() }
+                    if (juntos.size != atuais.size) { f = f.copy(apelidos = juntos.joinToString(", ")); dao.atualizarFicha(f); fichas[fichas.indexOfFirst { it.id == f.id }] = f }
+                }
+                if (trecho != null) dao.inserirTrecho(FichaTrecho(fichaId = f.id, capId = c.id, ordem = i, texto = trecho))
+            }
+        }
+        return novos
+    }
+
+    /** Relê todos os capítulos de uma obra (depois de restaurar ou receber uma obra publicada). */
+    suspend fun reindexarObra(obraId: Long) {
+        dao.capitulosAgora(obraId).forEach { c -> indexarFichas(c, textos.ler(c.id)) }
+    }
+
+    fun trechosFicha(fichaId: Long) = dao.trechos(fichaId)
+
+    suspend fun gravarTexto(c: Capitulo, texto: String): List<String> {
         textos.guardarVersaoSePreciso(c.id)
         textos.gravar(c.id, texto)
         val agora = System.currentTimeMillis()
@@ -283,6 +318,7 @@ class Repositorio(ctx: Context) {
         if (depois > antes) aoEscreverPalavras(depois - antes)
         dao.atualizarPalavras(c.id, depois, agora)
         dao.tocarObra(c.obraId, agora)
+        return try { indexarFichas(c, texto) } catch (e: Exception) { emptyList() }
     }
 
     suspend fun salvarPosicao(c: Capitulo, progresso: Float, bloco: Int, desloc: Int) {
@@ -326,6 +362,10 @@ class Preferencias(ctx: Context) {
     val ultimaVerificacao = longo("ultimaVerificacao", 0L)
     val autorNome = texto("autorNome", "")
     val problemaVisto = longo("problemaVisto", 0L)
+    val bio = texto("bio", "")
+    val fotoPerfil = texto("fotoPerfil", "")
+    /** Seções visíveis no Início, separadas por vírgula. */
+    val secoesInicio = texto("secoesInicio", "CONT,ATALHO,LENDO,QUERO,RECEBIDAS,LIDAS")
 
     // ── Meta diária ──
     val metaDiaria = real("metaDiaria", 1000f)

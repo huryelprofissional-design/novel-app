@@ -124,6 +124,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                 val fs = JSONArray()
                 repo.dao.fichasAgora(o.id).forEach { f ->
                     val jf = JSONObject().put("tipo", f.tipo).put("nome", f.nome).put("descricao", f.descricao)
+                        .put("apelidos", f.apelidos).put("idade", f.idade).put("aparencia", f.aparencia).put("poder", f.poder).put("faccao", f.faccao).put("relacoes", f.relacoes)
                     imagem(f.imagem, "ficha-${f.id}")?.let { jf.put("imagem", it) }
                     fs.put(jf)
                 }
@@ -198,6 +199,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                         zip.getInputStream(ent).use { ins -> f.outputStream().use { ins.copyTo(it) } }
                         return f.absolutePath
                     }
+                    var idRestaurado = 0L
                     repo.banco.withTransaction {
                         val obraId = repo.dao.inserirObra(Obra(
                             titulo = o.getString("titulo"), descricao = o.optString("descricao"), status = o.optString("status", StatusObra.LENDO),
@@ -207,6 +209,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                             banner = imagem("banner"), bannerX = o.optDouble("bannerX", .5).toFloat(), bannerY = o.optDouble("bannerY", .5).toFloat(), bannerZoom = o.optDouble("bannerZoom", 1.0).toFloat(),
                             corBase = o.optLong("corBase", 0xFF3B2A4A), criadaEm = o.optLong("criadaEm", System.currentTimeMillis()),
                         ))
+                        idRestaurado = obraId
                         val mapaVol = HashMap<Long, Long>()
                         val vols = o.optJSONArray("volumes") ?: JSONArray()
                         for (k in 0 until vols.length()) {
@@ -225,7 +228,8 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                                 }
                             }
                             repo.dao.inserirFicha(Ficha(obraId = obraId, tipo = jf.optString("tipo", TipoFicha.PERSONAGEM), nome = jf.optString("nome"),
-                                descricao = jf.optString("descricao"), imagem = img))
+                                descricao = jf.optString("descricao"), imagem = img, apelidos = jf.optString("apelidos"), idade = jf.optString("idade"),
+                                aparencia = jf.optString("aparencia"), poder = jf.optString("poder"), faccao = jf.optString("faccao"), relacoes = jf.optString("relacoes")))
                         }
                         val caps = o.getJSONArray("capitulos")
                         for (k in 0 until caps.length()) {
@@ -250,6 +254,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                             if (c.has("crc") && c.getLong("crc") != crc.value) problemas++
                         }
                     }
+                    try { repo.reindexarObra(idRestaurado) } catch (_: Exception) {}
                     feitas++
                 }
             }
@@ -274,7 +279,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                 repo.dao.capitulosAgora(obraId).forEach { c ->
                     w.write("\n# ${c.titulo}\n\n")
                     val f = repo.textos.arquivo(c.id)
-                    if (f.exists()) f.bufferedReader(Charsets.UTF_8).use { it.copyTo(w) }
+                    if (f.exists()) f.bufferedReader(Charsets.UTF_8).useLines { ls -> ls.forEach { l -> w.write(Marcas.limpar(l)); w.write("\n") } }
                     w.write("\n")
                 }
             }
@@ -303,7 +308,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                     val temCapa = o.capa?.let { File(it).exists() } == true
                     if (temCapa) { zip.putNextEntry(ZipEntry("OEBPS/capa.jpg")); File(o.capa!!).inputStream().use { it.copyTo(zip) }; zip.closeEntry() }
                     caps.forEachIndexed { i, c ->
-                        val corpo = Texto.markdownParaXhtml(repo.textos.ler(c.id))
+                        val corpo = Texto.markdownParaXhtml(Marcas.limpar(repo.textos.ler(c.id)))
                         txt("OEBPS/cap$i.xhtml", """<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="pt-BR"><head><title>${Texto.escaparXml(c.titulo)}</title></head><body><h1>${Texto.escaparXml(c.titulo)}</h1>
 $corpo</body></html>""")
                     }

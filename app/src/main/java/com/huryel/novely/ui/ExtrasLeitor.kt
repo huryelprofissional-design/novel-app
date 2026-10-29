@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -103,21 +104,40 @@ fun FolhaParagrafo(
 
 /** Mostra uma ficha (somente leitura) em folha. */
 @Composable
-fun VerFicha(f: Ficha) {
+fun VerFicha(f: Ficha, ateOrdem: Double? = null) {
     val p = LocalPaleta.current
     val img = rememberImagem(f.imagem, 500)
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val trechos by remember(f.id) { com.huryel.novely.NovelyApp.instancia.repo.trechosFicha(f.id) }.collectAsState(initial = emptyList())
+    // sem spoiler: no leitor, só o que já apareceu até o capítulo atual
+    val visiveis = if (ateOrdem == null) trechos else trechos.filter { it.capOrdem <= ateOrdem }
+    Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.size(72.dp).clip(CircleShape).background(p.borda), contentAlignment = Alignment.Center) {
                 if (img != null) androidx.compose.foundation.Image(img, null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                else Text("☺", fontSize = 28.sp, color = p.destaque)
+                else Text(if (f.tipo == TipoFicha.LUGAR) "⌂" else f.nome.take(1).uppercase(), fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = p.destaque)
             }
             Column {
                 Text(when (f.tipo) { TipoFicha.LUGAR -> "LUGAR"; TipoFicha.OUTRO -> "OUTRO"; else -> "PERSONAGEM" }, style = MaterialTheme.typography.labelSmall, color = p.destaque)
                 Text(f.nome, style = MaterialTheme.typography.headlineSmall)
+                if (f.apelidos.isNotBlank()) Text("também: ${f.apelidos}", fontSize = 12.sp, color = p.textoSuave)
             }
         }
-        Text(f.descricao.ifBlank { "Sem descrição." }, fontSize = 15.sp, lineHeight = 22.sp, color = p.textoSuave)
+        listOf("Idade" to f.idade, "Aparência" to f.aparencia, "Poder" to f.poder, "Facção" to f.faccao, "Relações" to f.relacoes)
+            .filter { it.second.isNotBlank() }.forEach { (r, v) ->
+                Row { Text("$r  ", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = p.textoSuave); Text(v, fontSize = 14.sp) }
+            }
+        if (f.descricao.isNotBlank()) Text(f.descricao, fontSize = 15.sp, lineHeight = 22.sp)
+        if (visiveis.isNotEmpty()) {
+            Text("NA HISTÓRIA", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
+            visiveis.forEach { t ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.fundo).padding(12.dp)) {
+                    Text(t.capTitulo, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.destaque)
+                    Text(t.texto, fontSize = 14.sp, lineHeight = 20.sp, color = p.textoSuave, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        }
+        if (f.descricao.isBlank() && visiveis.isEmpty()) Text("Sem descrição ainda.", fontSize = 14.sp, color = p.textoSuave)
     }
 }
 

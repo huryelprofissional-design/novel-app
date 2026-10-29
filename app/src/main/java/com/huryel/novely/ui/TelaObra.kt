@@ -447,6 +447,7 @@ private fun PainelOpcoesObra(
                     if (livre) Triple(Icons.AutoMirrored.Filled.List, "Reordenar", e { navegar("reordenar/${o.id}") }) else null,
                     Triple(Icons.Filled.Check, "Selecionar", e(selecionar)),
                     if (livre) Triple(Icons.Filled.Add, "Importar caps", e { navegar("importar/${o.id}") }) else null,
+                    if (livre) Triple(Icons.Filled.Delete, "Lixeira", e { navegar("lixeira/${o.id}") }) else null,
                 ))
             }
             if (livre) SecaoOpcoes("Aparência") {

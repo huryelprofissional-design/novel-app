@@ -61,6 +61,7 @@ import androidx.navigation.NavHostController
 import com.huryel.novely.NovelyApp
 import com.huryel.novely.data.Capitulo
 import com.huryel.novely.data.Texto
+import com.huryel.novely.data.Marcas
 import com.huryel.novely.ui.theme.LocalPaleta
 import com.huryel.novely.ui.theme.Paleta
 import kotlinx.coroutines.Dispatchers
@@ -138,7 +139,7 @@ fun montarBlocos(texto: String): List<Bloco> {
     val saida = ArrayList<Bloco>(texto.length / 300 + 4)
     var anteriorVazia = true
     texto.lineSequence().forEach { bruta ->
-        val linha = bruta.trim()
+        val linha = Marcas.limpar(bruta).trim()
         val podeSerTitulo = anteriorVazia
         anteriorVazia = linha.isEmpty()
         when {
@@ -432,6 +433,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     val regraNomes = remember(fichas) {
         val mapa = HashMap<String, com.huryel.novely.data.Ficha>()
         fichas.forEach { f -> val n = f.nome.trim(); if (n.length >= 3) mapa[n] = f }
+        fichas.forEach { f -> f.apelidos.split(',').map { it.trim() }.forEach { a -> if (a.length >= 3 && !mapa.containsKey(a)) mapa[a] = f } }
         // primeiro nome também conta ("Lin" para "Lin Feng"), se não for ambíguo
         fichas.groupBy { it.nome.trim().substringBefore(' ') }.forEach { (pn, fs) ->
             if (pn.length >= 3 && fs.size == 1 && !mapa.containsKey(pn)) mapa[pn] = fs[0]
@@ -706,7 +708,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         FolhaParagrafo(b[blocoSel].plano, marcasPorBloco[blocoSel], c.obraId, c.id, blocoSel, obra?.titulo ?: "", c.titulo, fichas,
             fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it })
     }
-    fichaVer?.let { f -> ModalBottomSheet(onDismissRequest = { fichaVer = null }, containerColor = p.superficie) { VerFicha(f) } }
+    fichaVer?.let { f -> ModalBottomSheet(onDismissRequest = { fichaVer = null }, containerColor = p.superficie) { VerFicha(f, c.ordem) } }
     if (mostrarAjustes) ModalBottomSheet(onDismissRequest = { mostrarAjustes = false }, containerColor = p.superficie) { AjustesLeitura() }
     if (mostrarCapitulos) ModalBottomSheet(onDismissRequest = { mostrarCapitulos = false }, containerColor = p.superficie) {
         val estadoLista = rememberLazyListState((idx - 3).coerceAtLeast(0))

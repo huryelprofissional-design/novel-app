@@ -14,6 +14,7 @@ object StatusObra {
     const val LENDO = "LENDO"
     const val ESCREVENDO = "ESCREVENDO"
     const val CONCLUIDA = "CONCLUIDA"
+    const val QUERO = "QUERO"
 }
 
 @Entity(tableName = "obras")
@@ -133,7 +134,32 @@ data class Ficha(
     val descricao: String = "",
     val imagem: String? = null,
     val criadaEm: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "") val apelidos: String = "",
+    @ColumnInfo(defaultValue = "") val idade: String = "",
+    @ColumnInfo(defaultValue = "") val aparencia: String = "",
+    @ColumnInfo(defaultValue = "") val poder: String = "",
+    @ColumnInfo(defaultValue = "") val faccao: String = "",
+    @ColumnInfo(defaultValue = "") val relacoes: String = "",
 )
+
+/** Parágrafos do texto que descrevem uma ficha (escritos com @Nome, …). Servem para mostrar só o que o leitor já viu. */
+@Entity(
+    tableName = "ficha_trechos",
+    foreignKeys = [
+        ForeignKey(entity = Ficha::class, parentColumns = ["id"], childColumns = ["fichaId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = Capitulo::class, parentColumns = ["id"], childColumns = ["capId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("fichaId"), Index("capId")],
+)
+data class FichaTrecho(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val fichaId: Long,
+    val capId: Long,
+    val ordem: Int,
+    val texto: String,
+)
+
+data class TrechoFicha(val texto: String, val capId: Long, val capOrdem: Double, val capTitulo: String)
 
 /** Capítulos excluídos ficam aqui por 30 dias (texto em files/lixeira/<id>.md). */
 @Entity(tableName = "lixeira")
@@ -168,6 +194,9 @@ data class ResumoObra(
     val colecao: String,
     val atualizadaEm: Long,
     val criadaEm: Long,
+    val minha: Boolean = false,
+    val trancada: Boolean = false,
+    val autor: String = "",
 )
 
 data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, val obraTitulo: String)
@@ -176,7 +205,7 @@ data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, 
 interface NovelyDao {
     @Query(
         """SELECT o.id, o.titulo, o.status, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-           o.ultimoCapituloId, o.lidaEm, o.colecao, o.atualizadaEm, o.criadaEm,
+           o.ultimoCapituloId, o.lidaEm, o.colecao, o.atualizadaEm, o.criadaEm, o.minha, o.trancada, o.autor,
            (SELECT COUNT(*) FROM capitulos c WHERE c.obraId = o.id) AS totalCapitulos,
            (SELECT IFNULL(SUM(c.palavras),0) FROM capitulos c WHERE c.obraId = o.id) AS totalPalavras,
            (SELECT COUNT(*) FROM capitulos c WHERE c.obraId = o.id AND c.progresso >= 0.98) AS lidos
@@ -242,6 +271,13 @@ interface NovelyDao {
     @Query("SELECT * FROM fichas WHERE obraId = :obraId")
     suspend fun fichasAgora(obraId: Long): List<Ficha>
     @Insert suspend fun inserirFicha(f: Ficha): Long
+    @Insert suspend fun inserirTrecho(t: FichaTrecho): Long
+    @Query("DELETE FROM ficha_trechos WHERE capId = :capId")
+    suspend fun apagarTrechosCap(capId: Long)
+    @Query("SELECT COUNT(*) FROM ficha_trechos WHERE capId = :capId")
+    suspend fun contarTrechosCap(capId: Long): Int
+    @Query("SELECT t.texto AS texto, t.capId AS capId, c.ordem AS capOrdem, c.titulo AS capTitulo FROM ficha_trechos t JOIN capitulos c ON c.id = t.capId WHERE t.fichaId = :fichaId ORDER BY c.ordem, t.ordem")
+    fun trechos(fichaId: Long): Flow<List<TrechoFicha>>
     @Update suspend fun atualizarFicha(f: Ficha)
     @Delete suspend fun excluirFicha(f: Ficha)
 
@@ -275,7 +311,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class], version = 6, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 7, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -313,6 +349,14 @@ abstract class BancoNovely : RoomDatabase() {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE obras ADD COLUMN trancada INTEGER NOT NULL DEFAULT 0")
                         db.execSQL("ALTER TABLE obras ADD COLUMN autor TEXT NOT NULL DEFAULT ''")
+                    }
+                }, object : androidx.room.migration.Migration(6, 7) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        for (c in listOf("apelidos", "idade", "aparencia", "poder", "faccao", "relacoes"))
+                            db.execSQL("ALTER TABLE fichas ADD COLUMN $c TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `ficha_trechos` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `fichaId` INTEGER NOT NULL, `capId` INTEGER NOT NULL, `ordem` INTEGER NOT NULL, `texto` TEXT NOT NULL, FOREIGN KEY(`fichaId`) REFERENCES `fichas`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`capId`) REFERENCES `capitulos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS `index_ficha_trechos_fichaId` ON `ficha_trechos` (`fichaId`)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS `index_ficha_trechos_capId` ON `ficha_trechos` (`capId`)")
                     }
                 })
                 .build()
