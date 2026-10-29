@@ -101,7 +101,8 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         },
     ) { margem ->
         val idArg = listOf(navArgument("id") { type = NavType.LongType })
-        NavHost(nav, startDestination = "inicio", modifier = Modifier.padding(margem).consumeWindowInsets(margem),
+        Box(Modifier.fillMaxSize().padding(margem).consumeWindowInsets(margem)) {
+        NavHost(nav, startDestination = "inicio", modifier = Modifier.fillMaxSize(),
             enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 10 } },
             exitTransition = { fadeOut(tween(160)) },
             popEnterTransition = { fadeIn(tween(220)) },
@@ -141,6 +142,9 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("importar") { TelaImportar(nav, null) }
             composable("importar/{id}", idArg) { e -> TelaImportar(nav, e.arguments!!.getLong("id")) }
             composable("backup") { TelaBackup(nav) }
+            composable("atualizar") { TelaAtualizar(nav) }
+        }
+        AvisosGlobais(nav, rota)
         }
     }
 }
@@ -475,9 +479,10 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
                 OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
                 OutlinedButton(onClick = { nav.navigate("estatisticas") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Estatísticas de leitura") }
+                OutlinedButton(onClick = { nav.navigate("atualizar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Atualizações e problemas") }
                 OutlinedButton(onClick = { nav.navigate("nomes") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Gerador de nomes") }
                 OutlinedButton(onClick = { nav.navigate("lixeira") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lixeira (capítulos excluídos)") }
-                Text("Novely 2.2 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                Text("Novely ${NovelyApp.instancia.atualizador.nomeInstalado} · suas obras ficam só neste aparelho, sem conta. A internet é usada só para procurar atualizações.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }

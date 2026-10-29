@@ -39,6 +39,10 @@ data class Obra(
     @ColumnInfo(defaultValue = "") val colecao: String = "",
     /** true = obra escrita pelo usuário (pode editar); false = obra de outra pessoa (só leitura). */
     @ColumnInfo(defaultValue = "1") val minha: Boolean = true,
+    /** Obra recebida de um autor: só leitura de verdade (não dá para virar "minha"). */
+    @ColumnInfo(defaultValue = "0") val trancada: Boolean = false,
+    /** Nome do autor (preenchido quando a obra foi publicada por alguém). */
+    @ColumnInfo(defaultValue = "") val autor: String = "",
 )
 
 @Entity(
@@ -271,7 +275,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class], version = 5, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class], version = 6, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -304,6 +308,11 @@ abstract class BancoNovely : RoomDatabase() {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE obras ADD COLUMN minha INTEGER NOT NULL DEFAULT 1")
                         db.execSQL("UPDATE obras SET minha = 0 WHERE status = 'LENDO'")
+                    }
+                }, object : androidx.room.migration.Migration(5, 6) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE obras ADD COLUMN trancada INTEGER NOT NULL DEFAULT 0")
+                        db.execSQL("ALTER TABLE obras ADD COLUMN autor TEXT NOT NULL DEFAULT ''")
                     }
                 })
                 .build()

@@ -139,6 +139,11 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
 
     LaunchedEffect(capId) {
         val c = repo.capitulo(capId).filterNotNull().first()
+        if (repo.dao.obraAgora(c.obraId)?.trancada == true) {
+            // obra publicada por outra pessoa: só leitura
+            nav.navigate("leitor/$capId") { popUpTo("editor/{id}") { inclusive = true } }
+            return@LaunchedEffect
+        }
         cap = c
         val texto = repo.lerTexto(capId)
         withContext(Dispatchers.Default) { Texto.dividirEmPedacos(texto, 3000) } // aquece fora da thread principal

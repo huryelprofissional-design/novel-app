@@ -322,6 +322,10 @@ class Preferencias(ctx: Context) {
     val pastaBackup = texto("pastaBackup", "")
     val ultimoBackup = longo("ultimoBackup", 0L)
     val backupAuto = bool("backupAuto", false)
+    val atualizarAuto = bool("atualizarAuto", true)
+    val ultimaVerificacao = longo("ultimaVerificacao", 0L)
+    val autorNome = texto("autorNome", "")
+    val problemaVisto = longo("problemaVisto", 0L)
 
     // ── Meta diária ──
     val metaDiaria = real("metaDiaria", 1000f)

@@ -62,7 +62,23 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
     }
 
     /** Escreve o ZIP direto no destino, arquivo por arquivo (nunca monta a biblioteca na memória). */
-    private suspend fun escreverBackup(saida: OutputStream, soObra: Long?): Int {
+    /**
+     * Publicar: gera um .novely de uma obra para outras pessoas lerem.
+     * Vai trancado (só leitura), sem notas, sem progresso e (por padrão) sem rascunhos.
+     */
+    suspend fun publicar(obraId: Long, autor: String, incluirRascunhos: Boolean): File = withContext(Dispatchers.IO) {
+        val o = repo.dao.obraAgora(obraId) ?: throw IllegalStateException("Obra não encontrada")
+        val dir = File(ctx.cacheDir, "compartilhar").apply { mkdirs() }
+        dir.listFiles()?.filter { it.name.endsWith(".novely") }?.forEach { it.delete() }
+        val nome = o.titulo.replace(Regex("[^\\p{L}\\p{N} _-]"), "").trim().ifEmpty { "obra" }.take(60)
+        val f = File(dir, "$nome.novely")
+        f.outputStream().use { escreverBackup(it, obraId, Publicacao(autor.trim(), incluirRascunhos)) }
+        f
+    }
+
+    private class Publicacao(val autor: String, val rascunhos: Boolean)
+
+    private suspend fun escreverBackup(saida: OutputStream, soObra: Long?, pub: Publicacao? = null): Int {
         val obras = repo.dao.todasObras().filter { soObra == null || it.id == soObra }
         val manifesto = JSONObject().put("formato", FORMATO).put("versao", VERSAO).put("criadoEm", System.currentTimeMillis())
         val arr = JSONArray()
@@ -70,7 +86,9 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
             obras.forEachIndexed { oi, o ->
                 _estado.value = EstadoBackup.Trabalhando("Salvando “${o.titulo}”…", oi.toFloat() / obras.size.coerceAtLeast(1))
                 val jo = JSONObject()
-                    .put("titulo", o.titulo).put("descricao", o.descricao).put("status", o.status).put("minha", o.minha)
+                    .put("titulo", o.titulo).put("descricao", o.descricao).put("status", if (pub != null) StatusObra.LENDO else o.status)
+                    .put("minha", if (pub != null) false else o.minha).put("trancada", pub != null || o.trancada)
+                    .put("autor", pub?.autor ?: o.autor)
                     .put("capaX", o.capaX.toDouble()).put("capaY", o.capaY.toDouble()).put("capaZoom", o.capaZoom.toDouble())
                     .put("bannerX", o.bannerX.toDouble()).put("bannerY", o.bannerY.toDouble()).put("bannerZoom", o.bannerZoom.toDouble())
                     .put("corBase", o.corBase).put("criadaEm", o.criadaEm).put("atualizadaEm", o.atualizadaEm)
@@ -86,7 +104,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                 repo.dao.volumesAgora(o.id).forEach { v -> vols.put(JSONObject().put("id", v.id).put("titulo", v.titulo).put("ordem", v.ordem)) }
                 jo.put("volumes", vols)
                 val caps = JSONArray()
-                repo.dao.capitulosAgora(o.id).forEach { c ->
+                repo.dao.capitulosAgora(o.id).filter { pub == null || pub.rascunhos || !it.rascunho }.forEach { c ->
                     val entrada = "textos/${c.id}.md"
                     val f = repo.textos.arquivo(c.id)
                     val crc = CRC32()
@@ -97,9 +115,10 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                     }
                     zip.closeEntry()
                     caps.put(JSONObject().put("volumeId", c.volumeId ?: JSONObject.NULL).put("titulo", c.titulo).put("ordem", c.ordem)
-                        .put("rascunho", c.rascunho).put("palavras", c.palavras).put("progresso", c.progresso.toDouble())
-                        .put("posicaoBloco", c.posicaoBloco).put("posicaoDeslocamento", c.posicaoDeslocamento)
-                        .put("atualizadoEm", c.atualizadoEm).put("resumo", c.resumo).put("notas", c.notas).put("arquivo", entrada).put("crc", crc.value))
+                        .put("rascunho", if (pub != null) false else c.rascunho).put("palavras", c.palavras)
+                        .put("progresso", if (pub != null) 0.0 else c.progresso.toDouble())
+                        .put("posicaoBloco", if (pub != null) 0 else c.posicaoBloco).put("posicaoDeslocamento", if (pub != null) 0 else c.posicaoDeslocamento)
+                        .put("atualizadoEm", c.atualizadoEm).put("resumo", c.resumo).put("notas", if (pub != null) "" else c.notas).put("arquivo", entrada).put("crc", crc.value))
                 }
                 jo.put("capitulos", caps)
                 val fs = JSONArray()
@@ -182,7 +201,8 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                     repo.banco.withTransaction {
                         val obraId = repo.dao.inserirObra(Obra(
                             titulo = o.getString("titulo"), descricao = o.optString("descricao"), status = o.optString("status", StatusObra.LENDO),
-                            minha = o.optBoolean("minha", o.optString("status", StatusObra.LENDO) != StatusObra.LENDO),
+                            minha = !o.optBoolean("trancada", false) && o.optBoolean("minha", o.optString("status", StatusObra.LENDO) != StatusObra.LENDO),
+                            trancada = o.optBoolean("trancada", false), autor = o.optString("autor", ""),
                             capa = imagem("capa"), capaX = o.optDouble("capaX", .5).toFloat(), capaY = o.optDouble("capaY", .5).toFloat(), capaZoom = o.optDouble("capaZoom", 1.0).toFloat(),
                             banner = imagem("banner"), bannerX = o.optDouble("bannerX", .5).toFloat(), bannerY = o.optDouble("bannerY", .5).toFloat(), bannerZoom = o.optDouble("bannerZoom", 1.0).toFloat(),
                             corBase = o.optLong("corBase", 0xFF3B2A4A), criadaEm = o.optLong("criadaEm", System.currentTimeMillis()),

@@ -13,8 +13,10 @@ android {
         applicationId = "com.huryel.novely"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2-faseB"
+        // número do build no GitHub = número da versão (o app compara com a tag build-N para se atualizar)
+        val numeroBuild = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = numeroBuild
+        versionName = "2.3 · build $numeroBuild"
     }
 
     // Chave fixa: cada APK novo instala POR CIMA do anterior, sem apagar suas obras.

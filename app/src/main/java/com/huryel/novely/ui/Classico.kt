@@ -286,14 +286,15 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
                             .clickable { menuCapa = true }, 14.sp)
                     DropdownMenu(menuCapa, { menuCapa = false }) {
                         DropdownMenuItem(text = { Text("Ver capa") }, onClick = { menuCapa = false; verCapa = true })
-                        DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })
+                        if (!o.trancada) DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })
                     }
                 }
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.padding(bottom = 4.dp)) {
-                    Text(nomeStatus(o.status).uppercase() + if (!o.minha) " · SÓ LEITURA" else "", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = p.destaque)
+                    Text(nomeStatus(o.status).uppercase() + if (o.trancada) " · PUBLICADA" else if (!o.minha) " · SÓ LEITURA" else "", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = p.destaque)
                     Text(o.titulo, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, lineHeight = 26.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 6.dp))
+                    if (o.autor.isNotBlank()) Text("por ${o.autor}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = p.texto.copy(alpha = 0.85f), modifier = Modifier.padding(top = 4.dp))
                     Text("${caps.size} caps · ${formatarPalavras(palavras)} palavras" + if (caps.isNotEmpty()) " · ${lidos * 100 / caps.size}% lido" else "",
                         fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
                 }

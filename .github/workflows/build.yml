@@ -47,5 +47,8 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: "Novely build ${{ github.run_number }}"
-          body: "APK gerado automaticamente. Baixe o arquivo .apk abaixo e instale."
+          body: |
+            ${{ github.event.head_commit.message }}
+
+            APK gerado automaticamente. Baixe o arquivo .apk abaixo e instale.
           files: app/build/outputs/apk/debug/*.apk

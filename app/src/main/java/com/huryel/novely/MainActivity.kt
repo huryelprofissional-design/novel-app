@@ -19,19 +19,25 @@ class NovelyApp : Application() {
     lateinit var prefs: Preferencias
     lateinit var importador: com.huryel.novely.data.Importador
     lateinit var backup: com.huryel.novely.data.Backup
+    lateinit var atualizador: com.huryel.novely.data.Atualizador
+    /** Arquivo aberto com o Novely (WhatsApp, gerenciador de arquivos…), esperando ser tratado. */
+    val arquivoRecebido = kotlinx.coroutines.flow.MutableStateFlow<android.net.Uri?>(null)
     /** Escopo que sobrevive à troca de tela: usado para terminar salvamentos ao sair. */
     val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
     override fun onCreate() {
         super.onCreate()
         instancia = this
+        com.huryel.novely.data.Diagnostico.iniciar(this)
         repo = Repositorio(this)
         prefs = Preferencias(this)
         importador = com.huryel.novely.data.Importador(this, repo)
         backup = com.huryel.novely.data.Backup(this, repo, prefs)
+        atualizador = com.huryel.novely.data.Atualizador(this, prefs)
         repo.aoEscreverPalavras = { prefs.registrarPalavras(it) }
         prefs.conferirDia()
         escopo.launch { backup.backupAutomaticoSePreciso() }
         escopo.launch { repo.limparLixeiraAntiga() }
+        escopo.launch { kotlinx.coroutines.delay(4000); atualizador.verificarSePreciso() }
     }
     companion object {
         lateinit var instancia: NovelyApp
@@ -44,6 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val prefs = NovelyApp.instancia.prefs
+        if (savedInstanceState == null) receber(intent)
         setContent {
             val nomeTema by prefs.tema.collectAsState()
             val tema = TemaLeitura.entries.firstOrNull { it.name == nomeTema } ?: TemaLeitura.OLED
@@ -56,5 +63,22 @@ class MainActivity : ComponentActivity() {
                 AppNavegacao(temaAtual = tema, aoMudarTema = { prefs.definirTema(it.name) })
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        receber(intent)
+    }
+
+    /** "Abrir com Novely" / "Compartilhar com Novely": guarda o arquivo para a navegação tratar. */
+    private fun receber(i: android.content.Intent?) {
+        val uri: android.net.Uri? = when (i?.action) {
+            android.content.Intent.ACTION_VIEW -> i.data
+            android.content.Intent.ACTION_SEND ->
+                if (android.os.Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                else @Suppress("DEPRECATION") i.getParcelableExtra(android.content.Intent.EXTRA_STREAM)
+            else -> null
+        }
+        if (uri != null) NovelyApp.instancia.arquivoRecebido.value = uri
     }
 }

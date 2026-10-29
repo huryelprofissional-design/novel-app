@@ -54,6 +54,7 @@ private sealed interface Dialogo {
     data class MenuImagem(val tipo: String) : Dialogo
     data class Etiquetas(val c: Capitulo) : Dialogo
     data object Colecao : Dialogo
+    data object Publicar : Dialogo
     data object MoverVarios : Dialogo
     data object ExcluirVarios : Dialogo
 }
@@ -123,7 +124,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                     { if (listaEstado.firstVisibleItemIndex == 0) listaEstado.firstVisibleItemScrollOffset.toFloat() else 0f },
                     AcoesObra(
                         voltar = { nav.popBackStack() }, menu = { menuObra = true },
-                        banner = { dialogo = Dialogo.MenuImagem("banner") }, capa = { dialogo = Dialogo.MenuImagem("capa") },
+                        banner = { if (!o.trancada) dialogo = Dialogo.MenuImagem("banner") }, capa = { if (!o.trancada) dialogo = Dialogo.MenuImagem("capa") },
                         ler = alvo?.let { al -> { nav.navigate("leitor/${al.id}") } },
                         novoCap = if (o.minha) ({ dialogo = Dialogo.NovoCapitulo }) else null, novoVol = { dialogo = Dialogo.NovoVolume },
                     ),
@@ -154,24 +155,28 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
 
         Box(Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp)) {
             DropdownMenu(expanded = menuObra, onDismissRequest = { menuObra = false }) {
-                DropdownMenuItem(text = { Text("Editar título e descrição") }, onClick = { menuObra = false; dialogo = Dialogo.EditarInfo })
+                val livre = !o.trancada
+                if (o.minha && livre) DropdownMenuItem(text = { Text("✦ Publicar para leitores", color = p.destaque, fontWeight = FontWeight.Bold) }, onClick = { menuObra = false; dialogo = Dialogo.Publicar })
+                if (livre) DropdownMenuItem(text = { Text("Editar título e descrição") }, onClick = { menuObra = false; dialogo = Dialogo.EditarInfo })
                 DropdownMenuItem(text = { Text("Personagens e lugares") }, onClick = { menuObra = false; nav.navigate("fichas/$obraId") })
                 DropdownMenuItem(text = { Text("Linha do tempo") }, onClick = { menuObra = false; nav.navigate("tempo/$obraId") })
                 DropdownMenuItem(text = { Text("Marcadores e grifos") }, onClick = { menuObra = false; nav.navigate("marcadores/$obraId") })
-                DropdownMenuItem(text = { Text("Reordenar capítulos") }, onClick = { menuObra = false; nav.navigate("reordenar/$obraId") })
+                if (livre) DropdownMenuItem(text = { Text("Reordenar capítulos") }, onClick = { menuObra = false; nav.navigate("reordenar/$obraId") })
                 DropdownMenuItem(text = { Text("Selecionar vários") }, onClick = { menuObra = false; capitulos.firstOrNull()?.let { selecionados.add(it.id) } })
                 DropdownMenuItem(text = { Text("Coleção" + if (o.colecao.isNotEmpty()) ": ${o.colecao}" else "…") }, onClick = { menuObra = false; dialogo = Dialogo.Colecao })
-                DropdownMenuItem(text = { Text("Importar capítulos (TXT/EPUB)") }, onClick = { menuObra = false; nav.navigate("importar/$obraId") })
-                DropdownMenuItem(text = { Text("Trocar capa") }, onClick = { menuObra = false; escolherImagem("capa") })
-                DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuObra = false; escolherImagem("banner") })
+                if (livre) {
+                    DropdownMenuItem(text = { Text("Importar capítulos (TXT/EPUB)") }, onClick = { menuObra = false; nav.navigate("importar/$obraId") })
+                    DropdownMenuItem(text = { Text("Trocar capa") }, onClick = { menuObra = false; escolherImagem("capa") })
+                    DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuObra = false; escolherImagem("banner") })
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Sou o autor (permitir editar)") },
+                        leadingIcon = { if (o.minha) Icon(Icons.Filled.Check, null) },
+                        onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(minha = !o.minha)) } },
+                    )
+                }
                 HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text("Sou o autor (permitir editar)") },
-                    leadingIcon = { if (o.minha) Icon(Icons.Filled.Check, null) },
-                    onClick = { menuObra = false; escopo.launch { repo.salvarObra(o.copy(minha = !o.minha)) } },
-                )
-                HorizontalDivider()
-                listOf(StatusObra.ESCREVENDO, StatusObra.LENDO, StatusObra.CONCLUIDA).forEach { s ->
+                (if (livre) listOf(StatusObra.ESCREVENDO, StatusObra.LENDO, StatusObra.CONCLUIDA) else listOf(StatusObra.LENDO, StatusObra.CONCLUIDA)).forEach { s ->
                     DropdownMenuItem(
                         text = { Text("Marcar como ${nomeStatus(s).lowercase()}") },
                         leadingIcon = { if (o.status == s) Icon(Icons.Filled.Check, null) },
@@ -179,11 +184,13 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                     )
                 }
                 HorizontalDivider()
-                DropdownMenuItem(text = { Text("Exportar EPUB") }, onClick = { menuObra = false; exportarEpub.launch(nomeSeguro(o) + ".epub") })
-                DropdownMenuItem(text = { Text("Exportar TXT / Markdown") }, onClick = { menuObra = false; exportarTxt.launch(nomeSeguro(o) + ".md") })
+                if (livre) {
+                    DropdownMenuItem(text = { Text("Exportar EPUB") }, onClick = { menuObra = false; exportarEpub.launch(nomeSeguro(o) + ".epub") })
+                    DropdownMenuItem(text = { Text("Exportar TXT / Markdown") }, onClick = { menuObra = false; exportarTxt.launch(nomeSeguro(o) + ".md") })
+                }
                 DropdownMenuItem(text = { Text("Backup só desta obra") }, onClick = { menuObra = false; exportarNovely.launch(nomeSeguro(o) + ".novely") })
                 HorizontalDivider()
-                DropdownMenuItem(text = { Text("Excluir obra", color = Color(0xFFE57373)) }, onClick = { menuObra = false; dialogo = Dialogo.ExcluirObra })
+                DropdownMenuItem(text = { Text(if (livre) "Excluir obra" else "Remover da biblioteca", color = Color(0xFFE57373)) }, onClick = { menuObra = false; dialogo = Dialogo.ExcluirObra })
             }
         }
         if (emSelecao) Column(
@@ -198,8 +205,10 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
                 val ids = selecionados.toList()
                 OutlinedButton(onClick = { escopo.launch { repo.marcarLidos(ids, true); selecionados.clear() } }) { Text("✓ Lidos") }
                 OutlinedButton(onClick = { escopo.launch { repo.marcarLidos(ids, false); selecionados.clear() } }) { Text("Não lidos") }
-                OutlinedButton(onClick = { dialogo = Dialogo.MoverVarios }) { Text("Mover p/ volume") }
-                OutlinedButton(onClick = { dialogo = Dialogo.ExcluirVarios }) { Text("Excluir", color = Color(0xFFE57373)) }
+                if (!o.trancada) {
+                    OutlinedButton(onClick = { dialogo = Dialogo.MoverVarios }) { Text("Mover p/ volume") }
+                    OutlinedButton(onClick = { dialogo = Dialogo.ExcluirVarios }) { Text("Excluir", color = Color(0xFFE57373)) }
+                }
             }
         }
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter))
@@ -255,6 +264,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
             val limpo = t.split(',').map { it.trim().lowercase().removePrefix("#") }.filter { it.isNotEmpty() }.distinct().joinToString(",")
             escopo.launch { repo.salvarCapitulo(d.c.copy(tags = limpo)) }
         }
+        Dialogo.Publicar -> DialogoPublicar(o.id, o.titulo) { dialogo = null }
         Dialogo.Colecao -> {
             val existentes by remember { repo.colecoes() }.collectAsState(initial = emptyList())
             var nova by remember { mutableStateOf(o.colecao) }
@@ -389,18 +399,23 @@ private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Opções do capítulo", tint = p.textoSuave) }
             DropdownMenu(menu, { menu = false }) {
-                if (!o.minha) DropdownMenuItem(text = { Text("Corrigir erro no texto") }, onClick = { menu = false; nav.navigate("editor/${c.id}") })
-                DropdownMenuItem(text = { Text("Renomear") }, onClick = { menu = false; abrir(Dialogo.RenomearCap(c)) })
-                if (o.minha) DropdownMenuItem(text = { Text(if (c.rascunho) "Marcar como concluído" else "Voltar para rascunho") },
+                val livre = !o.trancada
+                if (!o.minha && livre) DropdownMenuItem(text = { Text("Corrigir erro no texto") }, onClick = { menu = false; nav.navigate("editor/${c.id}") })
+                if (livre) DropdownMenuItem(text = { Text("Renomear") }, onClick = { menu = false; abrir(Dialogo.RenomearCap(c)) })
+                if (o.minha && livre) DropdownMenuItem(text = { Text(if (c.rascunho) "Marcar como concluído" else "Voltar para rascunho") },
                     onClick = { menu = false; escopo.launch { repo.salvarCapitulo(c.copy(rascunho = !c.rascunho)) } })
                 DropdownMenuItem(text = { Text(if (lido) "Marcar como não lido" else "Marcar como lido") },
                     onClick = { menu = false; escopo.launch { repo.salvarCapitulo(c.copy(progresso = if (lido) 0f else 1f)) } })
-                DropdownMenuItem(text = { Text("Subir") }, onClick = { menu = false; escopo.launch { repo.moverCapitulo(c, -1) } })
-                DropdownMenuItem(text = { Text("Descer") }, onClick = { menu = false; escopo.launch { repo.moverCapitulo(c, 1) } })
-                DropdownMenuItem(text = { Text("Mover para volume") }, onClick = { menu = false; abrir(Dialogo.MoverCap(c)) })
+                if (livre) {
+                    DropdownMenuItem(text = { Text("Subir") }, onClick = { menu = false; escopo.launch { repo.moverCapitulo(c, -1) } })
+                    DropdownMenuItem(text = { Text("Descer") }, onClick = { menu = false; escopo.launch { repo.moverCapitulo(c, 1) } })
+                    DropdownMenuItem(text = { Text("Mover para volume") }, onClick = { menu = false; abrir(Dialogo.MoverCap(c)) })
+                }
                 DropdownMenuItem(text = { Text("Etiquetas" + if (c.tags.isNotEmpty()) " (${c.tags.split(',').size})" else "") }, onClick = { menu = false; abrir(Dialogo.Etiquetas(c)) })
-                HorizontalDivider()
-                DropdownMenuItem(text = { Text("Excluir", color = Color(0xFFE57373)) }, onClick = { menu = false; abrir(Dialogo.ExcluirCap(c)) })
+                if (livre) {
+                    HorizontalDivider()
+                    DropdownMenuItem(text = { Text("Excluir", color = Color(0xFFE57373)) }, onClick = { menu = false; abrir(Dialogo.ExcluirCap(c)) })
+                }
             }
         }
     }

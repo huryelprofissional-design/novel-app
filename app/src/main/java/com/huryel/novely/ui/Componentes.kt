@@ -36,17 +36,28 @@ import com.huryel.novely.ui.theme.Serifa
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Carrega uma imagem do armazenamento do app fora da thread principal, já reduzida. */
+/** Imagens já abertas ficam na memória (até ~1/8 da RAM do app): trocar de tela não decodifica de novo. */
+private object CacheImagens {
+    val lru = object : android.util.LruCache<String, ImageBitmap>((Runtime.getRuntime().maxMemory() / 8 / 1024).toInt()) {
+        override fun sizeOf(key: String, value: ImageBitmap) = (value.width * value.height * 4 / 1024).coerceAtLeast(1)
+    }
+}
+
+/** Carrega uma imagem do armazenamento do app fora da thread principal, já reduzida (com cache). */
 @Composable
 fun rememberImagem(caminho: String?, ladoMax: Int = 900): ImageBitmap? {
-    val estado by produceState<ImageBitmap?>(null, caminho, ladoMax) {
-        value = if (caminho == null) null else withContext(Dispatchers.IO) {
+    val chave = caminho?.let { "$it|$ladoMax" }
+    val estado by produceState<ImageBitmap?>(chave?.let { CacheImagens.lru.get(it) }, chave) {
+        if (caminho == null || chave == null) { value = null; return@produceState }
+        CacheImagens.lru.get(chave)?.let { value = it; return@produceState }
+        value = withContext(Dispatchers.IO) {
             try {
                 val lim = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeFile(caminho, lim)
                 var amostra = 1
                 while (lim.outWidth / (amostra * 2) >= ladoMax || lim.outHeight / (amostra * 2) >= ladoMax) amostra *= 2
                 BitmapFactory.decodeFile(caminho, BitmapFactory.Options().apply { inSampleSize = amostra })?.asImageBitmap()
+                    ?.also { it.prepareToDraw(); CacheImagens.lru.put(chave, it) }
             } catch (e: Throwable) { null }
         }
     }

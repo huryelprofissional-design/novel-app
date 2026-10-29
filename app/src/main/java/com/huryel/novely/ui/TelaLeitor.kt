@@ -67,6 +67,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import com.huryel.novely.data.StatusObra
@@ -263,7 +265,10 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         }
         return
     }
-    val obra by remember(c.obraId) { repo.obra(c.obraId) }.collectAsState(initial = null)
+    // ignora mudanças só de data (salvar a posição mexe nelas) para não redesenhar o leitor inteiro
+    val obra by remember(c.obraId) {
+        repo.obra(c.obraId).map { it?.copy(lidaEm = 0, atualizadaEm = 0, ultimoCapituloId = null) }.distinctUntilChanged()
+    }.collectAsState(initial = null)
     val idx = lista.indexOfFirst { it.id == c.id }
     val anterior = lista.getOrNull(idx - 1)
     val proximo = lista.getOrNull(idx + 1)
@@ -474,7 +479,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
             item(key = "fim") {
                 FimCapitulo(b.isEmpty(), proximo, obra, idx + 1, lista.size, lista.count { it.progresso >= 0.98f || it.id == c.id }, ::irPara,
                     voltarObra = { nav.popBackStack() },
-                    concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.salvarObra(o.copy(status = StatusObra.CONCLUIDA)) } } })
+                    concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } })
             }
         }
 
