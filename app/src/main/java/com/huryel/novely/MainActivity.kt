@@ -47,6 +47,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             val nomeTema by prefs.tema.collectAsState()
             val tema = TemaLeitura.entries.firstOrNull { it.name == nomeTema } ?: TemaLeitura.OLED
+            androidx.compose.runtime.LaunchedEffect(tema) {
+                val transp = android.graphics.Color.TRANSPARENT
+                val estilo = if (tema.paleta.escuro) androidx.activity.SystemBarStyle.dark(transp) else androidx.activity.SystemBarStyle.light(transp, transp)
+                enableEdgeToEdge(statusBarStyle = estilo, navigationBarStyle = estilo)
+            }
             NovelyTheme(tema) {
                 AppNavegacao(temaAtual = tema, aoMudarTema = { prefs.definirTema(it.name) })
             }

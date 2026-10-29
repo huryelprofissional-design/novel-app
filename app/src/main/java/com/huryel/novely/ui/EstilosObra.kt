@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -62,7 +63,7 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
 
 @Composable
 private fun BotaoCirculo(icone: @Composable () -> Unit, acao: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(RoundedCornerShape(22.dp)).background(Color(0x88000000)).clickable(onClick = acao), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(44.dp).clip(forma(22.dp)).background(Color(0x88000000)).clickable(onClick = acao), contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides Color.White) { icone() }
     }
 }
@@ -110,13 +111,13 @@ private fun CabecalhoCinema(o: Obra, caps: List<Capitulo>, alvo: Capitulo?, desl
             BotaoCirculo({ Icon(Icons.Filled.MoreVert, "Opções da obra") }, a.menu)
         }
         Column(
-            Modifier.padding(top = 260.dp).fillMaxWidth().shadow(24.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)).background(p.fundo).padding(horizontal = 20.dp),
+            Modifier.padding(top = 260.dp).fillMaxWidth().shadow(24.dp, forma(topStart = 28.dp, topEnd = 28.dp))
+                .clip(forma(topStart = 28.dp, topEnd = 28.dp)).background(p.fundo).padding(horizontal = 20.dp),
         ) {
-            Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(p.borda))
+            Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).width(40.dp).height(4.dp).clip(forma(2.dp)).background(p.borda))
             Row(Modifier.padding(top = 12.dp).subir(70.dp), verticalAlignment = Alignment.Bottom) {
                 CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-                    Modifier.width(104.dp).height(156.dp).shadow(16.dp, RoundedCornerShape(12.dp)).clickable(onClick = a.capa), 13.sp)
+                    Modifier.width(104.dp).height(156.dp).shadow(16.dp, forma(12.dp)).clickable(onClick = a.capa), 13.sp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.padding(bottom = 4.dp)) {
                     Text(nomeStatus(o.status).uppercase() + if (caps.isNotEmpty()) " · ${lidos * 100 / caps.size}%" else "",
@@ -126,11 +127,11 @@ private fun CabecalhoCinema(o: Obra, caps: List<Capitulo>, alvo: Capitulo?, desl
             }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { a.ler?.invoke() }, enabled = a.ler != null, shape = RoundedCornerShape(12.dp),
+                Button(onClick = { a.ler?.invoke() }, enabled = a.ler != null, shape = forma(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = p.texto, contentColor = p.fundo), modifier = Modifier.weight(1f).height(50.dp)) {
                     Text("▶  " + textoAlvo(alvo), fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Button(onClick = a.novoCap, shape = RoundedCornerShape(12.dp),
+                Button(onClick = a.novoCap, shape = forma(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = p.superficie, contentColor = p.texto), modifier = Modifier.height(50.dp)) {
                     Text("+ Cap.", fontWeight = FontWeight.ExtraBold)
                 }
@@ -232,7 +233,7 @@ private fun CabecalhoEstante(o: Obra, caps: List<Capitulo>, volumes: List<Volume
         CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
             Modifier.width(152.dp).height(228.dp)
                 .graphicsLayer { rotationY = -14f; cameraDistance = 14f * density }
-                .shadow(22.dp, RoundedCornerShape(12.dp)).clickable(onClick = a.capa), 18.sp)
+                .shadow(22.dp, forma(12.dp)).clickable(onClick = a.capa), 18.sp)
         Spacer(Modifier.height(18.dp))
         Text(o.titulo, fontFamily = Serifa, fontWeight = FontWeight.Bold, fontSize = 27.sp, lineHeight = 30.sp, textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 24.dp))
@@ -240,11 +241,11 @@ private fun CabecalhoEstante(o: Obra, caps: List<Capitulo>, volumes: List<Volume
             modifier = Modifier.padding(top = 4.dp))
         Box(Modifier.padding(horizontal = 28.dp, vertical = 10.dp)) { Sinopse(o.descricao, p, capitular = false, centro = true) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { a.ler?.invoke() }, enabled = a.ler != null, shape = RoundedCornerShape(26.dp),
+            Button(onClick = { a.ler?.invoke() }, enabled = a.ler != null, shape = forma(26.dp),
                 colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), modifier = Modifier.height(48.dp).widthIn(max = 230.dp)) {
                 Text("▶  " + (alvo?.titulo?.ifEmpty { "sem título" } ?: "Sem capítulos"), fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            OutlinedButton(onClick = a.novoCap, shape = RoundedCornerShape(26.dp), modifier = Modifier.height(48.dp)) { Text("+ Cap.") }
+            OutlinedButton(onClick = a.novoCap, shape = forma(26.dp), modifier = Modifier.height(48.dp)) { Text("+ Cap.") }
         }
         // progresso dividido por volume
         if (caps.isNotEmpty()) {
@@ -261,7 +262,7 @@ private fun CabecalhoEstante(o: Obra, caps: List<Capitulo>, volumes: List<Volume
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     grupos.forEach { (_, cs) ->
                         val f = cs.count { it.progresso >= 0.98f }.toFloat() / cs.size
-                        Box(Modifier.weight(cs.size.toFloat()).height(8.dp).clip(RoundedCornerShape(3.dp)).background(p.borda)) {
+                        Box(Modifier.weight(cs.size.toFloat()).height(8.dp).clip(forma(3.dp)).background(p.borda)) {
                             Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(p.destaque))
                         }
                     }
@@ -314,7 +315,7 @@ fun LinhaCapEstilo(
             acoes()
         }
         "ESTANTE" -> Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(p.superficie)
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(forma(14.dp)).background(p.superficie)
                 .clickable(onClick = abrir).drawBehind { if (atual) drawRect(p.destaque, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)) }
                 .padding(start = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -328,7 +329,7 @@ fun LinhaCapEstilo(
             acoes()
         }
         else -> Row(Modifier.fillMaxWidth().clickable(onClick = abrir).padding(start = 20.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(86.dp).height(50.dp).clip(RoundedCornerShape(8.dp)).background(Color(o.corBase).copy(alpha = if (lido) 0.35f else 0.8f))) {
+            Box(Modifier.width(86.dp).height(50.dp).clip(forma(8.dp)).background(Color(o.corBase).copy(alpha = if (lido) 0.35f else 0.8f))) {
                 Text(if (especial != null) especial.take(3) else "$numero", fontFamily = Serifa, fontWeight = FontWeight.Black, fontSize = 18.sp,
                     color = Color.White.copy(alpha = 0.85f), modifier = Modifier.align(Alignment.Center))
                 if (c.progresso > 0.01f) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(c.progresso.coerceAtMost(1f)).height(3.dp).background(p.destaque))

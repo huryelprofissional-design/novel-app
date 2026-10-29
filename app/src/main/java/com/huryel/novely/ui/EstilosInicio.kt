@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,8 +55,8 @@ fun SeletorEstilo() {
             listOf("CINEMA" to "Cinema", "REVISTA" to "Revista", "ESTANTE" to "Estante").forEach { (id, nome) ->
                 val sel = estilo == id
                 Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(p.superficie)
-                        .border(if (sel) 2.dp else 1.dp, if (sel) p.destaque else p.borda, RoundedCornerShape(16.dp))
+                    Modifier.weight(1f).clip(forma(16.dp)).background(p.superficie)
+                        .border(if (sel) 2.dp else 1.dp, if (sel) p.destaque else p.borda, forma(16.dp))
                         .clickable { prefs.estilo.definir(id) }.padding(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -70,12 +71,12 @@ fun SeletorEstilo() {
 
 @Composable
 private fun MiniaturaEstilo(id: String, p: Paleta) {
-    Box(Modifier.size(width = 56.dp, height = 70.dp).clip(RoundedCornerShape(8.dp)).background(p.fundo).border(1.dp, p.borda, RoundedCornerShape(8.dp))) {
+    Box(Modifier.size(width = 56.dp, height = 70.dp).clip(forma(8.dp)).background(p.fundo).border(1.dp, p.borda, forma(8.dp))) {
         when (id) {
             "CINEMA" -> {
                 Box(Modifier.fillMaxWidth().height(40.dp).background(Brush.verticalGradient(listOf(p.destaque.copy(alpha = 0.7f), p.fundo))))
                 Row(Modifier.align(Alignment.BottomStart).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    repeat(3) { Box(Modifier.size(12.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(p.borda)) }
+                    repeat(3) { Box(Modifier.size(12.dp, 18.dp).clip(forma(2.dp)).background(p.borda)) }
                 }
             }
             "REVISTA" -> Column(Modifier.padding(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -86,7 +87,7 @@ private fun MiniaturaEstilo(id: String, p: Paleta) {
                 } }
             }
             else -> {
-                Box(Modifier.align(Alignment.Center).offset(y = (-8).dp).size(22.dp, 32.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque.copy(alpha = 0.8f)))
+                Box(Modifier.align(Alignment.Center).offset(y = (-8).dp).size(22.dp, 32.dp).clip(forma(2.dp)).background(p.destaque.copy(alpha = 0.8f)))
                 Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                     listOf(14, 18, 12, 16, 15).forEach { h -> Box(Modifier.size(5.dp, h.dp).background(p.textoSuave.copy(alpha = 0.6f))) }
                 }
@@ -140,10 +141,10 @@ fun InicioCinema(lista: List<ResumoObra>, nav: NavHostController) {
                             fontFamily = Serifa, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = p.textoSuave, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
-                        Button(onClick = { abrirDestaque(d, nav) }, shape = RoundedCornerShape(12.dp),
+                        Button(onClick = { abrirDestaque(d, nav) }, shape = forma(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = p.texto, contentColor = p.fundo),
                             modifier = Modifier.weight(1f).height(52.dp)) { Text("▶  Ler", fontWeight = FontWeight.ExtraBold) }
-                        Button(onClick = { nav.navigate("obra/${d.id}") }, shape = RoundedCornerShape(12.dp),
+                        Button(onClick = { nav.navigate("obra/${d.id}") }, shape = forma(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = p.texto.copy(alpha = 0.14f), contentColor = p.texto),
                             modifier = Modifier.weight(1f).height(52.dp)) { Text("ⓘ  Ver obra", fontWeight = FontWeight.ExtraBold) }
                     }
@@ -185,7 +186,7 @@ private fun TituloFileira(t: String) {
 private fun CartaoCinema(o: ResumoObra, aoAbrir: () -> Unit) {
     val p = LocalPaleta.current
     val obra by remember(o.id) { NovelyApp.instancia.repo.obra(o.id) }.collectAsState(initial = null)
-    Box(Modifier.width(230.dp).height(120.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = aoAbrir)) {
+    Box(Modifier.width(230.dp).height(120.dp).clip(forma(12.dp)).clickable(onClick = aoAbrir)) {
         val ob = obra
         if (ob?.banner != null) ImagemEnquadrada(ob.banner, ob.bannerX, ob.bannerY, ob.bannerZoom, o.corBase, Modifier.fillMaxSize(), 700)
         else Box(Modifier.fillMaxSize().background(Color(o.corBase))) { ArteCapa(o.titulo + "·faixa", o.corBase) }
@@ -205,7 +206,7 @@ private fun PosterCinema(o: ResumoObra, aoAbrir: () -> Unit) {
             CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxWidth().height(168.dp), 13.sp)
             if (o.totalCapitulos > 0 && o.status == StatusObra.LENDO) {
                 Text("${o.lidos * 100 / o.totalCapitulos}%", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = p.sobreDestaque,
-                    modifier = Modifier.padding(6.dp).clip(RoundedCornerShape(6.dp)).background(p.destaque).padding(horizontal = 6.dp, vertical = 2.dp))
+                    modifier = Modifier.padding(6.dp).clip(forma(6.dp)).background(p.destaque).padding(horizontal = 6.dp, vertical = 2.dp))
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -322,7 +323,7 @@ fun InicioEstante(lista: List<ResumoObra>, nav: NavHostController) {
                                     alpha = 1f - (desloc.absoluteValue * 0.45f).coerceAtMost(0.6f)
                                     cameraDistance = 14f * density
                                 }
-                                .shadow(18.dp, RoundedCornerShape(12.dp))
+                                .shadow(18.dp, forma(12.dp))
                                 .clickable { nav.navigate("obra/${o.id}") }, 20.sp)
                     }
                 }
@@ -333,17 +334,17 @@ fun InicioEstante(lista: List<ResumoObra>, nav: NavHostController) {
                 Text(atual.titulo, fontFamily = Serifa, fontWeight = FontWeight.Bold, fontSize = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(linhaObra(atual), fontSize = 12.sp, color = p.textoSuave)
                 if (atual.totalCapitulos > 0 && atual.status != StatusObra.ESCREVENDO) {
-                    Box(Modifier.width(160.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(p.borda)) {
+                    Box(Modifier.width(160.dp).height(4.dp).clip(forma(2.dp)).background(p.borda)) {
                         Box(Modifier.fillMaxWidth(atual.lidos.toFloat() / atual.totalCapitulos).fillMaxHeight().background(p.destaque))
                     }
                 }
-                Button(onClick = { abrirDestaque(atual, nav) }, shape = RoundedCornerShape(26.dp),
+                Button(onClick = { abrirDestaque(atual, nav) }, shape = forma(26.dp),
                     colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), modifier = Modifier.padding(top = 6.dp).height(48.dp)) {
                     Text(if (atual.ultimoCapituloId != null) "▶  Continuar lendo" else "Abrir obra", fontWeight = FontWeight.ExtraBold)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
                     lista.indices.take(12).forEach { i ->
-                        Box(Modifier.height(4.dp).width(if (i == pager.currentPage) 18.dp else 4.dp).clip(RoundedCornerShape(2.dp))
+                        Box(Modifier.height(4.dp).width(if (i == pager.currentPage) 18.dp else 4.dp).clip(forma(2.dp))
                             .background(if (i == pager.currentPage) p.destaque else p.borda))
                     }
                 }
@@ -369,7 +370,7 @@ private fun Prateleira(lista: List<ResumoObra>, atualId: Long, abrir: (Long) -> 
                 val alt = (110 + (o.titulo.hashCode().absoluteValue % 36)).dp
                 val larg = (26 + (o.totalPalavras / 400_000).toInt().coerceAtMost(18)).dp
                 Box(
-                    Modifier.width(larg).height(alt).clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)).background(Color(o.corBase))
+                    Modifier.width(larg).height(alt).clip(forma(topStart = 3.dp, topEnd = 3.dp)).background(Color(o.corBase))
                         .drawBehind {
                             drawRect(Color.Black.copy(alpha = 0.25f), topLeft = Offset(size.width - 4f, 0f), size = androidx.compose.ui.geometry.Size(4f, size.height))
                             if (o.id == atualId) drawRect(p.destaque, size = androidx.compose.ui.geometry.Size(size.width, 8f))
@@ -382,6 +383,6 @@ private fun Prateleira(lista: List<ResumoObra>, atualId: Long, abrir: (Long) -> 
                 }
             }
         }
-        Box(Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(2.dp)).background(p.borda))
+        Box(Modifier.fillMaxWidth().height(7.dp).clip(forma(2.dp)).background(p.borda))
     }
 }

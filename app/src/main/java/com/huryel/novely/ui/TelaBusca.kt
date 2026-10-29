@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,7 +63,7 @@ fun TelaBusca(nav: NavHostController) {
                 trailingIcon = { if (consulta.isNotEmpty()) IconButton(onClick = { consulta = "" }) { Icon(Icons.Filled.Close, "Limpar") } },
                 placeholder = { Text("Palavra, frase, nome de personagem…") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                shape = RoundedCornerShape(18.dp),
+                shape = forma(18.dp),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p.destaque, unfocusedBorderColor = p.borda),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -111,7 +112,7 @@ fun TelaBusca(nav: NavHostController) {
                             addStyle(SpanStyle(background = p.destaque.copy(alpha = 0.4f), color = p.texto, fontWeight = FontWeight.Bold), ini, fim)
                         }
                         Column(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie)
+                            Modifier.fillMaxWidth().clip(forma(16.dp)).background(p.superficie)
                                 .clickable {
                                     if (a.noTitulo) nav.navigate("leitor/${a.item.capId}")
                                     else nav.navigate("leitor/${a.item.capId}?q=${Uri.encode(consulta.trim())}&n=${a.ocorrencia}")

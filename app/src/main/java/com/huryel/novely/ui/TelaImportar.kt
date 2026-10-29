@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -87,12 +88,12 @@ private fun Inicio(destino: Long?, abrir: (Array<String>) -> Unit, nav: NavHostC
 private fun CartaoFormato(sigla: String, texto: String, cor: Color, modifier: Modifier, aoTocar: () -> Unit) {
     val p = LocalPaleta.current
     Column(
-        modifier.height(100.dp).clip(RoundedCornerShape(18.dp)).background(p.superficie)
-            .border(1.dp, p.borda, RoundedCornerShape(18.dp)).clickable(onClick = aoTocar).padding(14.dp),
+        modifier.height(100.dp).clip(forma(18.dp)).background(p.superficie)
+            .border(1.dp, p.borda, forma(18.dp)).clickable(onClick = aoTocar).padding(14.dp),
         verticalArrangement = Arrangement.Center,
     ) {
         Text(sigla, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, color = Color(0xFF1A1206),
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(cor).padding(horizontal = 6.dp, vertical = 2.dp))
+            modifier = Modifier.clip(forma(6.dp)).background(cor).padding(horizontal = 6.dp, vertical = 2.dp))
         Spacer(Modifier.height(6.dp))
         Text("Importar", fontWeight = FontWeight.Bold)
         Text(texto, fontSize = 12.sp, color = p.textoSuave)
@@ -126,7 +127,7 @@ private fun Previa(pr: PreviaImport, destino: Long?) {
                 Text("Detectei $incluidos capítulos · ${formatarPalavras(palavras)} palavras", fontWeight = FontWeight.Bold)
                 pr.avisos.forEach { a ->
                     Text("⚠ $a", fontSize = 13.sp, color = p.destaque,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.superficie).padding(10.dp))
+                        modifier = Modifier.fillMaxWidth().clip(forma(12.dp)).background(p.superficie).padding(10.dp))
                 }
                 if (pr.tipo == "TXT") {
                     Text("DIVIDIR POR", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
@@ -151,7 +152,7 @@ private fun Previa(pr: PreviaImport, destino: Long?) {
         }
         itemsIndexed(pr.capitulos) { i, c ->
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (c.incluir) p.superficie else Color.Transparent)
+                Modifier.fillMaxWidth().clip(forma(12.dp)).background(if (c.incluir) p.superficie else Color.Transparent)
                     .clickable { imp.alternar(i) }.padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

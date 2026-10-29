@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -76,7 +77,7 @@ fun TelaBackup(nav: NavHostController) {
                     }
                 }
                 items(e.obras, key = { it.indice }) { o ->
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(p.superficie).clickable { bk.alternar(o.indice) }.padding(10.dp),
+                    Row(Modifier.fillMaxWidth().clip(forma(14.dp)).background(p.superficie).clickable { bk.alternar(o.indice) }.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(o.incluir, { bk.alternar(o.indice) }, colors = CheckboxDefaults.colors(checkedColor = p.destaque, checkmarkColor = p.sobreDestaque))
                         Column(Modifier.weight(1f)) {
@@ -99,7 +100,7 @@ fun TelaBackup(nav: NavHostController) {
             else -> Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 if (e is EstadoBackup.Feito || e is EstadoBackup.Erro) {
                     val ok = e is EstadoBackup.Feito
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (ok) Color(0x221F8A70) else Color(0x22E57373)).padding(12.dp),
+                    Row(Modifier.fillMaxWidth().clip(forma(14.dp)).background(if (ok) Color(0x221F8A70) else Color(0x22E57373)).padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text((if (ok) "✓ " else "⚠ ") + (if (e is EstadoBackup.Feito) e.mensagem else (e as EstadoBackup.Erro).mensagem),
                             modifier = Modifier.weight(1f), fontSize = 14.sp)
@@ -107,7 +108,7 @@ fun TelaBackup(nav: NavHostController) {
                     }
                 }
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.superficie).border(1.dp, p.borda, RoundedCornerShape(20.dp)).padding(16.dp),
+                    Modifier.fillMaxWidth().clip(forma(20.dp)).background(p.superficie).border(1.dp, p.borda, forma(20.dp)).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(if (ultimo > 0) "Último backup: ${fmt.format(Date(ultimo))}" else "Você ainda não fez nenhum backup",
@@ -119,7 +120,7 @@ fun TelaBackup(nav: NavHostController) {
                     OutlinedButton(onClick = { abrir.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Restaurar de um arquivo…") }
                 }
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.superficie).padding(16.dp),
+                    Modifier.fillMaxWidth().clip(forma(20.dp)).background(p.superficie).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     LinhaInterruptor("Backup automático diário", auto && pasta.isNotEmpty()) { ligar ->

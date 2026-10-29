@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -75,7 +76,7 @@ fun TelaAjusteImagem(obraId: Long, tipo: String, nav: NavHostController) {
             val moldura = if (banner) Modifier.fillMaxWidth().aspectRatio(1.86f) else Modifier.fillMaxHeight(0.9f).aspectRatio(2f / 3f)
             ImagemEnquadrada(
                 if (banner) o.banner else o.capa, x, y, zoom, o.corBase,
-                moldura.clip(RoundedCornerShape(if (banner) 0.dp else 14.dp))
+                moldura.clip(forma(if (banner) 0.dp else 14.dp))
                     .onSizeChanged { tamanho = it }
                     .pointerInput(Unit) {
                         detectTransformGestures { _, pan, gestoZoom, _ ->

@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -439,7 +440,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
         }
     }
 
-    val familia = if (fonte == "SEM_SERIFA") FontFamily.SansSerif else FontFamily.Serif
+    val familia = when (fonte) { "SEM_SERIFA" -> FontFamily.SansSerif; "SERIFA" -> FontFamily.Serif; else -> p.fonteLeitura }
     val estilo = TextStyle(fontFamily = familia, fontSize = 17.sp, lineHeight = 29.sp, color = p.texto)
 
     // ───────── Diálogos ─────────
@@ -554,7 +555,7 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
         }
         if (modoFoco) {
             Text("Sair do foco", fontSize = 12.sp, color = p.textoSuave, fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(10.dp).clip(RoundedCornerShape(12.dp))
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(10.dp).clip(forma(12.dp))
                     .background(p.superficie).clickable { modoFoco = false }.padding(horizontal = 12.dp, vertical = 8.dp))
         }
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp))
@@ -619,10 +620,10 @@ private fun LinhaStatus(palavras: Int, cap: Capitulo?, selecionado: String, hoje
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("${"%,d".format(palavras).replace(',', '.')} palavras" + if (cap?.rascunho == true) " · rascunho" else " · concluído",
             fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.weight(1f))
-        Row(Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = aoMeta).padding(horizontal = 6.dp, vertical = 4.dp),
+        Row(Modifier.clip(forma(10.dp)).clickable(onClick = aoMeta).padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             val f = (hoje / meta.coerceAtLeast(1f)).coerceIn(0f, 1f)
-            Box(Modifier.width(54.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(p.borda)) {
+            Box(Modifier.width(54.dp).height(5.dp).clip(forma(3.dp)).background(p.borda)) {
                 Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(if (f >= 1f) Color(0xFF6FC2B4) else p.destaque))
             }
             Spacer(Modifier.width(6.dp))
@@ -664,13 +665,13 @@ private fun PainelBuscaEditor(
 
 @Composable
 private fun BotaoRedondoPequeno(icone: androidx.compose.ui.graphics.vector.ImageVector, desc: String, p: Paleta, acao: () -> Unit) {
-    Box(Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(p.superficie).border(1.dp, p.borda, RoundedCornerShape(20.dp)).clickable(onClick = acao),
+    Box(Modifier.size(40.dp).clip(forma(20.dp)).background(p.superficie).border(1.dp, p.borda, forma(20.dp)).clickable(onClick = acao),
         contentAlignment = Alignment.Center) { Icon(icone, desc, tint = p.textoSuave) }
 }
 
 @Composable
 private fun BotaoFerramenta(rotulo: String, p: Paleta, peso: FontWeight = FontWeight.Bold, estiloFonte: FontStyle = FontStyle.Normal, cor: Color = p.texto, ativo: Boolean = true, acao: () -> Unit) {
-    Box(Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).clickable(enabled = ativo, onClick = acao), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(46.dp).clip(forma(12.dp)).clickable(enabled = ativo, onClick = acao), contentAlignment = Alignment.Center) {
         Text(rotulo, fontWeight = peso, fontStyle = estiloFonte, fontSize = 18.sp, color = if (ativo) cor else p.textoSuave.copy(alpha = 0.35f), fontFamily = FontFamily.Serif)
     }
 }
@@ -776,7 +777,7 @@ fun TelaHistorico(capId: Long, nav: NavHostController) {
         else if (v.isEmpty()) Text("Ainda não há versões antigas deste capítulo.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
         else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(v) { ver ->
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).clickable { escolhida = ver }.padding(14.dp)) {
+                Column(Modifier.fillMaxWidth().clip(forma(16.dp)).background(p.superficie).clickable { escolhida = ver }.padding(14.dp)) {
                     Text(fmt.format(Date(ver.quando)), fontWeight = FontWeight.Bold)
                     Text("${ver.palavras} palavras", fontSize = 12.sp, color = p.destaque)
                     Text(ver.inicio, fontSize = 13.sp, color = p.textoSuave, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -869,7 +870,7 @@ fun TelaComparar(capId: Long, quando: Long, nav: NavHostController) {
                 }
                 Text((if (d.tipo == -1) "− " else if (d.tipo == 1) "+ " else "") + d.texto, fontSize = 14.sp, lineHeight = 21.sp, color = if (d.tipo == 0) p.textoSuave else p.texto,
                     textDecoration = if (d.tipo == -1) TextDecoration.LineThrough else null,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(fundo).border(if (d.tipo != 0) 1.dp else 0.dp, cor.copy(alpha = 0.4f), RoundedCornerShape(10.dp)).padding(10.dp))
+                    modifier = Modifier.fillMaxWidth().clip(forma(10.dp)).background(fundo).border(if (d.tipo != 0) 1.dp else 0.dp, cor.copy(alpha = 0.4f), forma(10.dp)).padding(10.dp))
             }
         }
     }

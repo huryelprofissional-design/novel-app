@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.compose.animation.AnimatedVisibility
@@ -11,6 +12,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -189,13 +193,18 @@ fun generoVoz(nome: String): String? {
     }
 }
 
+/** Volta direto para o Início, limpando a pilha de telas. */
+fun irInicio(nav: NavHostController) {
+    nav.navigate("inicio") { popUpTo(0) { inclusive = true }; launchSingleTop = true }
+}
+
 // ───────── Tela ─────────
 
 private enum class Painel { NENHUM, VOZ, BUSCA }
 
 @OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
 @Composable
-fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = "", ocorrenciaInicial: Int = 0) {
+fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = "", ocorrenciaInicial: Int = 0, blocoInicial: Int = -1) {
     val app = NovelyApp.instancia
     val repo = app.repo
     val prefs = app.prefs
@@ -211,6 +220,8 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     val modoPaginas by prefs.modoPaginas.estado.collectAsState()
     val telaLigada by prefs.telaLigada.estado.collectAsState()
     val velocidade by prefs.velocidadeVoz.estado.collectAsState()
+    val escurecer by prefs.escurecer.estado.collectAsState()
+    val luzQuente by prefs.luzQuente.estado.collectAsState()
     val narrador by prefs.narrador.estado.collectAsState()
 
     var cap by remember { mutableStateOf<Capitulo?>(null) }
@@ -258,6 +269,44 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         }
     }
     val jaLido = c.progresso >= 0.98f
+    LaunchedEffect(blocoInicial) { if (blocoInicial >= 0) estado.scrollToItem((blocoInicial + 1).coerceAtMost(b.size + 1)) }
+
+    // ── Marcadores, fichas, folha do parágrafo ──
+    val marcas by remember(c.id) { repo.marcadoresCap(c.id) }.collectAsState(initial = emptyList())
+    val marcasPorBloco = remember(marcas) { marcas.associateBy { it.bloco } }
+    val fichas by remember(c.obraId) { repo.fichas(c.obraId) }.collectAsState(initial = emptyList())
+    var blocoSel by remember { mutableStateOf(-1) }
+    var fichaVer by remember { mutableStateOf<com.huryel.novely.data.Ficha?>(null) }
+
+    // ── Rolagem automática ──
+    val velRolagem by prefs.velocidadeRolagem.estado.collectAsState()
+    var rolando by remember { mutableStateOf(false) }
+    LaunchedEffect(rolando, velRolagem) {
+        while (rolando) {
+            withFrameNanos { }
+            estado.scrollBy(velRolagem * 1.4f)
+            if (!estado.canScrollForward) rolando = false
+        }
+    }
+
+    // ── Estatísticas: tempo lendo e palavras lidas ──
+    val progIni = remember { c.progresso }
+    var inicioSessao by remember { mutableStateOf(System.currentTimeMillis()) }
+    val donoCiclo = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    fun registrarSessao() {
+        val seg = ((System.currentTimeMillis() - inicioSessao) / 1000).toInt().coerceIn(0, 3 * 3600)
+        val pal = ((progresso - progIni).coerceAtLeast(0f) * c.palavras).toInt()
+        if (seg >= 5) prefs.registrarLeitura(seg, pal)
+        inicioSessao = System.currentTimeMillis()
+    }
+    DisposableEffect(donoCiclo) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) registrarSessao()
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) inicioSessao = System.currentTimeMillis()
+        }
+        donoCiclo.lifecycle.addObserver(obs)
+        onDispose { donoCiclo.lifecycle.removeObserver(obs); registrarSessao() }
+    }
     LaunchedEffect(estado) {
         snapshotFlow { estado.firstVisibleItemIndex to estado.firstVisibleItemScrollOffset }
             .debounce(700)
@@ -296,6 +345,10 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         tocando = true
     }
     fun pausar() { tocando = false; voz.parar() }
+    var timerFim by remember { mutableStateOf(0L) }
+    LaunchedEffect(timerFim) {
+        if (timerFim > 0) { kotlinx.coroutines.delay((timerFim - System.currentTimeMillis()).coerceAtLeast(0)); pausar(); timerFim = 0 }
+    }
 
     // ── Busca ──
     var consulta by remember { mutableStateOf(consultaInicial) }
@@ -318,7 +371,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         achados.getOrNull(achadoAtual)?.let { (bi, _) -> estado.animateScrollToItem(bi + 1) }
     }
 
-    val familia = if (fonte == "SEM_SERIFA") FontFamily.SansSerif else FontFamily.Serif
+    val familia = when (fonte) { "SEM_SERIFA" -> FontFamily.SansSerif; "SERIFA" -> FontFamily.Serif; else -> p.fonteLeitura }
     val estiloBase = TextStyle(fontFamily = familia, fontSize = tamanho.sp, lineHeight = (tamanho * entrelinhas).sp, color = p.texto)
     val corNarracao = if (destacarFalas) p.texto.copy(alpha = 0.86f) else p.texto
     val q = Texto.normalizar(consulta.trim())
@@ -327,12 +380,20 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         LazyColumn(
             state = estado,
             modifier = Modifier.fillMaxSize().pointerInput(modoPaginas) {
-                detectTapGestures { pos ->
-                    val w = size.width
-                    if (modoPaginas && pos.x < w * 0.28f) escopo.launch { estado.animateScrollBy(-size.height * 0.88f) }
-                    else if (modoPaginas && pos.x > w * 0.72f) escopo.launch { estado.animateScrollBy(size.height * 0.88f) }
-                    else controles = !controles
-                }
+                detectTapGestures(
+                    onLongPress = { pos ->
+                        val item = estado.layoutInfo.visibleItemsInfo.firstOrNull { pos.y >= it.offset && pos.y < it.offset + it.size }
+                        val bi = (item?.index ?: 0) - 1
+                        if (bi in b.indices && b[bi] !is Bloco.Separador) { rolando = false; blocoSel = bi }
+                    },
+                    onTap = { pos ->
+                        val w = size.width
+                        if (rolando) rolando = false
+                        else if (modoPaginas && pos.x < w * 0.28f) escopo.launch { estado.animateScrollBy(-size.height * 0.88f) }
+                        else if (modoPaginas && pos.x > w * 0.72f) escopo.launch { estado.animateScrollBy(size.height * 0.88f) }
+                        else controles = !controles
+                    },
+                )
             },
             contentPadding = PaddingValues(start = margem.dp, end = margem.dp, top = 0.dp, bottom = 140.dp),
             verticalArrangement = Arrangement.spacedBy((tamanho * 0.85f).dp),
@@ -342,10 +403,16 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
             }
             itemsIndexed(b, contentType = { _, x -> x::class }) { i, bloco ->
                 val ativo = i == falando
-                val fundoAtivo = if (ativo) Modifier.clip(RoundedCornerShape(10.dp)).background(p.destaque.copy(alpha = 0.14f)) else Modifier
+                val mk = marcasPorBloco[i]
+                val fundoAtivo = (if (ativo) Modifier.clip(forma(10.dp)).background(p.destaque.copy(alpha = 0.14f)) else Modifier)
+                    .then(if (mk != null && mk.cor.isNotEmpty()) Modifier.clip(forma(6.dp)).background((coresGrifo[mk.cor] ?: p.destaque).copy(alpha = 0.22f)) else Modifier)
+                    .then(if (mk != null) Modifier.drawBehind {
+                        val x = size.width + 6.dp.toPx()
+                        drawRect(coresGrifo[mk.cor] ?: p.destaque, topLeft = androidx.compose.ui.geometry.Offset(x, 2f), size = androidx.compose.ui.geometry.Size(4.dp.toPx(), 18.dp.toPx()))
+                    } else Modifier)
                 when (bloco) {
                     is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, fundoAtivo)
-                    is Bloco.Separador -> Text("◆   ◆   ◆", color = p.destaque, textAlign = TextAlign.Center, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                    is Bloco.Separador -> Text(p.separador, color = p.destaque, textAlign = TextAlign.Center, fontSize = 12.sp, fontFamily = p.fonteUi, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
                     is Bloco.Paragrafo -> {
                         val texto = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
                         if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
@@ -356,6 +423,10 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
             item(key = "fim") { FimCapitulo(b.isEmpty(), proximo, ::irPara) }
         }
 
+        // brilho reduzido e luz quente (por cima do texto, sem bloquear toques)
+        if (escurecer > 0.01f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = escurecer)))
+        if (luzQuente > 0.01f) Box(Modifier.fillMaxSize().background(Color(0xFFFF8A2A).copy(alpha = luzQuente * 0.28f)))
+
         // barra de progresso fininha no topo
         Box(Modifier.align(Alignment.TopStart).fillMaxWidth(progresso).height(2.dp).background(p.destaque))
 
@@ -363,6 +434,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
             Surface(color = p.superficie.copy(alpha = 0.97f)) {
                 Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
+                    IconButton(onClick = { irInicio(nav) }) { Icon(Icons.Filled.Home, "Início") }
                     Column(Modifier.weight(1f)) {
                         Text(c.titulo, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}", fontSize = 12.sp, color = p.textoSuave)
@@ -378,7 +450,8 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                 PainelVoz(voz, tocando, velocidade, { if (tocando) pausar() else tocar() },
                     { val ant = falaveis.lastOrNull { it < falando }; if (ant != null) falando = ant },
                     { val px = falaveis.firstOrNull { it > falando }; if (px != null) falando = px },
-                    { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it); voz.usarVoz(it); if (tocando && falando >= 0) voz.falar(b[falando].plano, falando.toString(), velocidade) })
+                    { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it); voz.usarVoz(it); if (tocando && falando >= 0) voz.falar(b[falando].plano, falando.toString(), velocidade) },
+                    timerFim, { min -> timerFim = if (min == 0) 0L else System.currentTimeMillis() + min * 60_000L })
             }
             AnimatedVisibility(controles && painel == Painel.BUSCA, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 PainelBusca(consulta, { consulta = it; achadoAtual = 0 }, achados.size, achadoAtual,
@@ -392,6 +465,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                         BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, { Icon(Icons.Filled.PlayArrow, null) }) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
                         BotaoBarra("Buscar", painel == Painel.BUSCA, { Icon(Icons.Filled.Search, null) }) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
                         BotaoBarra("Capítulos", false, { Icon(Icons.AutoMirrored.Filled.List, null) }) { mostrarCapitulos = true }
+                        BotaoBarra("Rolar", rolando, { Text("⇣", fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
                         BotaoBarra("Leitura", false, { Text("Aa", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { mostrarAjustes = true }
                     }
                 }
@@ -406,6 +480,11 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     if (mostrarSobre) ModalBottomSheet(onDismissRequest = { mostrarSobre = false }, containerColor = p.superficie) {
         obra?.let { o -> SobreObra(o, lista, c, p) { mostrarSobre = false; mostrarCapitulos = true } }
     }
+    if (blocoSel >= 0 && blocoSel in b.indices) ModalBottomSheet(onDismissRequest = { blocoSel = -1 }, containerColor = p.superficie) {
+        FolhaParagrafo(b[blocoSel].plano, marcasPorBloco[blocoSel], c.obraId, c.id, blocoSel, obra?.titulo ?: "", c.titulo, fichas,
+            fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it })
+    }
+    fichaVer?.let { f -> ModalBottomSheet(onDismissRequest = { fichaVer = null }, containerColor = p.superficie) { VerFicha(f) } }
     if (mostrarAjustes) ModalBottomSheet(onDismissRequest = { mostrarAjustes = false }, containerColor = p.superficie) { AjustesLeitura() }
     if (mostrarCapitulos) ModalBottomSheet(onDismissRequest = { mostrarCapitulos = false }, containerColor = p.superficie) {
         val estadoLista = rememberLazyListState((idx - 3).coerceAtLeast(0))
@@ -481,7 +560,7 @@ private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, a
             CaixaResumo("NESTE CAPÍTULO", c.resumo, verResumo, p) { verResumo = !verResumo }
         }
         Spacer(Modifier.height(4.dp))
-        Box(Modifier.width(48.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque))
+        Box(Modifier.width(48.dp).height(3.dp).clip(forma(2.dp)).background(p.destaque))
         Spacer(Modifier.height(4.dp))
     }
 }
@@ -489,13 +568,13 @@ private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, a
 @Composable
 private fun Etiqueta(t: String, p: Paleta, destaque: Boolean = false) {
     Text(t, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (destaque) p.sobreDestaque else p.textoSuave,
-        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(if (destaque) p.destaque else p.superficie).padding(horizontal = 10.dp, vertical = 5.dp))
+        modifier = Modifier.clip(forma(10.dp)).background(if (destaque) p.destaque else p.superficie).padding(horizontal = 10.dp, vertical = 5.dp))
 }
 
 @Composable
 private fun CaixaResumo(rotulo: String, texto: String, aberto: Boolean, p: Paleta, alternar: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).clickable(onClick = alternar)
+        Modifier.fillMaxWidth().clip(forma(16.dp)).background(p.superficie).clickable(onClick = alternar)
             .animateContentSize().padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -562,33 +641,49 @@ private fun TituloNoTexto(t: String, p: Paleta, extra: Modifier) {
     } else {
         Column(extra.fillMaxWidth().padding(top = 22.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(t, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp, lineHeight = 29.sp), color = p.destaque)
-            Box(Modifier.width(40.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque))
+            Box(Modifier.width(40.dp).height(3.dp).clip(forma(2.dp)).background(p.destaque))
         }
     }
 }
 
 @Composable
 private fun Fala(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Modifier) {
-    // travessão/aspas em âmbar + barra lateral forte + fundo levemente tingido: dá pra ver na hora que alguém fala
+    // travessões/aspas da fala na cor de destaque; o "invólucro" muda conforme o tema
     val colorido = remember(texto, p) {
         buildAnnotatedString {
             append(texto)
             val t = texto.text
             var fim = 0
             while (fim < t.length && (t[fim] in "—–―-“\"«" || t[fim] == ' ')) fim++
-            if (fim > 0) addStyle(SpanStyle(color = p.destaque, fontWeight = FontWeight.ExtraBold), 0, fim)
-            // travessões no meio da fala ("— disse ela. —") também em âmbar
+            val cor = if (p.fala == com.huryel.novely.ui.theme.EstiloFala.BALAO) p.destaque3 else p.destaque
+            if (fim > 0) addStyle(SpanStyle(color = cor, fontWeight = FontWeight.ExtraBold), 0, fim)
             var k = fim
-            while (k < t.length) { if (t[k] == '—') addStyle(SpanStyle(color = p.destaque), k, k + 1); k++ }
+            while (k < t.length) { if (t[k] == '—') addStyle(SpanStyle(color = cor), k, k + 1); k++ }
         }
     }
-    Row(
-        extra.height(IntrinsicSize.Min).clip(RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
-            .background(p.destaque.copy(alpha = 0.07f)),
-    ) {
-        Box(Modifier.width(4.dp).fillMaxHeight().background(p.destaque.copy(alpha = 0.9f)))
-        Spacer(Modifier.width(12.dp))
-        Text(colorido, style = estilo.copy(color = p.texto, fontWeight = FontWeight.Medium), modifier = Modifier.padding(vertical = 6.dp).padding(end = 10.dp))
+    when (p.fala) {
+        com.huryel.novely.ui.theme.EstiloFala.FIO -> Row(extra.height(IntrinsicSize.Min)) {
+            Box(Modifier.width(2.dp).fillMaxHeight().background(p.destaque))
+            Spacer(Modifier.width(14.dp))
+            Text(colorido, style = estilo.copy(color = p.texto))
+        }
+        com.huryel.novely.ui.theme.EstiloFala.BALAO -> Text(colorido, style = estilo.copy(color = p.texto),
+            modifier = extra.fillMaxWidth().clip(forma(18.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(p.destaque2.copy(alpha = 0.20f), p.destaque3.copy(alpha = 0.12f))))
+                .border(1.dp, p.destaque2.copy(alpha = 0.4f), forma(18.dp)).padding(horizontal = 16.dp, vertical = 12.dp))
+        com.huryel.novely.ui.theme.EstiloFala.ETIQUETA -> Row(extra) {
+            Text("FALA", fontFamily = p.fonteUi, fontWeight = FontWeight.Bold, fontSize = 10.sp, color = p.sobreDestaque,
+                modifier = Modifier.padding(top = 6.dp).background(p.destaque).padding(horizontal = 5.dp, vertical = 1.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(colorido, style = estilo.copy(color = p.texto))
+        }
+        else -> Row(
+            extra.height(IntrinsicSize.Min).clip(forma(topEnd = 12.dp, bottomEnd = 12.dp)).background(p.destaque.copy(alpha = 0.07f)),
+        ) {
+            Box(Modifier.width(4.dp).fillMaxHeight().background(p.destaque.copy(alpha = 0.9f)))
+            Spacer(Modifier.width(12.dp))
+            Text(colorido, style = estilo.copy(color = p.texto, fontWeight = FontWeight.Medium), modifier = Modifier.padding(vertical = 6.dp).padding(end = 10.dp))
+        }
     }
 }
 
@@ -616,8 +711,8 @@ private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, ir: (Capitulo) -> Un
         Text("FIM DO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, letterSpacing = 4.sp)
         if (proximo != null) {
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.superficie)
-                    .border(1.dp, p.destaque.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).clickable { ir(proximo) }.padding(18.dp),
+                Modifier.fillMaxWidth().clip(forma(20.dp)).background(p.superficie)
+                    .border(1.dp, p.destaque.copy(alpha = 0.4f), forma(20.dp)).clickable { ir(proximo) }.padding(18.dp),
             ) {
                 Text("PRÓXIMO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.destaque)
                 Text(proximo.titulo, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -631,7 +726,7 @@ private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, ir: (Capitulo) -> Un
 private fun BotaoBarra(rotulo: String, ativo: Boolean, icone: @Composable () -> Unit, aoTocar: () -> Unit) {
     val p = LocalPaleta.current
     Column(
-        Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = aoTocar).padding(horizontal = 12.dp, vertical = 6.dp),
+        Modifier.clip(forma(14.dp)).clickable(onClick = aoTocar).padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CompositionLocalProvider(LocalContentColor provides if (ativo) p.destaque else p.textoSuave) { icone() }
@@ -641,12 +736,14 @@ private fun BotaoBarra(rotulo: String, ativo: Boolean, icone: @Composable () -> 
 
 @Composable
 private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit,
-                      narrador: String, definirNarrador: (String) -> Unit) {
+                      narrador: String, definirNarrador: (String) -> Unit, timerFim: Long = 0L, definirTimer: (Int) -> Unit = {}) {
     val p = LocalPaleta.current
     var escolhendo by remember { mutableStateOf(false) }
+    var agora by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(timerFim) { while (timerFim > 0) { agora = System.currentTimeMillis(); kotlinx.coroutines.delay(15_000) } }
     Column(
-        Modifier.padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(p.superficie)
-            .border(1.dp, p.destaque.copy(alpha = 0.35f), RoundedCornerShape(22.dp)).padding(14.dp),
+        Modifier.padding(12.dp).fillMaxWidth().clip(forma(22.dp)).background(p.superficie)
+            .border(1.dp, p.destaque.copy(alpha = 0.35f), forma(22.dp)).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(voz.erro ?: if (tocando) "Lendo em voz alta…" else "Ouvir a partir daqui", fontWeight = FontWeight.Bold, color = p.destaque, fontSize = 13.sp)
@@ -681,6 +778,15 @@ private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: (
                 }
             }
         }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("⏾ Timer:", fontSize = 12.sp, color = p.textoSuave)
+            listOf(0 to "off", 15 to "15 min", 30 to "30", 60 to "60").forEach { (m, t) ->
+                val ativo = if (m == 0) timerFim == 0L else timerFim > 0 && ((timerFim - agora) / 60_000 + 1) in (m - 14)..m
+                Text(t, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (ativo) p.sobreDestaque else p.texto,
+                    modifier = Modifier.clip(forma(10.dp)).background(if (ativo) p.destaque else p.borda).clickable { definirTimer(m) }.padding(horizontal = 10.dp, vertical = 6.dp))
+            }
+            if (timerFim > 0) Text("faltam ${((timerFim - agora) / 60_000 + 1)} min", fontSize = 11.sp, color = p.textoSuave)
+        }
         if (narrador.isNotEmpty()) Text("Toque em “Narrador” para trocar a voz. Para mais vozes: Configurações do Android › Saída de texto para voz.", fontSize = 11.sp, color = p.textoSuave)
     }
 }
@@ -689,8 +795,8 @@ private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: (
 private fun PainelBusca(consulta: String, mudar: (String) -> Unit, total: Int, atual: Int, anterior: () -> Unit, proximo: () -> Unit, fechar: () -> Unit) {
     val p = LocalPaleta.current
     Row(
-        Modifier.padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(p.superficie)
-            .border(1.dp, p.destaque.copy(alpha = 0.35f), RoundedCornerShape(18.dp)).padding(start = 12.dp, end = 4.dp),
+        Modifier.padding(12.dp).fillMaxWidth().clip(forma(18.dp)).background(p.superficie)
+            .border(1.dp, p.destaque.copy(alpha = 0.35f), forma(18.dp)).padding(start = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Filled.Search, null, tint = p.destaque)
@@ -730,14 +836,15 @@ fun AjustesLeitura() {
             com.huryel.novely.ui.theme.TemaLeitura.entries.forEach { t ->
                 val sel = t.name == tema
                 Box(
-                    Modifier.weight(1f).height(54.dp).clip(RoundedCornerShape(14.dp)).background(t.paleta.fundo)
-                        .border(if (sel) 2.dp else 1.dp, if (sel) p.destaque else p.borda, RoundedCornerShape(14.dp))
+                    Modifier.weight(1f).height(54.dp).clip(forma(14.dp)).background(t.paleta.fundo)
+                        .border(if (sel) 2.dp else 1.dp, if (sel) p.destaque else p.borda, forma(14.dp))
                         .clickable { prefs.definirTema(t.name) },
                     contentAlignment = Alignment.Center,
                 ) { Text(t.paleta.nome, color = t.paleta.texto, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Do tema", fonte == "TEMA") { prefs.fonte.definir("TEMA") }
             Chip("Com serifa", fonte == "SERIFA") { prefs.fonte.definir("SERIFA") }
             Chip("Sem serifa", fonte == "SEM_SERIFA") { prefs.fonte.definir("SEM_SERIFA") }
         }
@@ -751,6 +858,12 @@ fun AjustesLeitura() {
         if (paginas) Text("Toque na borda direita para avançar e na esquerda para voltar.", fontSize = 12.sp, color = p.textoSuave)
         LinhaInterruptor("Destacar falas de personagens", falas) { prefs.destacarFalas.definir(it) }
         LinhaInterruptor("Manter tela ligada lendo", ligada) { prefs.telaLigada.definir(it) }
+        val esc by prefs.escurecer.estado.collectAsState()
+        val quente by prefs.luzQuente.estado.collectAsState()
+        val vel by prefs.velocidadeRolagem.estado.collectAsState()
+        LinhaSlider("Escurecer", "${(esc * 100).toInt()}%", esc, 0f..0.8f, cores) { prefs.escurecer.definir(it) }
+        LinhaSlider("Luz quente", "${(quente * 100).toInt()}%", quente, 0f..1f, cores) { prefs.luzQuente.definir(it) }
+        LinhaSlider("Rolagem auto", "%.1f".format(vel), vel, 0.3f..4f, cores) { prefs.velocidadeRolagem.definir(it) }
     }
 }
 

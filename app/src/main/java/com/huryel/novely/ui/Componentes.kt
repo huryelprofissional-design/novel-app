@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -81,7 +82,7 @@ fun CapaObra(
     titulo: String, caminho: String?, x: Float, y: Float, zoom: Float, corBase: Long,
     modifier: Modifier, tamanhoTitulo: TextUnit = 14.sp,
 ) {
-    ImagemEnquadrada(caminho, x, y, zoom, corBase, modifier.clip(RoundedCornerShape(12.dp)), 600) {
+    ImagemEnquadrada(caminho, x, y, zoom, corBase, modifier.clip(forma(12.dp)), 600) {
         ArteCapa(titulo, corBase)
         Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.BottomStart) {
             Text(titulo, fontFamily = Serifa, fontWeight = FontWeight.Bold, fontSize = tamanhoTitulo,
@@ -161,7 +162,7 @@ fun Chip(texto: String, selecionado: Boolean, aoTocar: () -> Unit) {
     val p = LocalPaleta.current
     FilterChip(
         selected = selecionado, onClick = aoTocar, label = { Text(texto, fontWeight = FontWeight.SemiBold) },
-        shape = RoundedCornerShape(20.dp),
+        shape = forma(20.dp),
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = p.destaque, selectedLabelColor = p.sobreDestaque,
             containerColor = Color.Transparent, labelColor = p.texto,

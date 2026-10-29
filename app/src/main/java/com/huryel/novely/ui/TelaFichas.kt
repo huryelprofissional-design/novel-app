@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -67,7 +68,7 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
                 items(lista, key = { it.id }) { f ->
                     val img = rememberImagem(f.imagem, 300)
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(p.superficie)
+                        Modifier.fillMaxWidth().clip(forma(18.dp)).background(p.superficie)
                             .clickable { aberta = if (aberta == f.id) null else f.id }.padding(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -87,7 +88,7 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
             }
         }
         FloatingActionButton(onClick = { editando = Ficha(obraId = obraId, nome = "") }, containerColor = p.destaque, contentColor = p.sobreDestaque,
-            shape = RoundedCornerShape(20.dp), modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Icon(Icons.Filled.Add, "Nova ficha") }
+            shape = forma(20.dp), modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Icon(Icons.Filled.Add, "Nova ficha") }
     }
     editando?.let { f -> DialogoFicha(f, { editando = null }) }
 }
@@ -161,7 +162,7 @@ fun TelaLixeira(nav: NavHostController) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(itens, key = { it.id }) { i ->
                     val dias = (30 - (System.currentTimeMillis() - i.excluidoEm) / 86_400_000).coerceAtLeast(0)
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).padding(14.dp)) {
+                    Column(Modifier.fillMaxWidth().clip(forma(16.dp)).background(p.superficie).padding(14.dp)) {
                         Text(i.titulo.ifEmpty { "(sem título)" }, fontWeight = FontWeight.Bold)
                         Text("${i.obraTitulo} · ${formatarPalavras(i.palavras.toLong())} palavras · excluído em ${fmt.format(Date(i.excluidoEm))} · some em $dias dias",
                             fontSize = 12.sp, color = p.textoSuave)

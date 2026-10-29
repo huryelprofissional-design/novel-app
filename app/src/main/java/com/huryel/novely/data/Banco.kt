@@ -35,6 +35,8 @@ data class Obra(
     val criadaEm: Long = System.currentTimeMillis(),
     val atualizadaEm: Long = System.currentTimeMillis(),
     val lidaEm: Long = 0,
+    /** Coleção/pasta na estante (vazio = nenhuma). */
+    @ColumnInfo(defaultValue = "") val colecao: String = "",
 )
 
 @Entity(
@@ -71,6 +73,42 @@ data class Capitulo(
     @ColumnInfo(defaultValue = "") val resumo: String = "",
     /** Notas privadas do autor — nunca aparecem no leitor. */
     @ColumnInfo(defaultValue = "") val notas: String = "",
+    /** Etiquetas separadas por vírgula (ex.: "luta,revelação"). */
+    @ColumnInfo(defaultValue = "") val tags: String = "",
+)
+
+/** Marcador ou grifo num parágrafo do leitor. */
+@Entity(
+    tableName = "marcadores",
+    foreignKeys = [ForeignKey(entity = Obra::class, parentColumns = ["id"], childColumns = ["obraId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("obraId"), Index("capId")],
+)
+data class Marcador(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val obraId: Long,
+    val capId: Long,
+    val bloco: Int,
+    val trecho: String,
+    /** "" = só marcador; senão cor do grifo: AMBAR | VERDE | AZUL | ROSA */
+    val cor: String = "",
+    val nota: String = "",
+    val criadoEm: Long = System.currentTimeMillis(),
+)
+
+/** Evento da linha do tempo de uma obra. */
+@Entity(
+    tableName = "eventos",
+    foreignKeys = [ForeignKey(entity = Obra::class, parentColumns = ["id"], childColumns = ["obraId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("obraId")],
+)
+data class Evento(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val obraId: Long,
+    val capId: Long? = null,
+    val quando: String = "",
+    val titulo: String,
+    val descricao: String = "",
+    val ordem: Double,
 )
 
 object TipoFicha { const val PERSONAGEM = "PERSONAGEM"; const val LUGAR = "LUGAR"; const val OUTRO = "OUTRO" }
@@ -121,6 +159,9 @@ data class ResumoObra(
     val totalCapitulos: Int,
     val totalPalavras: Long,
     val lidos: Int,
+    val colecao: String,
+    val atualizadaEm: Long,
+    val criadaEm: Long,
 )
 
 data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, val obraTitulo: String)
@@ -129,7 +170,7 @@ data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, 
 interface NovelyDao {
     @Query(
         """SELECT o.id, o.titulo, o.status, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-           o.ultimoCapituloId, o.lidaEm,
+           o.ultimoCapituloId, o.lidaEm, o.colecao, o.atualizadaEm, o.criadaEm,
            (SELECT COUNT(*) FROM capitulos c WHERE c.obraId = o.id) AS totalCapitulos,
            (SELECT IFNULL(SUM(c.palavras),0) FROM capitulos c WHERE c.obraId = o.id) AS totalPalavras,
            (SELECT COUNT(*) FROM capitulos c WHERE c.obraId = o.id AND c.progresso >= 0.98) AS lidos
@@ -205,11 +246,30 @@ interface NovelyDao {
     @Insert suspend fun inserirLixeira(i: ItemLixeira): Long
     @Delete suspend fun excluirLixeira(i: ItemLixeira)
 
+    @Query("SELECT * FROM marcadores WHERE capId = :capId")
+    fun marcadoresCap(capId: Long): Flow<List<Marcador>>
+    @Query("SELECT * FROM marcadores WHERE obraId = :obraId ORDER BY capId, bloco")
+    fun marcadoresObra(obraId: Long): Flow<List<Marcador>>
+    @Insert suspend fun inserirMarcador(m: Marcador): Long
+    @Update suspend fun atualizarMarcador(m: Marcador)
+    @Delete suspend fun excluirMarcador(m: Marcador)
+
+    @Query("SELECT * FROM eventos WHERE obraId = :obraId ORDER BY ordem")
+    fun eventos(obraId: Long): Flow<List<Evento>>
+    @Query("SELECT IFNULL(MAX(ordem), 0) FROM eventos WHERE obraId = :obraId")
+    suspend fun maiorOrdemEvento(obraId: Long): Double
+    @Insert suspend fun inserirEvento(e: Evento): Long
+    @Update suspend fun atualizarEvento(e: Evento)
+    @Delete suspend fun excluirEvento(e: Evento)
+
+    @Query("SELECT DISTINCT colecao FROM obras WHERE colecao != '' ORDER BY colecao")
+    fun colecoes(): Flow<List<String>>
+
     @Query("UPDATE obras SET atualizadaEm = :quando WHERE id = :id")
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class], version = 3, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class], version = 4, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -227,6 +287,16 @@ abstract class BancoNovely : RoomDatabase() {
                         db.execSQL("CREATE TABLE IF NOT EXISTS `fichas` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `obraId` INTEGER NOT NULL, `tipo` TEXT NOT NULL, `nome` TEXT NOT NULL, `descricao` TEXT NOT NULL, `imagem` TEXT, `criadaEm` INTEGER NOT NULL, FOREIGN KEY(`obraId`) REFERENCES `obras`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
                         db.execSQL("CREATE INDEX IF NOT EXISTS `index_fichas_obraId` ON `fichas` (`obraId`)")
                         db.execSQL("CREATE TABLE IF NOT EXISTS `lixeira` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `obraId` INTEGER NOT NULL, `obraTitulo` TEXT NOT NULL, `volumeId` INTEGER, `titulo` TEXT NOT NULL, `ordem` REAL NOT NULL, `palavras` INTEGER NOT NULL, `resumo` TEXT NOT NULL, `notas` TEXT NOT NULL, `excluidoEm` INTEGER NOT NULL)")
+                    }
+                }, object : androidx.room.migration.Migration(3, 4) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE obras ADD COLUMN colecao TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("ALTER TABLE capitulos ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `marcadores` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `obraId` INTEGER NOT NULL, `capId` INTEGER NOT NULL, `bloco` INTEGER NOT NULL, `trecho` TEXT NOT NULL, `cor` TEXT NOT NULL, `nota` TEXT NOT NULL, `criadoEm` INTEGER NOT NULL, FOREIGN KEY(`obraId`) REFERENCES `obras`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS `index_marcadores_obraId` ON `marcadores` (`obraId`)")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS `index_marcadores_capId` ON `marcadores` (`capId`)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `eventos` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `obraId` INTEGER NOT NULL, `capId` INTEGER, `quando` TEXT NOT NULL, `titulo` TEXT NOT NULL, `descricao` TEXT NOT NULL, `ordem` REAL NOT NULL, FOREIGN KEY(`obraId`) REFERENCES `obras`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                        db.execSQL("CREATE INDEX IF NOT EXISTS `index_eventos_obraId` ON `eventos` (`obraId`)")
                     }
                 })
                 .build()

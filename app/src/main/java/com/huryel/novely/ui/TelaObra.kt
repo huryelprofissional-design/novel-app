@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -93,7 +94,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
     }
 
     val o = obra ?: run { Box(Modifier.fillMaxSize()); return }
-    val estilo by NovelyApp.instancia.prefs.estilo.estado.collectAsState()
+    val estilo = when (p.nome) { "Papel", "Terminal" -> "REVISTA"; "Neon" -> "ESTANTE"; else -> "CINEMA" }
     val numeros = remember(capitulos) {
         var n = 0
         capitulos.associate { c -> c.id to (if (com.huryel.novely.data.Texto.tipoEspecial(c.titulo) == null) ++n else 0) }
@@ -241,7 +242,7 @@ private fun Cabecalho(o: Obra, nav: NavHostController, desloc: () -> Float, aoMe
         }
         Row(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp), verticalAlignment = Alignment.Bottom) {
             CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-                Modifier.width(110.dp).height(160.dp).border(2.dp, p.fundo, RoundedCornerShape(12.dp)).clickable(onClick = aoCapa), 13.sp)
+                Modifier.width(110.dp).height(160.dp).border(2.dp, p.fundo, forma(12.dp)).clickable(onClick = aoCapa), 13.sp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.padding(bottom = 6.dp)) {
                 Text(nomeStatus(o.status).uppercase(), style = MaterialTheme.typography.labelSmall, color = p.destaque)
@@ -254,7 +255,7 @@ private fun Cabecalho(o: Obra, nav: NavHostController, desloc: () -> Float, aoMe
 
 @Composable
 private fun BotaoRedondo(icone: @Composable () -> Unit, aoTocar: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(RoundedCornerShape(22.dp)).background(Color(0x99000000)).clickable(onClick = aoTocar), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(44.dp).clip(forma(22.dp)).background(Color(0x99000000)).clickable(onClick = aoTocar), contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides Color.White) { icone() }
     }
 }
@@ -262,7 +263,7 @@ private fun BotaoRedondo(icone: @Composable () -> Unit, aoTocar: () -> Unit) {
 @Composable
 private fun Estatistica(valor: String, rotulo: String, modifier: Modifier) {
     val p = LocalPaleta.current
-    Column(modifier.clip(RoundedCornerShape(14.dp)).background(p.superficie).padding(10.dp)) {
+    Column(modifier.clip(forma(14.dp)).background(p.superficie).padding(10.dp)) {
         Text(valor, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Text(rotulo, color = p.textoSuave, fontSize = 12.sp)
     }

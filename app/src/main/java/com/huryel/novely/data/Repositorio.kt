@@ -220,6 +220,30 @@ class Repositorio(ctx: Context) {
         return total
     }
 
+    // ── Marcadores / grifos ──
+    fun marcadoresCap(capId: Long) = dao.marcadoresCap(capId)
+    fun marcadoresObra(obraId: Long) = dao.marcadoresObra(obraId)
+    suspend fun salvarMarcador(m: Marcador) = if (m.id == 0L) dao.inserirMarcador(m) else { dao.atualizarMarcador(m); m.id }
+    suspend fun excluirMarcador(m: Marcador) = dao.excluirMarcador(m)
+
+    // ── Linha do tempo ──
+    fun eventos(obraId: Long) = dao.eventos(obraId)
+    suspend fun salvarEvento(e: Evento): Long =
+        if (e.id == 0L) dao.inserirEvento(e.copy(ordem = dao.maiorOrdemEvento(e.obraId) + 1)) else { dao.atualizarEvento(e); e.id }
+    suspend fun excluirEvento(e: Evento) = dao.excluirEvento(e)
+    suspend fun moverEvento(lista: List<Evento>, e: Evento, direcao: Int) {
+        val i = lista.indexOfFirst { it.id == e.id }; val j = i + direcao
+        if (i < 0 || j !in lista.indices) return
+        dao.atualizarEvento(lista[i].copy(ordem = lista[j].ordem)); dao.atualizarEvento(lista[j].copy(ordem = lista[i].ordem))
+    }
+
+    fun colecoes() = dao.colecoes()
+
+    /** Reordena capítulos para exatamente a ordem da lista dada (usado no arrastar). */
+    suspend fun reordenar(ids: List<Long>) = banco.withTransaction {
+        ids.forEachIndexed { i, id -> dao.capituloAgora(id)?.let { dao.atualizarCapitulo(it.copy(ordem = (i + 1).toDouble())) } }
+    }
+
     // ── Fichas ──
     fun fichas(obraId: Long) = dao.fichas(obraId)
     suspend fun salvarFicha(f: Ficha): Long = if (f.id == 0L) dao.inserirFicha(f) else { dao.atualizarFicha(f); f.id }
@@ -279,7 +303,7 @@ class Preferencias(ctx: Context) {
     val tamanhoP = real("tamanho", 18f)
     val entrelinhas = real("entrelinhas", 1.7f)
     val margem = real("margem", 24f)
-    val fonte = texto("fonte", "SERIFA") // SERIFA | SEM_SERIFA
+    val fonte = texto("fonteLeitura", "TEMA") // TEMA | SERIFA | SEM_SERIFA
     val destacarFalas = bool("falas", true)
     val modoPaginas = bool("paginas", false)
     val telaLigada = bool("telaLigada", true)
@@ -315,6 +339,32 @@ class Preferencias(ctx: Context) {
             ultimoDiaBatido.definir(hoje()); sequencia.definir(sequencia.valor + 1)
         }
     }
+
+    // ── Leitor: rolagem automática, luz ──
+    val velocidadeRolagem = real("velRolagem", 1.0f)
+    val escurecer = real("escurecer", 0f)
+    val luzQuente = real("luzQuente", 0f)
+    // ── Estante ──
+    val ordenacao = texto("ordenacao", "RECENTE") // RECENTE | TITULO | TAMANHO | PROGRESSO | CRIACAO
+    // ── Segurança e primeira vez ──
+    val bloqueio = bool("bloqueio", false)
+    val tutorialVisto = bool("tutorialVisto", false)
+
+    // ── Estatísticas de leitura: "yyyyMMdd" -> segundos;palavras ──
+    private val estat = texto("estatLeitura", "")
+    fun registrarLeitura(segundos: Int, palavras: Int) {
+        if (segundos <= 0 && palavras <= 0) return
+        val mapa = estatisticas().toMutableMap()
+        val h = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
+        val (s0, p0) = mapa[h] ?: (0 to 0)
+        mapa[h] = (s0 + segundos) to (p0 + palavras.coerceAtLeast(0))
+        estat.definir(mapa.entries.sortedByDescending { it.key }.take(120).joinToString("|") { "${it.key}:${it.value.first};${it.value.second}" })
+    }
+    fun estatisticas(): Map<String, Pair<Int, Int>> = estat.valor.split('|').mapNotNull { e ->
+        val k = e.substringBefore(':', ""); val v = e.substringAfter(':', "")
+        val a = v.substringBefore(';').toIntOrNull(); val b = v.substringAfter(';').toIntOrNull()
+        if (k.isEmpty() || a == null || b == null) null else k to (a to b)
+    }.toMap()
 
     // ── Onde parei no editor (por capítulo) ──
     fun posicaoEditor(capId: Long): Pair<Int, Int> = sp.getInt("ed_p_$capId", 0) to sp.getInt("ed_c_$capId", -1)

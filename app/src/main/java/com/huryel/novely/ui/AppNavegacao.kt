@@ -1,5 +1,6 @@
 package com.huryel.novely.ui
 
+import com.huryel.novely.ui.theme.forma
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -66,7 +67,7 @@ import com.huryel.novely.ui.theme.LocalPaleta
 import com.huryel.novely.ui.theme.TemaLeitura
 import kotlinx.coroutines.launch
 
-const val ROTA_LEITOR = "leitor/{id}?q={q}&n={n}"
+const val ROTA_LEITOR = "leitor/{id}?q={q}&n={n}&b={b}"
 
 private data class Aba(val rota: String, val rotulo: String, val icone: ImageVector)
 
@@ -86,30 +87,15 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     val p = LocalPaleta.current
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
+        modifier = Modifier.fundoTema(),
         contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
         bottomBar = {
-            if (mostrarBarra) {
-                NavigationBar(containerColor = p.superficie) {
-                    abas.forEach { aba ->
-                        NavigationBarItem(
-                            selected = rota == aba.rota,
-                            onClick = {
-                                nav.navigate(aba.rota) {
-                                    popUpTo("inicio") { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(aba.icone, contentDescription = null) },
-                            label = { Text(aba.rotulo) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = p.destaque, selectedTextColor = p.destaque,
-                                indicatorColor = p.borda,
-                                unselectedIconColor = p.textoSuave, unselectedTextColor = p.textoSuave,
-                            ),
-                        )
-                    }
+            if (mostrarBarra) BarraTema(abas.map { Triple(it.rota, it.rotulo, it.icone) }, rota) { r ->
+                if (r == "inicio") irInicio(nav) else nav.navigate(r) {
+                    popUpTo("inicio") { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
                 }
             }
         },
@@ -131,8 +117,11 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
                     navArgument("id") { type = NavType.LongType },
                     navArgument("q") { type = NavType.StringType; defaultValue = "" },
                     navArgument("n") { type = NavType.IntType; defaultValue = 0 },
+                    navArgument("b") { type = NavType.IntType; defaultValue = -1 },
                 ),
-            ) { e -> TelaLeitor(e.arguments!!.getLong("id"), nav, e.arguments!!.getString("q") ?: "", e.arguments!!.getInt("n")) }
+            ) { e -> TelaLeitor(e.arguments!!.getLong("id"), nav, e.arguments!!.getString("q") ?: "", e.arguments!!.getInt("n"), e.arguments!!.getInt("b")) }
+            composable("marcadores/{id}", idArg) { e -> TelaMarcadores(e.arguments!!.getLong("id"), nav) }
+            composable("estatisticas") { TelaEstatisticas(nav) }
             composable("editor/{id}", idArg) { e -> TelaEditor(e.arguments!!.getLong("id"), nav) }
             composable(
                 "imagem/{id}/{tipo}",
@@ -183,10 +172,11 @@ private fun TelaInicio(nav: NavHostController) {
             Box(Modifier.fillMaxSize())
         } else if (lista.isEmpty()) {
             EstanteVazia({ criando = true }, { nav.navigate("importar") })
-        } else if (estilo != "CLASSICO") {
-            when (estilo) {
-                "REVISTA" -> InicioRevista(lista, nav)
-                "ESTANTE" -> InicioEstante(lista, nav)
+        } else if (true) {
+            when (p.nome) {
+                "Papel" -> InicioPapel(lista, nav)
+                "Neon" -> InicioNeon(lista, nav)
+                "Terminal" -> InicioTerminal(lista, nav)
                 else -> InicioCinema(lista, nav)
             }
         } else {
@@ -232,7 +222,7 @@ private fun TelaInicio(nav: NavHostController) {
             Box(Modifier.align(Alignment.BottomEnd).padding(20.dp)) {
                 ExtendedFloatingActionButton(
                     onClick = { menuNovo = true }, containerColor = p.destaque, contentColor = p.sobreDestaque,
-                    shape = RoundedCornerShape(20.dp), icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Nova", fontWeight = FontWeight.Bold) },
+                    shape = forma(20.dp), icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Nova", fontWeight = FontWeight.Bold) },
                 )
                 DropdownMenu(menuNovo, { menuNovo = false }) {
                     DropdownMenuItem(text = { Text("Criar obra") }, onClick = { menuNovo = false; criando = true })
@@ -280,10 +270,10 @@ private fun EstanteVazia(criar: () -> Unit, importar: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text("Sua estante está vazia. Escreva sua primeira história ou traga uma novel.", color = p.textoSuave, textAlign = TextAlign.Center)
         Spacer(Modifier.height(28.dp))
-        Button(onClick = criar, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = RoundedCornerShape(18.dp),
+        Button(onClick = criar, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = forma(18.dp),
             modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Criar obra", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = importar, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Importar TXT ou EPUB") }
+        OutlinedButton(onClick = importar, shape = forma(18.dp), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Importar TXT ou EPUB") }
     }
 }
 
@@ -297,7 +287,7 @@ private fun CabecalhoInicio(lista: List<ResumoObra>) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.logo_novely), contentDescription = null,
-                modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, p.borda, RoundedCornerShape(14.dp)))
+                modifier = Modifier.size(46.dp).clip(forma(14.dp)).border(1.dp, p.borda, forma(14.dp)))
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(saudacao.uppercase(), style = MaterialTheme.typography.labelSmall, color = p.destaque)
@@ -315,7 +305,7 @@ private fun CabecalhoInicio(lista: List<ResumoObra>) {
 @Composable
 private fun Numero(valor: String, rotulo: String, modifier: Modifier) {
     val p = LocalPaleta.current
-    Column(modifier.clip(RoundedCornerShape(16.dp)).background(p.superficie).padding(horizontal = 12.dp, vertical = 10.dp)) {
+    Column(modifier.clip(forma(16.dp)).background(p.superficie).padding(horizontal = 12.dp, vertical = 10.dp)) {
         Text(valor, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = p.destaque)
         Text(rotulo, fontSize = 12.sp, color = p.textoSuave)
     }
@@ -344,7 +334,7 @@ private fun HeroContinuar(o: ResumoObra, aoAbrir: () -> Unit) {
     val escala by animateFloatAsState(if (pressionado) 0.97f else 1f, label = "escala")
     Box(
         Modifier.fillMaxWidth().height(210.dp).graphicsLayer { scaleX = escala; scaleY = escala }
-            .clip(RoundedCornerShape(26.dp)).clickable(interacao, null, onClick = aoAbrir),
+            .clip(forma(26.dp)).clickable(interacao, null, onClick = aoAbrir),
     ) {
         val ob = obra
         if (ob?.banner != null) ImagemEnquadrada(ob.banner, ob.bannerX, ob.bannerY, ob.bannerZoom, o.corBase, Modifier.fillMaxSize(), 1200)
@@ -359,12 +349,12 @@ private fun HeroContinuar(o: ResumoObra, aoAbrir: () -> Unit) {
                     color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(cap?.titulo ?: "", fontSize = 13.sp, color = Color(0xCCFFFFFF), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
-                Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x44FFFFFF))) {
+                Box(Modifier.fillMaxWidth().height(5.dp).clip(forma(3.dp)).background(Color(0x44FFFFFF))) {
                     Box(Modifier.fillMaxWidth(prog).fillMaxHeight().background(p.destaque))
                 }
             }
             Spacer(Modifier.width(12.dp))
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(26.dp)).background(p.destaque), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(52.dp).clip(forma(26.dp)).background(p.destaque), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.PlayArrow, "Continuar", tint = p.sobreDestaque)
             }
         }
@@ -375,8 +365,8 @@ private fun HeroContinuar(o: ResumoObra, aoAbrir: () -> Unit) {
 private fun CartaoEscrita(o: ResumoObra, aoAbrir: () -> Unit) {
     val p = LocalPaleta.current
     Row(
-        Modifier.width(250.dp).clip(RoundedCornerShape(20.dp)).background(p.superficie)
-            .border(1.dp, p.borda, RoundedCornerShape(20.dp)).clickable(onClick = aoAbrir).padding(12.dp),
+        Modifier.width(250.dp).clip(forma(20.dp)).background(p.superficie)
+            .border(1.dp, p.borda, forma(20.dp)).clickable(onClick = aoAbrir).padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(56.dp).height(84.dp), 9.sp)
@@ -397,10 +387,10 @@ private fun CapaEstante(o: ResumoObra, modifier: Modifier, aoAbrir: () -> Unit) 
     Column(modifier.graphicsLayer { scaleX = escala; scaleY = escala }.clickable(interacao, null, onClick = aoAbrir)) {
         Box {
             CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-                Modifier.fillMaxWidth().aspectRatio(2f / 3f).shadow(10.dp, RoundedCornerShape(12.dp)))
+                Modifier.fillMaxWidth().aspectRatio(2f / 3f).shadow(10.dp, forma(12.dp)))
             if (o.totalCapitulos > 0 && o.status != StatusObra.ESCREVENDO) {
                 val f = o.lidos.toFloat() / o.totalCapitulos
-                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x55FFFFFF))) {
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp).height(3.dp).clip(forma(2.dp)).background(Color(0x55FFFFFF))) {
                     Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(p.destaque))
                 }
             }
@@ -461,7 +451,7 @@ private fun TelaEscrever(nav: NavHostController) {
         if (minhas.isEmpty()) item { Text("Nenhuma obra em escrita. Crie uma no Início com “Vou escrever”.", color = p.textoSuave) }
         items(minhas, key = { it.id }) { o ->
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(p.superficie)
+                Modifier.fillMaxWidth().clip(forma(18.dp)).background(p.superficie)
                     .clickable { nav.navigate("obra/${o.id}") }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -480,14 +470,15 @@ private fun TelaAjustes(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Un
     val p = LocalPaleta.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 20.dp)) {
         item { Text("Ajustes", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(horizontal = 20.dp)) }
-        item { SeletorEstilo() }
+        item { SeletorTema(temaAtual, aoMudarTema) }
         item { AjustesLeitura() }
         item {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = { nav.navigate("importar") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Importar TXT / EPUB") }
                 OutlinedButton(onClick = { nav.navigate("backup") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Backup e restauração") }
+                OutlinedButton(onClick = { nav.navigate("estatisticas") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Estatísticas de leitura") }
                 OutlinedButton(onClick = { nav.navigate("lixeira") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Lixeira (capítulos excluídos)") }
-                Text("Novely 1.0 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
+                Text("Novely 2.0 · tudo salvo só neste aparelho, sem conta e sem internet.", fontSize = 12.sp, color = p.textoSuave)
             }
         }
     }
