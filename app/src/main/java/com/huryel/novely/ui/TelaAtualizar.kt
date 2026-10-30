@@ -165,9 +165,22 @@ fun BoxScope.AvisosGlobais(nav: NavHostController, rota: String?) {
         )
     }
 
-    // 3) versão nova disponível (só no Início)
+    // 3) versão nova disponível: janela uma vez por versão + faixa no Início
     val v = (estado as? EstadoAtualizacao.Disponivel)?.v
     var dispensada by remember { mutableStateOf(0) }
+    val avisada by app.prefs.versaoAvisada.estado.collectAsState()
+    if (v != null && avisada < v.numero) AlertDialog(
+        onDismissRequest = { app.prefs.versaoAvisada.definir(v.numero.toLong()) },
+        title = { Text("✦ Versão nova do Novely") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Build ${v.numero} está disponível. Atualizar não apaga suas obras.", fontWeight = FontWeight.SemiBold)
+                if (v.novidades.isNotBlank()) Text(v.novidades.take(400), fontSize = 13.sp, color = p.textoSuave)
+            }
+        },
+        confirmButton = { TextButton(onClick = { app.prefs.versaoAvisada.definir(v.numero.toLong()); nav.navigate("atualizar") }) { Text("Atualizar agora", fontWeight = FontWeight.Bold) } },
+        dismissButton = { TextButton(onClick = { app.prefs.versaoAvisada.definir(v.numero.toLong()) }) { Text("Depois") } },
+    )
     if (v != null && rota == "inicio" && dispensada != v.numero) {
         Row(
             Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = 12.dp)

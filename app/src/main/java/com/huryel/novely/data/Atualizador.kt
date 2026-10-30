@@ -51,7 +51,7 @@ class Atualizador(private val ctx: Context, private val prefs: Preferencias) {
     /** Checagem automática discreta (no máximo a cada 12 h). */
     suspend fun verificarSePreciso() {
         if (!prefs.atualizarAuto.estado.value) return
-        if (System.currentTimeMillis() - prefs.ultimaVerificacao.estado.value < 12 * 3600_000L) return
+        if (System.currentTimeMillis() - prefs.ultimaVerificacao.estado.value < 15 * 60_000L) return
         verificar(silencioso = true)
     }
 

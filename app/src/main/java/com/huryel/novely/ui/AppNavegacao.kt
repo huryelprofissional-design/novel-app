@@ -97,6 +97,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     DisposableEffect(donoCiclo) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
             if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP || e == androidx.lifecycle.Lifecycle.Event.ON_START) app.escopo.launch { app.sinc.sincronizar() }
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_START) app.escopo.launch { app.atualizador.verificarSePreciso() }
         }
         donoCiclo.lifecycle.addObserver(obs)
         onDispose { donoCiclo.lifecycle.removeObserver(obs) }

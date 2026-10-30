@@ -360,6 +360,7 @@ class Preferencias(ctx: Context) {
     val backupAuto = bool("backupAuto", false)
     val atualizarAuto = bool("atualizarAuto", true)
     val ultimaVerificacao = longo("ultimaVerificacao", 0L)
+    val versaoAvisada = longo("versaoAvisada", 0L)
     val autorNome = texto("autorNome", "")
     val problemaVisto = longo("problemaVisto", 0L)
     val ultimaSinc = longo("ultimaSinc", 0L)
