@@ -447,11 +447,17 @@ object Sinc {
         db.execSQL("CREATE TABLE IF NOT EXISTS sincronia (chave TEXT PRIMARY KEY NOT NULL, enviadoEm INTEGER NOT NULL DEFAULT 0, textoHash TEXT NOT NULL DEFAULT '', capaHash TEXT NOT NULL DEFAULT '', bannerHash TEXT NOT NULL DEFAULT '')")
         val quieto = "(SELECT ativo FROM sync_flag WHERE id = 0) = 0"
         for (t in TABELAS) {
-            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv_ins_$t AFTER INSERT ON $t WHEN $quieto BEGIN " +
-                "UPDATE $t SET alteradoEm = $AGORA, nuvemId = CASE WHEN NEW.nuvemId = '' THEN lower(hex(randomblob(16))) ELSE NEW.nuvemId END WHERE id = NEW.id; END")
-            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv_upd_$t AFTER UPDATE ON $t WHEN $quieto BEGIN " +
-                "UPDATE $t SET alteradoEm = $AGORA, nuvemId = CASE WHEN NEW.nuvemId = '' THEN OLD.nuvemId ELSE NEW.nuvemId END WHERE id = NEW.id; END")
-            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv_del_$t AFTER DELETE ON $t WHEN $quieto AND OLD.nuvemId <> '' BEGIN " +
+            // versão 1 dos gatilhos entrava em recursão em aparelhos com recursive_triggers ligado
+            db.execSQL("DROP TRIGGER IF EXISTS nv_ins_$t")
+            db.execSQL("DROP TRIGGER IF EXISTS nv_upd_$t")
+            db.execSQL("DROP TRIGGER IF EXISTS nv_del_$t")
+            // A marca nova é sempre MAIOR que a anterior; o gatilho de update só age quando alteradoEm
+            // não subiu (escrita do app) — a própria correção sobe o valor, então nunca se repete.
+            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv2_ins_$t AFTER INSERT ON $t WHEN $quieto BEGIN " +
+                "UPDATE $t SET alteradoEm = MAX($AGORA, NEW.alteradoEm + 1), nuvemId = CASE WHEN NEW.nuvemId = '' THEN lower(hex(randomblob(16))) ELSE NEW.nuvemId END WHERE id = NEW.id; END")
+            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv2_upd_$t AFTER UPDATE ON $t WHEN $quieto AND NEW.alteradoEm <= OLD.alteradoEm BEGIN " +
+                "UPDATE $t SET alteradoEm = MAX($AGORA, OLD.alteradoEm + 1), nuvemId = CASE WHEN NEW.nuvemId = '' THEN OLD.nuvemId ELSE NEW.nuvemId END WHERE id = NEW.id; END")
+            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv2_del_$t AFTER DELETE ON $t WHEN $quieto AND OLD.nuvemId <> '' BEGIN " +
                 "INSERT OR REPLACE INTO exclusoes (nuvemId, tipo, em) VALUES (OLD.nuvemId, '$t', $AGORA); END")
         }
     }
