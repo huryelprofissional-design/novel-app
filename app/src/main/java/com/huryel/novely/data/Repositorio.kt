@@ -362,6 +362,15 @@ class Preferencias(ctx: Context) {
     val ultimaVerificacao = longo("ultimaVerificacao", 0L)
     val autorNome = texto("autorNome", "")
     val problemaVisto = longo("problemaVisto", 0L)
+    val ultimaSinc = longo("ultimaSinc", 0L)
+    val ultimoPull = texto("ultimoPull", "")
+    val perfilAlteradoEm = longo("perfilAlteradoEm", 0L)
+    val fotoHash = texto("fotoHash", "")
+    /** Conflitos de texto entre aparelhos: "capId|título|quando" por linha. */
+    val conflitos = texto("conflitos", "")
+    @Synchronized fun adicionarConflito(capId: Long, titulo: String) {
+        conflitos.definir((conflitos.valor.split('\n').filter { it.isNotBlank() } + "$capId|${titulo.replace('|', ' ')}|${System.currentTimeMillis()}").takeLast(20).joinToString("\n"))
+    }
     val bio = texto("bio", "")
     val fotoPerfil = texto("fotoPerfil", "")
     /** Seções visíveis no Início, separadas por vírgula. */

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1037789640202",
+    "project_id": "novely-novelapp-48fe7",
+    "storage_bucket": "novely-novelapp-48fe7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1037789640202:android:e53a4b032014be73b891f3",
+        "android_client_info": {
+          "package_name": "com.huryel.novely"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1037789640202-46i7rnbq2oialmg3iurnnfj4amc141m0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyButVtPTlQaGvBPkERznReXDX9XHwq3jUs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1037789640202-46i7rnbq2oialmg3iurnnfj4amc141m0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

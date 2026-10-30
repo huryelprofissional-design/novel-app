@@ -44,6 +44,10 @@ data class Obra(
     @ColumnInfo(defaultValue = "0") val trancada: Boolean = false,
     /** Nome do autor (preenchido quando a obra foi publicada por alguém). */
     @ColumnInfo(defaultValue = "") val autor: String = "",
+    /** Identidade na nuvem (igual em todos os aparelhos). */
+    @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
+    /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
+    @ColumnInfo(defaultValue = "0") val alteradoEm: Long = 0,
 )
 
 @Entity(
@@ -56,6 +60,10 @@ data class Volume(
     val obraId: Long,
     val titulo: String,
     val ordem: Double,
+    /** Identidade na nuvem (igual em todos os aparelhos). */
+    @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
+    /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
+    @ColumnInfo(defaultValue = "0") val alteradoEm: Long = 0,
 )
 
 @Entity(
@@ -82,6 +90,10 @@ data class Capitulo(
     @ColumnInfo(defaultValue = "") val notas: String = "",
     /** Etiquetas separadas por vírgula (ex.: "luta,revelação"). */
     @ColumnInfo(defaultValue = "") val tags: String = "",
+    /** Identidade na nuvem (igual em todos os aparelhos). */
+    @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
+    /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
+    @ColumnInfo(defaultValue = "0") val alteradoEm: Long = 0,
 )
 
 /** Marcador ou grifo num parágrafo do leitor. */
@@ -100,6 +112,10 @@ data class Marcador(
     val cor: String = "",
     val nota: String = "",
     val criadoEm: Long = System.currentTimeMillis(),
+    /** Identidade na nuvem (igual em todos os aparelhos). */
+    @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
+    /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
+    @ColumnInfo(defaultValue = "0") val alteradoEm: Long = 0,
 )
 
 /** Evento da linha do tempo de uma obra. */
@@ -116,7 +132,13 @@ data class Evento(
     val titulo: String,
     val descricao: String = "",
     val ordem: Double,
+    /** Identidade na nuvem (igual em todos os aparelhos). */
+    @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
+    /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
+    @ColumnInfo(defaultValue = "0") val alteradoEm: Long = 0,
 )
+
+fun novoNuvemId(): String = java.util.UUID.randomUUID().toString().replace("-", "")
 
 object TipoFicha { const val PERSONAGEM = "PERSONAGEM"; const val LUGAR = "LUGAR"; const val OUTRO = "OUTRO" }
 
@@ -140,6 +162,10 @@ data class Ficha(
     @ColumnInfo(defaultValue = "") val poder: String = "",
     @ColumnInfo(defaultValue = "") val faccao: String = "",
     @ColumnInfo(defaultValue = "") val relacoes: String = "",
+    /** Identidade na nuvem (igual em todos os aparelhos). */
+    @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
+    /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
+    @ColumnInfo(defaultValue = "0") val alteradoEm: Long = 0,
 )
 
 /** Parágrafos do texto que descrevem uma ficha (escritos com @Nome, …). Servem para mostrar só o que o leitor já viu. */
@@ -203,6 +229,34 @@ data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, 
 
 @Dao
 interface NovelyDao {
+    // ── sincronização ──
+    @Query("SELECT * FROM obras") suspend fun sincObras(): List<Obra>
+    @Query("SELECT * FROM volumes") suspend fun sincVolumes(): List<Volume>
+    @Query("SELECT * FROM capitulos") suspend fun sincCapitulos(): List<Capitulo>
+    @Query("SELECT * FROM fichas") suspend fun sincFichas(): List<Ficha>
+    @Query("SELECT * FROM eventos") suspend fun sincEventos(): List<Evento>
+    @Query("SELECT * FROM marcadores") suspend fun sincMarcadores(): List<Marcador>
+    @Query("SELECT * FROM obras WHERE nuvemId = :n LIMIT 1") suspend fun obraNuvem(n: String): Obra?
+    @Query("SELECT * FROM volumes WHERE nuvemId = :n LIMIT 1") suspend fun volumeNuvem(n: String): Volume?
+    @Query("SELECT * FROM capitulos WHERE nuvemId = :n LIMIT 1") suspend fun capituloNuvem(n: String): Capitulo?
+    @Query("SELECT * FROM fichas WHERE nuvemId = :n LIMIT 1") suspend fun fichaNuvem(n: String): Ficha?
+    @Query("SELECT * FROM eventos WHERE nuvemId = :n LIMIT 1") suspend fun eventoNuvem(n: String): Evento?
+    @Query("SELECT * FROM marcadores WHERE nuvemId = :n LIMIT 1") suspend fun marcadorNuvem(n: String): Marcador?
+    @Insert suspend fun inserirVolumeS(v: Volume): Long
+    @Update suspend fun atualizarVolumeS(v: Volume)
+    @Insert suspend fun inserirCapituloS(c: Capitulo): Long
+    @Update suspend fun atualizarCapituloS(c: Capitulo)
+    @Insert suspend fun inserirEventoS(e: Evento): Long
+    @Update suspend fun atualizarEventoS(e: Evento)
+    @Insert suspend fun inserirMarcadorS(m: Marcador): Long
+    @Update suspend fun atualizarMarcadorS(m: Marcador)
+    @Query("DELETE FROM volumes WHERE nuvemId = :n") suspend fun apagarVolumeNuvem(n: String)
+    @Query("DELETE FROM capitulos WHERE nuvemId = :n") suspend fun apagarCapituloNuvem(n: String)
+    @Query("DELETE FROM fichas WHERE nuvemId = :n") suspend fun apagarFichaNuvem(n: String)
+    @Query("DELETE FROM eventos WHERE nuvemId = :n") suspend fun apagarEventoNuvem(n: String)
+    @Query("DELETE FROM marcadores WHERE nuvemId = :n") suspend fun apagarMarcadorNuvem(n: String)
+    @Query("DELETE FROM obras WHERE nuvemId = :n") suspend fun apagarObraNuvem(n: String)
+
     @Query(
         """SELECT o.id, o.titulo, o.status, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
            o.ultimoCapituloId, o.lidaEm, o.colecao, o.atualizadaEm, o.criadaEm, o.minha, o.trancada, o.autor,
@@ -311,7 +365,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 7, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 8, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -319,6 +373,9 @@ abstract class BancoNovely : RoomDatabase() {
         fun criar(ctx: Context): BancoNovely =
             Room.databaseBuilder(ctx, BancoNovely::class.java, "novely.db")
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) { Sinc.prepararBanco(db) }
+                })
                 .addMigrations(object : androidx.room.migration.Migration(1, 2) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE capitulos ADD COLUMN resumo TEXT NOT NULL DEFAULT ''")
@@ -350,6 +407,14 @@ abstract class BancoNovely : RoomDatabase() {
                         db.execSQL("ALTER TABLE obras ADD COLUMN trancada INTEGER NOT NULL DEFAULT 0")
                         db.execSQL("ALTER TABLE obras ADD COLUMN autor TEXT NOT NULL DEFAULT ''")
                     }
+                }, object : androidx.room.migration.Migration(7, 8) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        for (t in Sinc.TABELAS) {
+                            db.execSQL("ALTER TABLE $t ADD COLUMN nuvemId TEXT NOT NULL DEFAULT ''")
+                            db.execSQL("ALTER TABLE $t ADD COLUMN alteradoEm INTEGER NOT NULL DEFAULT 0")
+                            db.execSQL("UPDATE $t SET nuvemId = lower(hex(randomblob(16))), alteradoEm = ${System.currentTimeMillis()}")
+                        }
+                    }
                 }, object : androidx.room.migration.Migration(6, 7) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         for (c in listOf("apelidos", "idade", "aparencia", "poder", "faccao", "relacoes"))
@@ -360,5 +425,34 @@ abstract class BancoNovely : RoomDatabase() {
                     }
                 })
                 .build()
+    }
+}
+
+
+/**
+ * Peças de banco para a sincronização:
+ *  - gatilhos marcam alteradoEm (e geram nuvemId) em toda mudança feita pelo app;
+ *  - exclusões viram "lápides" para apagar também na nuvem;
+ *  - sync_flag = 1 enquanto a própria sincronização grava (aí os gatilhos ficam quietos).
+ */
+object Sinc {
+    val TABELAS = listOf("obras", "volumes", "capitulos", "fichas", "eventos", "marcadores")
+    private const val AGORA = "CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)"
+
+    fun prepararBanco(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS sync_flag (id INTEGER PRIMARY KEY, ativo INTEGER NOT NULL)")
+        db.execSQL("INSERT OR IGNORE INTO sync_flag (id, ativo) VALUES (0, 0)")
+        db.execSQL("UPDATE sync_flag SET ativo = 0")
+        db.execSQL("CREATE TABLE IF NOT EXISTS exclusoes (nuvemId TEXT PRIMARY KEY NOT NULL, tipo TEXT NOT NULL, em INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS sincronia (chave TEXT PRIMARY KEY NOT NULL, enviadoEm INTEGER NOT NULL DEFAULT 0, textoHash TEXT NOT NULL DEFAULT '', capaHash TEXT NOT NULL DEFAULT '', bannerHash TEXT NOT NULL DEFAULT '')")
+        val quieto = "(SELECT ativo FROM sync_flag WHERE id = 0) = 0"
+        for (t in TABELAS) {
+            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv_ins_$t AFTER INSERT ON $t WHEN $quieto BEGIN " +
+                "UPDATE $t SET alteradoEm = $AGORA, nuvemId = CASE WHEN NEW.nuvemId = '' THEN lower(hex(randomblob(16))) ELSE NEW.nuvemId END WHERE id = NEW.id; END")
+            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv_upd_$t AFTER UPDATE ON $t WHEN $quieto BEGIN " +
+                "UPDATE $t SET alteradoEm = $AGORA, nuvemId = CASE WHEN NEW.nuvemId = '' THEN OLD.nuvemId ELSE NEW.nuvemId END WHERE id = NEW.id; END")
+            db.execSQL("CREATE TRIGGER IF NOT EXISTS nv_del_$t AFTER DELETE ON $t WHEN $quieto AND OLD.nuvemId <> '' BEGIN " +
+                "INSERT OR REPLACE INTO exclusoes (nuvemId, tipo, em) VALUES (OLD.nuvemId, '$t', $AGORA); END")
+        }
     }
 }

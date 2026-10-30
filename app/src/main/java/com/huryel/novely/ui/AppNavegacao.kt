@@ -82,6 +82,19 @@ private val abas = listOf(
 
 @Composable
 fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
+    val app = NovelyApp.instancia
+    val usuario by app.conta.usuario.collectAsState()
+    if (usuario == null) { TelaLogin(); return }
+    // sincroniza ao entrar, a cada 3 minutos com o app aberto e ao sair/minimizar
+    LaunchedEffect(usuario?.uid) { while (true) { app.sinc.sincronizar(); kotlinx.coroutines.delay(180_000) } }
+    val donoCiclo = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(donoCiclo) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP || e == androidx.lifecycle.Lifecycle.Event.ON_START) app.escopo.launch { app.sinc.sincronizar() }
+        }
+        donoCiclo.lifecycle.addObserver(obs)
+        onDispose { donoCiclo.lifecycle.removeObserver(obs) }
+    }
     val nav = rememberNavController()
     val atual by nav.currentBackStackEntryAsState()
     val rota = atual?.destination?.route

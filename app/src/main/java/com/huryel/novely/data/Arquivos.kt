@@ -64,6 +64,12 @@ class ArquivosTexto(ctx: Context) {
         dir.listFiles()?.sortedByDescending { it.name }?.drop(30)?.forEach { it.delete() }
     }
 
+    /** Guarda um texto qualquer como versão (ex.: a versão do outro aparelho num conflito). */
+    suspend fun gravarVersao(capId: Long, texto: String) = withContext(Dispatchers.IO) {
+        val dir = dirVersoes(capId).apply { mkdirs() }
+        File(dir, "${System.currentTimeMillis()}.md").writeText(texto, Charsets.UTF_8)
+    }
+
     suspend fun versoes(capId: Long): List<Versao> = withContext(Dispatchers.IO) {
         (dirVersoes(capId).listFiles() ?: emptyArray()).sortedByDescending { it.name }.map { f ->
             val t = f.readText(Charsets.UTF_8)
@@ -115,6 +121,30 @@ class ArquivosImagem(private val ctx: Context) {
         } catch (e: OutOfMemoryError) {
             null
         }
+    }
+
+    /** Salva bytes de imagem vindos da nuvem e devolve o caminho. */
+    fun salvarBytes(bytes: ByteArray): String {
+        val f = File(raiz, UUID.randomUUID().toString() + ".jpg")
+        f.writeBytes(bytes)
+        return f.absolutePath
+    }
+
+    /** JPEG reduzido para enviar à nuvem (cabe folgado num documento). */
+    fun comprimir(caminho: String?, ladoMax: Int, qualidade: Int = 72): ByteArray? {
+        val f = caminho?.let { File(it) }?.takeIf { it.exists() } ?: return null
+        return try {
+            val lim = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(f.absolutePath, lim)
+            var amostra = 1
+            while (lim.outWidth / (amostra * 2) >= ladoMax || lim.outHeight / (amostra * 2) >= ladoMax) amostra *= 2
+            var bmp = android.graphics.BitmapFactory.decodeFile(f.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = amostra }) ?: return null
+            val maior = maxOf(bmp.width, bmp.height)
+            if (maior > ladoMax) bmp = android.graphics.Bitmap.createScaledBitmap(bmp, bmp.width * ladoMax / maior, bmp.height * ladoMax / maior, true)
+            val out = java.io.ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, qualidade, out)
+            out.toByteArray()
+        } catch (e: Throwable) { null }
     }
 
     fun apagar(caminho: String?) {

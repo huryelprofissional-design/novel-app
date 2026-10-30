@@ -592,6 +592,10 @@ fun TelaPerfilAba(nav: NavHostController) {
                 Avatar(88.dp, Modifier.clickable { editando = true })
                 Text(nome.ifBlank { "Seu nome de autor" }, fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.padding(top = 12.dp),
                     color = if (nome.isBlank()) p.textoSuave else p.texto)
+                val estSinc by app.sinc.estado.collectAsState()
+                val ultSinc by app.prefs.ultimaSinc.estado.collectAsState()
+                Text("☁ " + textoSinc(estSinc, ultSinc), fontSize = 11.sp, color = p.textoSuave.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(top = 2.dp).clickable { nav.navigate("ajustes/conta") })
                 if (bio.isNotBlank()) Text(bio, fontSize = 13.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 30.dp, vertical = 4.dp))
                 Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(onClick = { editando = true }, shape = RoundedCornerShape(14.dp)) { Text("Editar perfil", color = p.texto) }
@@ -642,7 +646,7 @@ private fun DialogoPerfil(fechar: () -> Unit) {
     val seletor = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) app.escopo.launch {
             val antigo = prefs.fotoPerfil.valor
-            app.repo.imagens.importar(uri, 600)?.let { prefs.fotoPerfil.definir(it); if (antigo.isNotEmpty()) java.io.File(antigo).delete() }
+            app.repo.imagens.importar(uri, 600)?.let { prefs.fotoPerfil.definir(it); prefs.perfilAlteradoEm.definir(System.currentTimeMillis()); if (antigo.isNotEmpty()) java.io.File(antigo).delete() }
         }
     }
     AlertDialog(onDismissRequest = fechar, title = { Text("Editar perfil") },
@@ -654,7 +658,10 @@ private fun DialogoPerfil(fechar: () -> Unit) {
                 OutlinedTextField(bio, { bio = it.take(160) }, label = { Text("Bio (o que você escreve)") }, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { TextButton(onClick = { prefs.autorNome.definir(nome.trim()); prefs.bio.definir(bio.trim()); fechar() }) { Text("Salvar") } },
+        confirmButton = { TextButton(onClick = {
+            prefs.autorNome.definir(nome.trim()); prefs.bio.definir(bio.trim()); prefs.perfilAlteradoEm.definir(System.currentTimeMillis())
+            app.escopo.launch { app.sinc.sincronizar() }; fechar()
+        }) { Text("Salvar") } },
         dismissButton = { TextButton(onClick = fechar) { Text("Cancelar") } })
 }
 
@@ -709,8 +716,26 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
             }
             "conta" -> {
                 Topo("Conta", nav)
-                Text("Em breve: entrar com Google ou e-mail, guardar suas obras na nuvem, usar no celular e no PC e publicar para outras pessoas.",
-                    color = p.textoSuave, modifier = Modifier.padding(18.dp))
+                val usuario by app.conta.usuario.collectAsState()
+                val estado by app.sinc.estado.collectAsState()
+                val ultima by app.prefs.ultimaSinc.estado.collectAsState()
+                var sair by remember { mutableStateOf(false) }
+                Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(usuario?.email ?: "", fontWeight = FontWeight.Bold)
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("☁ Nuvem", fontWeight = FontWeight.ExtraBold)
+                        Text(textoSinc(estado, ultima), fontSize = 13.sp, color = if (estado is com.huryel.novely.data.EstadoSinc.Erro) Color(0xFFE57373) else p.textoSuave)
+                        Button(onClick = { app.escopo.launch { app.sinc.sincronizar() } }, enabled = estado !is com.huryel.novely.data.EstadoSinc.Sincronizando,
+                            colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), modifier = Modifier.fillMaxWidth()) { Text("Sincronizar agora", fontWeight = FontWeight.Bold) }
+                    }
+                    Text("Suas obras, capítulos, personagens, grifos e progresso de leitura ficam guardados na nuvem e aparecem em qualquer aparelho onde você entrar com esta conta. Sem internet, tudo continua funcionando e sobe depois.",
+                        fontSize = 13.sp, color = p.textoSuave)
+                    OutlinedButton(onClick = { sair = true }, modifier = Modifier.fillMaxWidth()) { Text("Sair da conta", color = Color(0xFFE57373)) }
+                }
+                if (sair) DialogoConfirmar("Sair da conta?", "As obras continuam neste aparelho. Para usar de novo, entre com a mesma conta.", "Sair", { sair = false }) {
+                    sair = false
+                    app.escopo.launch { app.sinc.sincronizar(); app.conta.sair() }
+                }
             }
             else -> {
                 Topo("Sobre", nav)
@@ -718,6 +743,15 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
                     color = p.textoSuave, modifier = Modifier.padding(18.dp))
             }
         }
+    }
+}
+
+fun textoSinc(e: com.huryel.novely.data.EstadoSinc, ultima: Long): String = when (e) {
+    is com.huryel.novely.data.EstadoSinc.Sincronizando -> e.mensagem
+    is com.huryel.novely.data.EstadoSinc.Erro -> e.mensagem
+    else -> if (ultima == 0L) "Ainda não sincronizado." else {
+        val min = (System.currentTimeMillis() - ultima) / 60000
+        "Sincronizado " + when { min < 1 -> "agora"; min < 60 -> "há $min min"; min < 1440 -> "há ${min / 60} h"; else -> "há ${min / 1440} dias" }
     }
 }
 
@@ -731,8 +765,16 @@ fun TelaAvisos(nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
         Topo("Avisos", nav)
         val v = (estado as? EstadoAtualizacao.Disponivel)?.v
+        val conflitos by app.prefs.conflitos.estado.collectAsState()
+        val linhas = conflitos.split('\n').filter { it.isNotBlank() }.mapNotNull { l -> l.split('|').takeIf { it.size >= 2 } }
         if (v != null) ItemAvisoLinha("✦ Versão nova do Novely (build ${v.numero})", "Toque para atualizar") { nav.navigate("atualizar") }
-        else Text("Nada novo por aqui. Quando as obras que você segue tiverem capítulos novos, eles aparecem aqui.",
+        linhas.reversed().forEach { (cap, titulo) ->
+            ItemAvisoLinha("⚠ Texto diferente em “$titulo”", "Você mudou este capítulo em dois aparelhos. Ficou o daqui; o outro está no Histórico — toque para comparar e escolher.") {
+                nav.navigate("historico/$cap")
+            }
+        }
+        if (linhas.isNotEmpty()) TextButton(onClick = { app.prefs.conflitos.definir("") }, modifier = Modifier.padding(horizontal = 10.dp)) { Text("Limpar avisos", color = p.textoSuave) }
+        if (v == null && linhas.isEmpty()) Text("Nada novo por aqui. Quando as obras que você segue tiverem capítulos novos, eles aparecem aqui.",
             color = p.textoSuave, modifier = Modifier.padding(18.dp))
     }
 }

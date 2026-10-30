@@ -20,6 +20,8 @@ class NovelyApp : Application() {
     lateinit var importador: com.huryel.novely.data.Importador
     lateinit var backup: com.huryel.novely.data.Backup
     lateinit var atualizador: com.huryel.novely.data.Atualizador
+    lateinit var conta: com.huryel.novely.data.Conta
+    lateinit var sinc: com.huryel.novely.data.Sincronizador
     /** Arquivo aberto com o Novely (WhatsApp, gerenciador de arquivos…), esperando ser tratado. */
     val arquivoRecebido = kotlinx.coroutines.flow.MutableStateFlow<android.net.Uri?>(null)
     /** Escopo que sobrevive à troca de tela: usado para terminar salvamentos ao sair. */
@@ -33,6 +35,9 @@ class NovelyApp : Application() {
         importador = com.huryel.novely.data.Importador(this, repo)
         backup = com.huryel.novely.data.Backup(this, repo, prefs)
         atualizador = com.huryel.novely.data.Atualizador(this, prefs)
+        com.huryel.novely.data.Sincronizador.configurar()
+        conta = com.huryel.novely.data.Conta(this)
+        sinc = com.huryel.novely.data.Sincronizador(this, repo, prefs, conta)
         repo.aoEscreverPalavras = { prefs.registrarPalavras(it) }
         prefs.conferirDia()
         escopo.launch { backup.backupAutomaticoSePreciso() }
