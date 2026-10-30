@@ -451,6 +451,11 @@ private fun PainelOpcoesObra(
                     if (livre) Triple(Icons.Filled.Delete, "Lixeira", e { navegar("lixeira/${o.id}") }) else null,
                 ))
             }
+            if (livre && o.minha) SecaoOpcoes("Junto com outras pessoas") {
+                GradeOpcoes(listOf(
+                    Triple(Icons.Filled.Person, "Coautor e revisor", e { navegar("colaboracao/${o.id}") }),
+                ))
+            }
             if (livre) SecaoOpcoes("Aparência") {
                 GradeOpcoes(listOf(
                     Triple(Icons.Filled.Create, "Título e sinopse", e { abrirDialogo(Dialogo.EditarInfo) }),

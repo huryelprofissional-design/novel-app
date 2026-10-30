@@ -480,6 +480,7 @@ fun TelaEscreverAba(nav: NavHostController) {
                     Ferramenta("Personagens", "@ e & no texto") {
                         if (minhas.size == 1) nav.navigate("fichas/${minhas[0].id}") else escolherFichas = true
                     }
+                    Ferramenta("Colaborar", "entrar com código de convite") { nav.navigate("colaborar") }
                     Ferramenta("Estatísticas", "leitura e escrita") { nav.navigate("estatisticas") }
                 }
             }

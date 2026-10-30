@@ -384,6 +384,8 @@ class Preferencias(ctx: Context) {
     }
     val perfilPublicadoEm = longo("perfilPublicadoEm", 0L)
     val autoresSeguidos = texto("autoresSeguidos", "")
+    /** Obras onde colaboro: "pid|título|papel|autor" por linha. */
+    val colabs = texto("colabs", "")
     val autoresChecadoEm = longo("autoresChecadoEm", 0L)
     val maior18 = bool("maior18", false)
     val pediuNotificacao = bool("pediuNotificacao", false)

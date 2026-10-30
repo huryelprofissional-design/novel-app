@@ -23,6 +23,7 @@ class NovelyApp : Application() {
     lateinit var conta: com.huryel.novely.data.Conta
     lateinit var sinc: com.huryel.novely.data.Sincronizador
     lateinit var pub: com.huryel.novely.data.Publicador
+    lateinit var colab: com.huryel.novely.data.Colaboracao
     /** Arquivo aberto com o Novely (WhatsApp, gerenciador de arquivos…), esperando ser tratado. */
     val arquivoRecebido = kotlinx.coroutines.flow.MutableStateFlow<android.net.Uri?>(null)
     /** Notificação tocada: abrir a tela de avisos. */
@@ -42,6 +43,7 @@ class NovelyApp : Application() {
         conta = com.huryel.novely.data.Conta(this)
         sinc = com.huryel.novely.data.Sincronizador(this, repo, prefs, conta)
         pub = com.huryel.novely.data.Publicador(this, repo, prefs, conta, sinc)
+        colab = com.huryel.novely.data.Colaboracao(repo, prefs, conta)
         repo.aoEscreverPalavras = { prefs.registrarPalavras(it) }
         prefs.conferirDia()
         escopo.launch { backup.backupAutomaticoSePreciso() }

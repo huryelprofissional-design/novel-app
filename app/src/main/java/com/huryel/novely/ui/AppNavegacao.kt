@@ -148,6 +148,10 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("ajustes") { TelaAjustesNova(nav) }
             composable("ajustes/{s}") { e -> TelaAjusteSecao(e.arguments?.getString("s") ?: "", nav) }
             composable("avisos") { TelaAvisos(nav) }
+            composable("colaboracao/{id}", idArg) { e -> TelaColaboracao(e.arguments!!.getLong("id"), nav) }
+            composable("colaborar") { TelaColaborar(nav) }
+            composable("colab/{p}") { e -> TelaColabObra(e.arguments?.getString("p") ?: "", nav) }
+            composable("revisao/{p}/{c}") { e -> TelaRevisaoCap(e.arguments?.getString("p") ?: "", e.arguments?.getString("c") ?: "", nav) }
             composable("autor/{u}") { e -> TelaAutor(e.arguments?.getString("u") ?: "", nav) }
             composable("pub/{p}") { e -> TelaObraPublica(e.arguments?.getString("p") ?: "", nav) }
             composable("publicar/{id}", idArg) { e -> TelaPublicar(e.arguments!!.getLong("id"), nav) }
