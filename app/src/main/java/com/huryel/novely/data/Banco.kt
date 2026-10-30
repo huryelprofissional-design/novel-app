@@ -239,6 +239,8 @@ data class ResumoObra(
     val minha: Boolean = false,
     val trancada: Boolean = false,
     val autor: String = "",
+    val publicada: Boolean = false,
+    val publicaId: String = "",
 )
 
 data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, val obraTitulo: String)
@@ -279,7 +281,7 @@ interface NovelyDao {
 
     @Query(
         """SELECT o.id, o.titulo, o.status, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-           o.ultimoCapituloId, o.lidaEm, o.colecao, o.atualizadaEm, o.criadaEm, o.minha, o.trancada, o.autor,
+           o.ultimoCapituloId, o.lidaEm, o.colecao, o.atualizadaEm, o.criadaEm, o.minha, o.trancada, o.autor, o.publicada, o.publicaId,
            (SELECT COUNT(*) FROM capitulos c WHERE c.obraId = o.id) AS totalCapitulos,
            (SELECT IFNULL(SUM(c.palavras),0) FROM capitulos c WHERE c.obraId = o.id) AS totalPalavras,
            (SELECT COUNT(*) FROM capitulos c WHERE c.obraId = o.id AND c.progresso >= 0.98) AS lidos
