@@ -223,7 +223,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                     "atualizadaEm" to o.atualizadaEm, "lidaEm" to o.lidaEm, "colecao" to o.colecao, "minha" to o.minha, "trancada" to o.trancada, "autor" to o.autor,
                     "ultimoCap" to (o.ultimoCapituloId?.let { nidCap[it] } ?: ""),
                     "publicada" to o.publicada, "publicaId" to o.publicaId, "generos" to o.generos, "tagsPub" to o.tagsPub,
-                    "classificacao" to o.classificacao, "idioma" to o.idioma,
+                    "classificacao" to o.classificacao, "idioma" to o.idioma, "exportavel" to o.exportavel,
                 ))
                 e.enviadoEm = o.alteradoEm; e.capaHash = capaH; e.bannerHash = banH; n++
             }
@@ -372,6 +372,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
             minha = d.getBoolean("minha") ?: true, trancada = d.getBoolean("trancada") ?: false, autor = d.getString("autor") ?: "",
             publicada = d.getBoolean("publicada") ?: false, publicaId = d.getString("publicaId") ?: "", generos = d.getString("generos") ?: "",
             tagsPub = d.getString("tagsPub") ?: "", classificacao = d.getString("classificacao") ?: "LIVRE", idioma = d.getString("idioma") ?: "pt",
+            exportavel = d.getBoolean("exportavel") ?: true,
             nuvemId = nid, alteradoEm = alt,
         )
         quieto { if (local == null) dao.inserirObra(o) else dao.atualizarObra(o) }

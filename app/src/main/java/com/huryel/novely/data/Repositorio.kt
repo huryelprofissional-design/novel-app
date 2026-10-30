@@ -378,6 +378,16 @@ class Preferencias(ctx: Context) {
         val agora = System.currentTimeMillis()
         novidades.definir((novidades.valor.split('\n').filter { it.isNotBlank() } + l.map { (id, t, n) -> "$id|${t.replace('|', ' ')}|$n|$agora" }).takeLast(30).joinToString("\n"))
     }
+    @Synchronized fun adicionarNovidadesPublicas(l: List<Pair<String, String>>) {
+        val agora = System.currentTimeMillis()
+        novidades.definir((novidades.valor.split('\n').filter { it.isNotBlank() } + l.map { (pid, t) -> "pub:$pid|${t.replace('|', ' ')}|0|$agora" }).takeLast(30).joinToString("\n"))
+    }
+    val perfilPublicadoEm = longo("perfilPublicadoEm", 0L)
+    val autoresSeguidos = texto("autoresSeguidos", "")
+    val autoresChecadoEm = longo("autoresChecadoEm", 0L)
+    val maior18 = bool("maior18", false)
+    val pediuNotificacao = bool("pediuNotificacao", false)
+    val notificadaVersao = longo("notificadaVersao", 0L)
     private val contados = texto("contados", "")
     fun jaContado(k: String) = contados.valor.split('\n').contains(k)
     @Synchronized fun marcarContado(k: String) = contados.definir((contados.valor.split('\n').filter { it.isNotBlank() } + k).takeLast(3000).joinToString("\n"))

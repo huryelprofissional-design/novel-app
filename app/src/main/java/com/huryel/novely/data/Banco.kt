@@ -52,6 +52,8 @@ data class Obra(
     @ColumnInfo(defaultValue = "") val tagsPub: String = "",
     @ColumnInfo(defaultValue = "LIVRE") val classificacao: String = "LIVRE",
     @ColumnInfo(defaultValue = "pt") val idioma: String = "pt",
+    /** Leitores podem exportar EPUB/TXT (decisão do autor). */
+    @ColumnInfo(defaultValue = "1") val exportavel: Boolean = true,
     /** Identidade na nuvem (igual em todos os aparelhos). */
     @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
     /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
@@ -382,7 +384,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 9, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 10, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -423,6 +425,10 @@ abstract class BancoNovely : RoomDatabase() {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE obras ADD COLUMN trancada INTEGER NOT NULL DEFAULT 0")
                         db.execSQL("ALTER TABLE obras ADD COLUMN autor TEXT NOT NULL DEFAULT ''")
+                    }
+                }, object : androidx.room.migration.Migration(9, 10) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE obras ADD COLUMN exportavel INTEGER NOT NULL DEFAULT 1")
                     }
                 }, object : androidx.room.migration.Migration(8, 9) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {

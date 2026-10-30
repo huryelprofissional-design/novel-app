@@ -474,8 +474,8 @@ private fun PainelOpcoesObra(
             }
             SecaoOpcoes("Exportar") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (livre) Chip("EPUB", false, e(exportarEpub))
-                    if (livre) Chip("TXT", false, e(exportarTxt))
+                    if (livre || o.exportavel) Chip("EPUB", false, e(exportarEpub))
+                    if (livre || o.exportavel) Chip("TXT", false, e(exportarTxt))
                     Chip("Backup", false, e(exportarNovely))
                 }
             }

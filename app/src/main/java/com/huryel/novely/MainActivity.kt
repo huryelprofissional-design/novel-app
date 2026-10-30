@@ -25,6 +25,8 @@ class NovelyApp : Application() {
     lateinit var pub: com.huryel.novely.data.Publicador
     /** Arquivo aberto com o Novely (WhatsApp, gerenciador de arquivos…), esperando ser tratado. */
     val arquivoRecebido = kotlinx.coroutines.flow.MutableStateFlow<android.net.Uri?>(null)
+    /** Notificação tocada: abrir a tela de avisos. */
+    val abrirAvisos = kotlinx.coroutines.flow.MutableStateFlow(false)
     /** Escopo que sobrevive à troca de tela: usado para terminar salvamentos ao sair. */
     val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
     override fun onCreate() {
@@ -45,6 +47,7 @@ class NovelyApp : Application() {
         escopo.launch { backup.backupAutomaticoSePreciso() }
         escopo.launch { repo.limparLixeiraAntiga() }
         escopo.launch { kotlinx.coroutines.delay(4000); atualizador.verificarSePreciso() }
+        com.huryel.novely.data.Vigia.agendar(this)
     }
     companion object {
         lateinit var instancia: NovelyApp
@@ -87,5 +90,6 @@ class MainActivity : ComponentActivity() {
             else -> null
         }
         if (uri != null) NovelyApp.instancia.arquivoRecebido.value = uri
+        if (i?.getStringExtra("abrir") == "avisos") NovelyApp.instancia.abrirAvisos.value = true
     }
 }

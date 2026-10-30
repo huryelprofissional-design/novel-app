@@ -90,6 +90,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         while (true) {
             app.sinc.sincronizar()
             try { app.pub.atualizarSeguidas() } catch (_: Exception) {}
+            try { app.pub.novasDeAutores(); app.pub.publicarPerfilSePreciso() } catch (_: Exception) {}
             kotlinx.coroutines.delay(180_000)
         }
     }
@@ -147,6 +148,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("ajustes") { TelaAjustesNova(nav) }
             composable("ajustes/{s}") { e -> TelaAjusteSecao(e.arguments?.getString("s") ?: "", nav) }
             composable("avisos") { TelaAvisos(nav) }
+            composable("autor/{u}") { e -> TelaAutor(e.arguments?.getString("u") ?: "", nav) }
             composable("pub/{p}") { e -> TelaObraPublica(e.arguments?.getString("p") ?: "", nav) }
             composable("publicar/{id}", idArg) { e -> TelaPublicar(e.arguments!!.getLong("id"), nav) }
             composable("lixeira/{id}", idArg) { e -> TelaLixeira(nav, e.arguments!!.getLong("id")) }
@@ -183,6 +185,16 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("atualizar") { TelaAtualizar(nav) }
         }
         AvisosGlobais(nav, rota)
+        // notificação tocada → avisos; e pedir permissão de notificação uma vez (Android 13+)
+        val abrirAvisos by app.abrirAvisos.collectAsState()
+        LaunchedEffect(abrirAvisos) { if (abrirAvisos) { app.abrirAvisos.value = false; nav.navigate("avisos") } }
+        val pedirNotif = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+        LaunchedEffect(Unit) {
+            if (android.os.Build.VERSION.SDK_INT >= 33 && !app.prefs.pediuNotificacao.valor) {
+                app.prefs.pediuNotificacao.definir(true)
+                pedirNotif.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         }
     }
 }

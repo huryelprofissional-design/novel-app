@@ -22,7 +22,9 @@ data class ObraPublica(
 }
 
 data class CapPublico(val id: String, val titulo: String, val ordem: Double, val palavras: Long, val publicadoEm: Long,
-                      val atualizadoEm: Long, val partes: Int, val curtidas: Long, val comentarios: Long)
+                      val atualizadoEm: Long, val partes: Int, val curtidas: Long, val comentarios: Long, val leituras: Long = 0)
+
+data class PerfilPublico(val uid: String, val nome: String, val bio: String, val foto: ByteArray?, val seguidores: Long)
 
 data class Comentario(val id: String, val uid: String, val nome: String, val texto: String, val em: Long)
 
@@ -70,7 +72,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
                 "autorUid" to uid, "autorNome" to prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "Autor" },
                 "titulo" to o.titulo, "sinopse" to o.descricao, "generos" to o.generos.split(',').map { it.trim() }.filter { it.isNotEmpty() },
                 "tags" to o.tagsPub.split(',').map { it.trim().removePrefix("#").lowercase() }.filter { it.isNotEmpty() },
-                "classificacao" to o.classificacao, "idioma" to o.idioma, "status" to o.status,
+                "classificacao" to o.classificacao, "idioma" to o.idioma, "status" to o.status, "exportavel" to o.exportavel,
                 "capaMini" to mini?.let { Blob.fromBytes(it) }, "numCaps" to caps.size, "palavras" to caps.sumOf { it.palavras.toLong() },
                 "atualizadaEm" to System.currentTimeMillis(),
             )
@@ -179,7 +181,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         val agora = System.currentTimeMillis()
         col.document(pid).collection("caps").get().await().documents.map { d ->
             CapPublico(d.id, d.getString("titulo") ?: "", d.getDouble("ordem") ?: 0.0, d.getLong("palavras") ?: 0, d.getLong("publicadoEm") ?: 0,
-                d.getLong("atualizadoEm") ?: 0, (d.getLong("partes") ?: 1).toInt(), d.getLong("curtidas") ?: 0, d.getLong("comentarios") ?: 0)
+                d.getLong("atualizadoEm") ?: 0, (d.getLong("partes") ?: 1).toInt(), d.getLong("curtidas") ?: 0, d.getLong("comentarios") ?: 0, d.getLong("leituras") ?: 0)
         }.filter { autor || it.publicadoEm <= agora }.sortedBy { it.ordem }
     }
 
@@ -196,9 +198,9 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             banner = imagem(pid, "banner")?.let { repo.imagens.salvarBytes(it) }
         }
         val base = Obra(titulo = p.titulo, descricao = p.sinopse, status = StatusObra.LENDO, minha = false, trancada = true, autor = p.autorNome,
-            publicaId = pid, capa = capa, banner = banner, generos = p.generos.joinToString(","), tagsPub = p.tags.joinToString(","), classificacao = p.classificacao, idioma = p.idioma)
+            publicaId = pid, capa = capa, banner = banner, exportavel = exportavelRemoto(pid), generos = p.generos.joinToString(","), tagsPub = p.tags.joinToString(","), classificacao = p.classificacao, idioma = p.idioma)
         val obraId = if (local == null) dao.inserirObra(base) else {
-            repo.salvarObra(local.copy(titulo = p.titulo, descricao = p.sinopse, autor = p.autorNome, generos = base.generos, tagsPub = base.tagsPub, classificacao = p.classificacao))
+            repo.salvarObra(local.copy(titulo = p.titulo, descricao = p.sinopse, autor = p.autorNome, exportavel = base.exportavel, generos = base.generos, tagsPub = base.tagsPub, classificacao = p.classificacao))
             local.id
         }
         val caps = capitulos(pid)
@@ -278,6 +280,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
                 else t.update(ref, mapOf("leituras" to FieldValue.increment(1), "leiturasSemana" to 1L, "semanaId" to sem))
                 true
             }.await()
+            try { ref.collection("caps").document(cid).update("leituras", FieldValue.increment(1)).await() } catch (_: Exception) {}
             prefs.marcarContado(chave)
         } catch (_: Exception) {}
     }
@@ -316,6 +319,62 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
     }
 
     val meuUid: String get() = uid
+
+    private suspend fun exportavelRemoto(pid: String): Boolean = try { col.document(pid).get().await().getBoolean("exportavel") ?: true } catch (_: Exception) { true }
+
+    // ───────── PERFIL PÚBLICO E SEGUIR AUTOR ─────────
+
+    private val perfis get() = db.collection("perfis")
+
+    /** Mantém o perfil público (nome, bio, foto pequena) igual ao do app. */
+    suspend fun publicarPerfilSePreciso() = withContext(Dispatchers.IO) {
+        if (uid.isEmpty()) return@withContext
+        val alt = prefs.perfilAlteradoEm.valor.coerceAtLeast(1)
+        if (prefs.perfilPublicadoEm.valor >= alt) return@withContext
+        try {
+            val foto = prefs.fotoPerfil.valor.takeIf { it.isNotEmpty() }?.let { repo.imagens.comprimir(it, 200, 70) }
+            perfis.document(uid).set(mapOf("nome" to prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "Autor" },
+                "bio" to prefs.bio.valor, "foto" to foto?.let { Blob.fromBytes(it) }, "alteradoEm" to alt), com.google.firebase.firestore.SetOptions.merge()).await()
+            prefs.perfilPublicadoEm.definir(alt)
+        } catch (_: Exception) {}
+    }
+
+    suspend fun perfil(autor: String): PerfilPublico? = withContext(Dispatchers.IO) {
+        val d = perfis.document(autor).get().await()
+        if (!d.exists()) null else PerfilPublico(autor, d.getString("nome") ?: "", d.getString("bio") ?: "", d.getBlob("foto")?.toBytes(), d.getLong("seguidores") ?: 0)
+    }
+
+    suspend fun obrasDoAutor(autor: String): List<ObraPublica> = withContext(Dispatchers.IO) {
+        col.whereEqualTo("autorUid", autor).get().await().documents.map(::obraDe).filter { it.numCaps > 0 || autor == uid }.sortedByDescending { it.atualizadaEm }
+    }
+
+    fun segueAutor(autor: String) = autor in prefs.autoresSeguidos.valor.split(',')
+
+    suspend fun seguirAutor(autor: String, sim: Boolean) = withContext(Dispatchers.IO) {
+        val ref = perfis.document(autor).collection("seguidores").document(uid)
+        val ja = ref.get().await().exists()
+        if (sim && !ja) { ref.set(mapOf("em" to System.currentTimeMillis())).await(); try { perfis.document(autor).update("seguidores", FieldValue.increment(1)).await() } catch (_: Exception) {} }
+        if (!sim && ja) { ref.delete().await(); try { perfis.document(autor).update("seguidores", FieldValue.increment(-1)).await() } catch (_: Exception) {} }
+        val lista = prefs.autoresSeguidos.valor.split(',').filter { it.isNotBlank() }.toMutableSet()
+        if (sim) lista.add(autor) else lista.remove(autor)
+        prefs.autoresSeguidos.definir(lista.joinToString(","))
+    }
+
+    /** Obras novas de autores seguidos desde a última olhada. */
+    suspend fun novasDeAutores(): List<ObraPublica> = withContext(Dispatchers.IO) {
+        val autores = prefs.autoresSeguidos.valor.split(',').filter { it.isNotBlank() }
+        val desde = prefs.autoresChecadoEm.valor
+        val agora = System.currentTimeMillis()
+        if (autores.isEmpty()) { prefs.autoresChecadoEm.definir(agora); return@withContext emptyList() }
+        val novas = ArrayList<ObraPublica>()
+        for (a in autores) try {
+            novas += col.whereEqualTo("autorUid", a).get().await().documents.map(::obraDe)
+                .filter { it.publicadaEm > desde && desde > 0 && it.numCaps > 0 && dao.obraPublica(it.id) == null }
+        } catch (_: Exception) {}
+        prefs.autoresChecadoEm.definir(agora)
+        if (novas.isNotEmpty()) prefs.adicionarNovidadesPublicas(novas.map { it.id to "${it.autorNome}: ${it.titulo}" })
+        novas
+    }
 
     private fun erro(e: Exception): String = when {
         e.message?.contains("PERMISSION_DENIED") == true -> "A nuvem recusou (confira se colou as Regras novas do Firestore)."

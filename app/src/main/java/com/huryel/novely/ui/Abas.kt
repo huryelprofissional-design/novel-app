@@ -602,6 +602,8 @@ fun TelaPerfilAba(nav: NavHostController) {
                     OutlinedButton(onClick = { editando = true }, shape = RoundedCornerShape(14.dp)) { Text("Editar perfil", color = p.texto) }
                     OutlinedButton(onClick = { nav.navigate("estatisticas") }, shape = RoundedCornerShape(14.dp)) { Text("Estatísticas", color = p.texto) }
                 }
+                Text("Ver meu perfil público ›", fontSize = 13.sp, color = p.destaque, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 10.dp).clickable { nav.navigate("autor/${app.pub.meuUid}") })
             }
         }
         item {
@@ -777,7 +779,8 @@ fun TelaAvisos(nav: NavHostController) {
         val novidades by app.prefs.novidades.estado.collectAsState()
         val novas = novidades.split('\n').filter { it.isNotBlank() }.mapNotNull { l -> l.split('|').takeIf { it.size >= 3 } }
         novas.reversed().forEach { (id, titulo, n) ->
-            ItemAvisoLinha("✦ $n capítulo(s) novo(s) em “$titulo”", "Já baixados — toque para abrir a obra") { nav.navigate("obra/$id") }
+            if (id.startsWith("pub:")) ItemAvisoLinha("✦ Obra nova — $titulo", "Toque para ver no catálogo") { nav.navigate("pub/${id.removePrefix("pub:")}") }
+            else ItemAvisoLinha("✦ $n capítulo(s) novo(s) em “$titulo”", "Já baixados — toque para abrir a obra") { nav.navigate("obra/$id") }
         }
         if (novas.isNotEmpty()) TextButton(onClick = { app.prefs.novidades.definir("") }, modifier = Modifier.padding(horizontal = 10.dp)) { Text("Marcar novidades como vistas", color = p.textoSuave) }
         if (linhas.isNotEmpty()) TextButton(onClick = { app.prefs.conflitos.definir("") }, modifier = Modifier.padding(horizontal = 10.dp)) { Text("Limpar avisos", color = p.textoSuave) }

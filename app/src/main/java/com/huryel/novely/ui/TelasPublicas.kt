@@ -227,6 +227,14 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
         return
     }
     val souAutor = o.autorUid == pub.meuUid
+    val maior18 by app.prefs.maior18.estado.collectAsState()
+    if (o.classificacao == "18" && !maior18 && !souAutor) {
+        AlertDialog(onDismissRequest = { nav.popBackStack() }, title = { Text("Conteúdo adulto (+18)") },
+            text = { Text("Esta obra foi marcada pelo autor como +18. Continue só se você tiver 18 anos ou mais.") },
+            confirmButton = { TextButton(onClick = { app.prefs.maior18.definir(true) }) { Text("Tenho 18 anos ou mais") } },
+            dismissButton = { TextButton(onClick = { nav.popBackStack() }) { Text("Voltar") } })
+        return
+    }
 
     /** Garante a obra na biblioteca (baixando tudo) e abre o capítulo. */
     fun ler(c: CapPublico?) {
@@ -268,8 +276,10 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
             item {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(o.titulo, fontWeight = FontWeight.Black, fontSize = 25.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 10.dp))
-                    Text("por ${o.autorNome} · ${o.generos.take(3).joinToString(" · ")}" + if (o.classificacao != "LIVRE") " · +${o.classificacao}" else "",
-                        fontSize = 13.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 5.dp))
+                    Text("por ${o.autorNome} ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = p.destaque,
+                        modifier = Modifier.padding(top = 5.dp).clickable { nav.navigate("autor/${o.autorUid}") })
+                    Text(o.generos.take(3).joinToString(" · ") + if (o.classificacao != "LIVRE") " · +${o.classificacao}" else "",
+                        fontSize = 13.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 3.dp))
                     Text("${nota(o)} (${o.numEstrelas}) · ${milhar(o.leituras)} leituras · ${milhar(o.seguidores)} seguidores · ${o.numCaps} caps · " +
                         if (o.status == StatusObra.CONCLUIDA) "concluída" else "em andamento", fontSize = 12.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -351,6 +361,8 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
     var despublicar by remember { mutableStateOf(false) }
     var arquivo by remember { mutableStateOf(false) }
     var alterados by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var numeros by remember { mutableStateOf<Map<String, CapPublico>>(emptyMap()) }
+    LaunchedEffect(o.publicada) { if (o.publicada) numeros = try { pub.capitulos(o.nuvemId, autor = true).associateBy { it.id } } catch (_: Exception) { emptyMap() } }
     LaunchedEffect(caps) {
         alterados = withContext(Dispatchers.IO) { caps.filter { it.publicadoEm > 0 && app.sinc.hash(repo.textos.arquivo(it.id)) != it.publicadoHash }.map { it.id }.toSet() }
         if (selecionados.isEmpty()) selecionados.addAll(caps.filter { it.publicadoEm == 0L && !it.rascunho }.map { it.id })
@@ -409,6 +421,13 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
                     Chip("Em andamento", o.status != StatusObra.CONCLUIDA) { salvarDados { it.copy(status = StatusObra.ESCREVENDO) } }
                     Chip("Concluída", o.status == StatusObra.CONCLUIDA) { salvarDados { it.copy(status = StatusObra.CONCLUIDA) } }
                 }
+                Row(Modifier.fillMaxWidth().clickable { salvarDados { it.copy(exportavel = !it.exportavel) } }, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Leitores podem exportar", fontWeight = FontWeight.SemiBold)
+                        Text("Baixar a obra como EPUB/TXT para ler em outro app", fontSize = 12.sp, color = p.textoSuave)
+                    }
+                    Switch(o.exportavel, { v -> salvarDados { it.copy(exportavel = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = p.destaque, checkedThumbColor = p.sobreDestaque))
+                }
                 if (o.publicada) OutlinedButton(onClick = { rodar("Atualizando dados…") { pub.publicarObra(repo.dao.obraAgora(o.id)!!) } }, enabled = trabalhando == null && pend.isEmpty(),
                     modifier = Modifier.fillMaxWidth()) { Text("Atualizar dados no catálogo") }
                 Text("CAPÍTULOS", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, modifier = Modifier.padding(top = 8.dp))
@@ -432,6 +451,7 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
                 Column(Modifier.weight(1f)) {
                     Text(c.titulo.ifEmpty { "Sem título" }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(estado, fontSize = 11.5.sp, color = when { c.id in alterados -> p.destaque; c.publicadoEm > 0 -> p.destaque2; else -> p.textoSuave })
+                    numeros[c.nuvemId]?.let { n -> Text("👁 ${n.leituras}   ♥ ${n.curtidas}   💬 ${n.comentarios}", fontSize = 11.sp, color = p.textoSuave) }
                 }
                 if (c.publicadoEm > 0) Box {
                     TextButton(onClick = { menu = true }) { Text("⋮", color = p.textoSuave) }
@@ -564,6 +584,65 @@ private fun FolhaComentarios(pid: String, cid: String, aoMudar: (Int) -> Unit) {
                 enviando = true
                 escopo.launch { try { pub.comentar(pid, cid, texto); texto = ""; carregar() } catch (_: Exception) {}; enviando = false }
             }, enabled = texto.isNotBlank() && !enviando) { Text("Enviar", color = p.destaque, fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+
+// ───────────────────────── PÁGINA DO AUTOR ─────────────────────────
+
+@Composable
+fun TelaAutor(autor: String, nav: NavHostController) {
+    val app = NovelyApp.instancia
+    val pub = app.pub
+    val p = LocalPaleta.current
+    val escopo = rememberCoroutineScope()
+    var perfil by remember { mutableStateOf<com.huryel.novely.data.PerfilPublico?>(null) }
+    var obras by remember { mutableStateOf<List<ObraPublica>?>(null) }
+    var seguindo by remember { mutableStateOf(pub.segueAutor(autor)) }
+    LaunchedEffect(autor) {
+        try { perfil = pub.perfil(autor); obras = pub.obrasDoAutor(autor) } catch (_: Exception) { obras = emptyList() }
+    }
+    val pf = perfil
+    val nome = pf?.nome ?: obras?.firstOrNull()?.autorNome ?: ""
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
+        item { Topo("", nav) }
+        item {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                val foto = imagemDeBytes(pf?.foto)
+                Box(Modifier.size(92.dp).clip(CircleShape).background(Brush.linearGradient(listOf(p.destaque, Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
+                    if (foto != null) Image(foto, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    else Text(nome.take(1).uppercase().ifEmpty { "?" }, fontWeight = FontWeight.Black, fontSize = 36.sp, color = p.sobreDestaque)
+                }
+                Text(nome, fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.padding(top = 12.dp))
+                if (!pf?.bio.isNullOrBlank()) Text(pf!!.bio, fontSize = 13.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 30.dp, vertical = 4.dp))
+                val l = obras.orEmpty()
+                Text("${l.size} obras · ${milhar(l.sumOf { it.leituras })} leituras · ${milhar(pf?.seguidores ?: 0)} seguidores", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 8.dp))
+                if (autor != pub.meuUid) Button(onClick = {
+                    val novo = !seguindo; seguindo = novo
+                    escopo.launch { try { pub.seguirAutor(autor, novo); perfil = pub.perfil(autor) } catch (_: Exception) {} }
+                }, colors = if (seguindo) ButtonDefaults.outlinedButtonColors() else ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque),
+                    shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(top = 14.dp).width(200.dp).height(46.dp)) {
+                    Text(if (seguindo) "✓ Seguindo autor" else "+ Seguir autor", fontWeight = FontWeight.Bold, color = if (seguindo) p.destaque else p.sobreDestaque)
+                }
+                Text("Ao seguir, você recebe aviso quando sair obra nova.", fontSize = 11.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+        val l = obras
+        if (l == null) item { Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p.destaque) } }
+        else l.chunked(3).forEachIndexed { i, linha ->
+            item(key = "a$i") {
+                Row(Modifier.padding(horizontal = 18.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    linha.forEach { o ->
+                        Column(Modifier.weight(1f).clickable { nav.navigate("pub/${o.id}") }) {
+                            CapaPublica(o, Modifier.fillMaxWidth().aspectRatio(0.7f))
+                            Text(o.titulo, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                            Text("${nota(o)} · ${o.numCaps} caps", fontSize = 11.sp, color = p.textoSuave)
+                        }
+                    }
+                    repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
         }
     }
 }
