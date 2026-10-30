@@ -148,6 +148,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("ajustes") { TelaAjustesNova(nav) }
             composable("ajustes/{s}") { e -> TelaAjusteSecao(e.arguments?.getString("s") ?: "", nav) }
             composable("avisos") { TelaAvisos(nav) }
+            composable("dono") { TelaDono(nav) }
             composable("colaboracao/{id}", idArg) { e -> TelaColaboracao(e.arguments!!.getLong("id"), nav) }
             composable("colaborar") { TelaColaborar(nav) }
             composable("colab/{p}") { e -> TelaColabObra(e.arguments?.getString("p") ?: "", nav) }
@@ -190,8 +191,21 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         }
         AvisosGlobais(nav, rota)
         // notificação tocada → avisos; e pedir permissão de notificação uma vez (Android 13+)
-        val abrirAvisos by app.abrirAvisos.collectAsState()
-        LaunchedEffect(abrirAvisos) { if (abrirAvisos) { app.abrirAvisos.value = false; nav.navigate("avisos") } }
+        val abrirTela by app.abrirTela.collectAsState()
+        LaunchedEffect(abrirTela) {
+            val t = abrirTela ?: return@LaunchedEffect
+            app.abrirTela.value = null
+            when (t) {
+                "avisos" -> nav.navigate("avisos")
+                "continuar" -> app.repo.dao.obraContinuar()?.ultimoCapituloId?.let { nav.navigate("leitor/$it") }
+                "nova" -> {
+                    val id = app.repo.criarObra("Nova história", "", com.huryel.novely.data.StatusObra.ESCREVENDO)
+                    nav.navigate("obra/$id"); nav.navigate("editor/${app.repo.novoCapitulo(id, "", null, emBranco = true)}")
+                }
+            }
+        }
+        val tutorialVisto by app.prefs.tutorialVisto.estado.collectAsState()
+        if (!tutorialVisto) Tutorial { app.prefs.tutorialVisto.definir(true) }
         val pedirNotif = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
         LaunchedEffect(Unit) {
             if (android.os.Build.VERSION.SDK_INT >= 33 && !app.prefs.pediuNotificacao.valor) {

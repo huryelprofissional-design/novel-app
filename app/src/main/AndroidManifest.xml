@@ -20,6 +20,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
             <!-- Abrir com Novely: obras publicadas (.novely), EPUB e TXT -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -42,6 +43,10 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <receiver android:name=".data.WidgetNovely" android:exported="true" android:label="Novely">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_novely_info" />
+        </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.arquivos"

@@ -679,10 +679,12 @@ fun TelaAjustesNova(nav: NavHostController) {
         Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             ItemAjuste("Escrita", "Meta diária de palavras") { nav.navigate("ajustes/escrita") }
             ItemAjuste("Conta", "Entrar com Google ou e-mail (em breve)") { nav.navigate("ajustes/conta") }
+            ItemAjuste("Privacidade", "Pedir digital ou senha ao abrir") { nav.navigate("ajustes/privacidade") }
             ItemAjuste("Backup e restauração", "Cópia de segurança das suas obras") { nav.navigate("backup") }
             ItemAjuste("Importar TXT / EPUB", "Trazer novels para a biblioteca") { nav.navigate("importar") }
             ItemAjuste("Atualizações e problemas", "Versão ${NovelyApp.instancia.atualizador.nomeInstalado}") { nav.navigate("atualizar") }
-            ItemAjuste("Sobre", "O que é o Novely") { nav.navigate("ajustes/sobre") }
+            ItemAjuste("Sobre", "O que é o Novely · rever o tutorial") { nav.navigate("ajustes/sobre") }
+            if (NovelyApp.instancia.conta.usuario.value?.email.equals(EMAIL_DONO, true)) ItemAjuste("Painel de dono", "Obras do catálogo e pessoas") { nav.navigate("dono") }
             Text("A leitura (fonte, tamanho, páginas…) se ajusta no botão Aa dentro do leitor.", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
         }
     }
@@ -741,8 +743,32 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
                     app.escopo.launch { app.sinc.sincronizar(); app.conta.sair() }
                 }
             }
+            "privacidade" -> {
+                Topo("Privacidade", nav)
+                val bloq by app.prefs.bloqueio.estado.collectAsState()
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                var aviso by remember { mutableStateOf<String?>(null) }
+                Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Pedir digital ou senha", fontWeight = FontWeight.SemiBold)
+                            Text("Ao abrir o app e ao voltar depois de 1 minuto fora", fontSize = 12.sp, color = p.textoSuave)
+                        }
+                        Switch(bloq, { liga ->
+                            if (liga) {
+                                val podem = androidx.biometric.BiometricManager.from(ctx).canAuthenticate(
+                                    androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                                if (podem == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS || android.os.Build.VERSION.SDK_INT < 30) app.prefs.bloqueio.definir(true)
+                                else aviso = "Primeiro coloque uma senha, PIN ou digital nas configurações do Android."
+                            } else app.prefs.bloqueio.definir(false)
+                        }, colors = SwitchDefaults.colors(checkedTrackColor = p.destaque, checkedThumbColor = p.sobreDestaque))
+                    }
+                    aviso?.let { Text(it, color = Color(0xFFE57373), fontSize = 13.sp) }
+                }
+            }
             else -> {
                 Topo("Sobre", nav)
+                TextButton(onClick = { app.prefs.tutorialVisto.definir(false) }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Ver o tutorial de novo", color = p.destaque) }
                 Text("Novely ${app.atualizador.nomeInstalado}\n\nApp para escrever, organizar e ler novels gigantes. Suas obras ficam neste aparelho; a internet só é usada para procurar atualizações.",
                     color = p.textoSuave, modifier = Modifier.padding(18.dp))
             }

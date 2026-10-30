@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_raiz" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_fundo" android:orientation="horizontal" android:padding="12dp" android:gravity="center_vertical">
+    <ImageView android:id="@+id/w_capa" android:layout_width="62dp" android:layout_height="88dp" android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher" android:contentDescription="capa" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:layout_marginStart="12dp" android:orientation="vertical">
+        <TextView android:id="@+id/w_rotulo" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="CONTINUAR LENDO" android:textColor="#E9A65A" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.12" />
+        <TextView android:id="@+id/w_titulo" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Novely" android:textColor="#E6DFD3" android:textSize="16sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" android:layout_marginTop="2dp" />
+        <TextView android:id="@+id/w_cap" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Abra o app para começar" android:textColor="#A39A8B" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+        <ProgressBar android:id="@+id/w_prog" style="@android:style/Widget.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="5dp"
+            android:layout_marginTop="8dp" android:max="100" android:progress="0" android:progressDrawable="@drawable/widget_barra" />
+        <TextView android:id="@+id/w_meta" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="" android:textColor="#A39A8B" android:textSize="11sp" android:layout_marginTop="6dp" />
+    </LinearLayout>
+</LinearLayout>

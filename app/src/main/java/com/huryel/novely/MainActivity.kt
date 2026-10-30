@@ -26,8 +26,10 @@ class NovelyApp : Application() {
     lateinit var colab: com.huryel.novely.data.Colaboracao
     /** Arquivo aberto com o Novely (WhatsApp, gerenciador de arquivos…), esperando ser tratado. */
     val arquivoRecebido = kotlinx.coroutines.flow.MutableStateFlow<android.net.Uri?>(null)
-    /** Notificação tocada: abrir a tela de avisos. */
-    val abrirAvisos = kotlinx.coroutines.flow.MutableStateFlow(false)
+    /** Notificação, widget ou atalho do ícone: tela a abrir (avisos | continuar | nova). */
+    val abrirTela = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    /** Bloqueio por digital/senha ativo (começa travado se a opção estiver ligada). */
+    val bloqueado = kotlinx.coroutines.flow.MutableStateFlow(false)
     /** Escopo que sobrevive à troca de tela: usado para terminar salvamentos ao sair. */
     val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
     override fun onCreate() {
@@ -57,7 +59,35 @@ class NovelyApp : Application() {
     }
 }
 
-class MainActivity : ComponentActivity() {
+class MainActivity : androidx.fragment.app.FragmentActivity() {
+    private var saiuEm = 0L
+
+    override fun onStart() {
+        super.onStart()
+        val app = NovelyApp.instancia
+        // trava ao abrir e quando volta depois de 1 minuto fora
+        if (app.prefs.bloqueio.valor && (saiuEm == 0L || System.currentTimeMillis() - saiuEm > 60_000)) app.bloqueado.value = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        saiuEm = System.currentTimeMillis()
+        com.huryel.novely.data.WidgetNovely.atualizar(this)
+    }
+
+    /** Digital, rosto ou a senha/PIN do próprio celular. */
+    fun desbloquear() {
+        val prompt = androidx.biometric.BiometricPrompt(this, androidx.core.content.ContextCompat.getMainExecutor(this),
+            object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(r: androidx.biometric.BiometricPrompt.AuthenticationResult) { NovelyApp.instancia.bloqueado.value = false }
+            })
+        val info = androidx.biometric.BiometricPrompt.PromptInfo.Builder().setTitle("Desbloquear o Novely").setSubtitle("Use a digital ou a senha do celular")
+        if (android.os.Build.VERSION.SDK_INT >= 30) info.setAllowedAuthenticators(
+            androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+        else @Suppress("DEPRECATION") info.setDeviceCredentialAllowed(true)
+        prompt.authenticate(info.build())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -72,7 +102,9 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = estilo, navigationBarStyle = estilo)
             }
             NovelyTheme(tema) {
-                AppNavegacao(temaAtual = tema, aoMudarTema = { prefs.definirTema(it.name) })
+                val travado by NovelyApp.instancia.bloqueado.collectAsState()
+                if (travado) com.huryel.novely.ui.TelaBloqueio { desbloquear() }
+                else AppNavegacao(temaAtual = tema, aoMudarTema = { prefs.definirTema(it.name) })
             }
         }
     }
@@ -92,6 +124,6 @@ class MainActivity : ComponentActivity() {
             else -> null
         }
         if (uri != null) NovelyApp.instancia.arquivoRecebido.value = uri
-        if (i?.getStringExtra("abrir") == "avisos") NovelyApp.instancia.abrirAvisos.value = true
+        i?.getStringExtra("abrir")?.let { NovelyApp.instancia.abrirTela.value = it }
     }
 }

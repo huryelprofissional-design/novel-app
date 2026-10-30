@@ -320,6 +320,25 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
 
     val meuUid: String get() = uid
 
+    // ───────── DONO DO APP ─────────
+
+    suspend fun perfis(): List<PerfilPublico> = withContext(Dispatchers.IO) {
+        db.collection("perfis").limit(500).get().await().documents.map {
+            PerfilPublico(it.id, it.getString("nome") ?: "", it.getString("bio") ?: "", null, it.getLong("seguidores") ?: 0)
+        }.sortedBy { it.nome.lowercase() }
+    }
+
+    /** Remove uma obra do catálogo (só o dono do app; as regras conferem o e-mail). */
+    suspend fun removerComoDono(pid: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val ref = col.document(pid)
+            for (sub in listOf("caps", "textos", "arquivos", "fichas")) {
+                ref.collection(sub).get().await().documents.chunked(400).forEach { g -> val b = db.batch(); g.forEach { b.delete(it.reference) }; b.commit().await() }
+            }
+            ref.delete().await(); null
+        } catch (e: Exception) { erro(e) }
+    }
+
     private suspend fun exportavelRemoto(pid: String): Boolean = try { col.document(pid).get().await().getBoolean("exportavel") ?: true } catch (_: Exception) { true }
 
     // ───────── PERFIL PÚBLICO E SEGUIR AUTOR ─────────

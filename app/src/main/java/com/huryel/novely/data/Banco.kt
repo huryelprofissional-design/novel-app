@@ -245,6 +245,7 @@ data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, 
 
 @Dao
 interface NovelyDao {
+    @Query("SELECT * FROM obras WHERE lidaEm > 0 AND ultimoCapituloId IS NOT NULL ORDER BY lidaEm DESC LIMIT 1") suspend fun obraContinuar(): Obra?
     @Query("SELECT * FROM obras WHERE publicaId = :p LIMIT 1") suspend fun obraPublica(p: String): Obra?
     @Query("SELECT * FROM obras WHERE publicaId <> ''") suspend fun obrasSeguidas(): List<Obra>
     @Query("SELECT * FROM capitulos WHERE obraId = :obraId AND publicaId = :p LIMIT 1") suspend fun capituloPublico(obraId: Long, p: String): Capitulo?

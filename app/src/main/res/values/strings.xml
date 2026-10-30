@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="atalho_continuar">Continuar lendo</string>
+    <string name="atalho_nova">Nova página</string>
+    <string name="widget_descricao">Continuar lendo e meta do dia</string>
+</resources>

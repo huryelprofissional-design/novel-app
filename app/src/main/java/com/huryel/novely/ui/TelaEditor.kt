@@ -120,7 +120,23 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
     var modoFoco by rememberSaveable { mutableStateOf(false) }
     var repeticoes by rememberSaveable { mutableStateOf(false) }
     var painel by remember { mutableStateOf(PainelEd.NENHUM) }
-    var dialogo by remember { mutableStateOf("") } // resumo | notas | meta | juntar
+    var dialogo by remember { mutableStateOf("") } // resumo | notas | meta | juntar | sessao
+    // ── sessão de escrita com cronômetro ──
+    var sessaoFim by rememberSaveable { mutableStateOf(0L) }
+    var sessaoMin by rememberSaveable { mutableStateOf(25) }
+    var sessaoBase by rememberSaveable { mutableStateOf(0) }
+    var sessaoResultado by remember { mutableStateOf<Int?>(null) }
+    var relogio by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(sessaoFim) {
+        while (sessaoFim > 0) {
+            relogio = System.currentTimeMillis()
+            if (relogio >= sessaoFim) {
+                val total = withContext(Dispatchers.Default) { Texto.contarPalavras(pedacos.joinToString("") { it.valor.text }) }
+                sessaoResultado = (total - sessaoBase).coerceAtLeast(0); sessaoFim = 0
+            }
+            kotlinx.coroutines.delay(1000)
+        }
+    }
     var mostrarMapa by remember { mutableStateOf(false) }
 
     // desfazer / refazer
@@ -465,11 +481,32 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
 
     // ───────── Diálogos ─────────
     cap?.let { c ->
+        sessaoResultado?.let { n ->
+            AlertDialog(onDismissRequest = { sessaoResultado = null }, title = { Text("Sessão concluída ◆") },
+                text = { Text("Você escreveu $n palavras em $sessaoMin minutos." + if (n > 0) " Isso dá ${n / sessaoMin.coerceAtLeast(1)} por minuto." else "", fontSize = 16.sp) },
+                confirmButton = { TextButton(onClick = { sessaoResultado = null; dialogo = "sessao" }) { Text("Outra sessão") } },
+                dismissButton = { TextButton(onClick = { sessaoResultado = null }) { Text("Fechar") } })
+        }
         when (dialogo) {
             "resumo" -> DialogoTexto("Resumo do capítulo", "O que acontece neste capítulo (2–4 frases)", c.resumo, multilinha = true,
                 aoFechar = { dialogo = "" }) { r -> dialogo = ""; val n = c.copy(resumo = r.trim()); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } }
             "notas" -> DialogoTexto("Notas do autor", "Ideias, lembretes, pendências (só você vê)", c.notas, multilinha = true,
                 aoFechar = { dialogo = "" }) { r -> dialogo = ""; val n = c.copy(notas = r.trim()); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } }
+            "sessao" -> AlertDialog(onDismissRequest = { dialogo = "" }, title = { Text("Sessão de escrita") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Escreva sem parar até o cronômetro acabar. No fim eu conto quantas palavras você escreveu.", fontSize = 14.sp, color = p.textoSuave)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(15, 25, 45, 60).forEach { m -> Chip("$m min", sessaoMin == m) { sessaoMin = m } } }
+                    }
+                },
+                confirmButton = { TextButton(onClick = {
+                    dialogo = ""
+                    escopo.launch {
+                        sessaoBase = withContext(Dispatchers.Default) { Texto.contarPalavras(pedacos.joinToString("") { it.valor.text }) }
+                        sessaoFim = System.currentTimeMillis() + sessaoMin * 60_000L
+                    }
+                }) { Text("Começar", fontWeight = FontWeight.Bold) } },
+                dismissButton = { TextButton(onClick = { dialogo = "" }) { Text("Cancelar") } })
             "meta" -> DialogoTexto("Meta diária de palavras", "Palavras por dia", meta.toInt().toString(), aoFechar = { dialogo = "" }) { r ->
                 dialogo = ""; r.filter { it.isDigit() }.toIntOrNull()?.takeIf { it > 0 }?.let { prefs.metaDiaria.definir(it.toFloat()) }
             }
@@ -501,6 +538,16 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
                         }
                     }
                     LinhaStatus(palavras, cap, textoSelecionado, hoje, meta, sequencia, p) { dialogo = "meta" }
+                    if (sessaoFim > 0) {
+                        val resta = ((sessaoFim - relogio) / 1000).coerceAtLeast(0)
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("◷ %02d:%02d".format(resta / 60, resta % 60), fontWeight = FontWeight.ExtraBold, color = p.destaque, fontSize = 13.sp)
+                            Text("  sessão de escrita · +${(palavras - sessaoBase).coerceAtLeast(0)} palavras", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.weight(1f))
+                            Text("parar", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.clickable {
+                                escopo.launch { val t = withContext(Dispatchers.Default) { Texto.contarPalavras(pedacos.joinToString("") { it.valor.text }) }; sessaoResultado = (t - sessaoBase).coerceAtLeast(0); sessaoFim = 0 }
+                            })
+                        }
+                    }
                 }
             }
             AnimatedVisibility(painel == PainelEd.BUSCA && !modoFoco) {
@@ -636,6 +683,7 @@ private fun MenuEditor(
     aoFoco: () -> Unit, aoRepeticoes: () -> Unit, aoMapa: () -> Unit, aoDialogo: (String) -> Unit, aoSeparar: () -> Unit, aoMarcar: (Capitulo) -> Unit,
 ) {
     DropdownMenu(aberto, fechar) {
+        DropdownMenuItem(text = { Text("◷ Sessão de escrita (cronômetro)") }, onClick = { fechar(); aoDialogo("sessao") })
         DropdownMenuItem(text = { Text("Modo foco") }, onClick = { fechar(); aoFoco() })
         DropdownMenuItem(text = { Text("Mapa do capítulo") }, onClick = { fechar(); aoMapa() })
         DropdownMenuItem(text = { Text(if (repeticoes) "✓ Destacar repetições" else "Destacar repetições") }, onClick = { fechar(); aoRepeticoes() })

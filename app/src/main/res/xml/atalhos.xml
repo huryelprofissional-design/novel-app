@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="continuar" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/atalho_continuar">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="com.huryel.novely" android:targetClass="com.huryel.novely.MainActivity">
+            <extra android:name="abrir" android:value="continuar" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="nova" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/atalho_nova">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="com.huryel.novely" android:targetClass="com.huryel.novely.MainActivity">
+            <extra android:name="abrir" android:value="nova" />
+        </intent>
+    </shortcut>
+</shortcuts>
