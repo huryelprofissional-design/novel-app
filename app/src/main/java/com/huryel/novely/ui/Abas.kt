@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
@@ -143,9 +145,13 @@ private fun CabecalhoSecao(titulo: String, link: String? = null, aoTocar: () -> 
 @Composable
 private fun CapaItem(o: ResumoObra, largura: Dp, sub: String?, selo: String? = null, segurar: (() -> Unit)? = null, abrir: () -> Unit) {
     val p = LocalPaleta.current
-    Column(Modifier.width(largura).combinedClickable(onClick = abrir, onLongClick = segurar)) {
+    val toque = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val apertado by toque.collectIsPressedAsState()
+    val escala by androidx.compose.animation.core.animateFloatAsState(if (apertado) 0.95f else 1f, label = "capa")
+    Column(Modifier.width(largura).graphicsLayer { scaleX = escala; scaleY = escala }
+        .combinedClickable(interactionSource = toque, indication = null, onClick = abrir, onLongClick = segurar)) {
         Box {
-            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxWidth().aspectRatio(0.7f), (largura.value / 9).sp)
+            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxWidth().aspectRatio(0.7f).shadow(8.dp, RoundedCornerShape(10.dp)), (largura.value / 9).sp)
             if (selo != null) Text(selo, fontSize = 10.sp, fontWeight = FontWeight.Black, color = p.sobreDestaque,
                 modifier = Modifier.padding(7.dp).clip(RoundedCornerShape(6.dp)).background(p.destaque).padding(horizontal = 6.dp, vertical = 2.dp))
         }
@@ -590,8 +596,12 @@ fun TelaPerfilAba(nav: NavHostController) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
         item { TopoAba("Perfil", nav, noPerfil = true) }
         item {
-            Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Avatar(88.dp, Modifier.clickable { editando = true })
+            Column(Modifier.fillMaxWidth().padding(top = 6.dp)
+                .background(Brush.verticalGradient(listOf(Color(0xFF2A1D33), p.fundo)))
+                .padding(top = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(100.dp).clip(CircleShape).background(Brush.sweepGradient(listOf(p.destaque, Color(0xFF7A3B8F), p.destaque))), contentAlignment = Alignment.Center) {
+                    Avatar(92.dp, Modifier.clickable { editando = true })
+                }
                 Text(nome.ifBlank { "Seu nome de autor" }, fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.padding(top = 12.dp),
                     color = if (nome.isBlank()) p.textoSuave else p.texto)
                 val estSinc by app.sinc.estado.collectAsState()
