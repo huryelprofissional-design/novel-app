@@ -88,7 +88,7 @@ fun TelaDescobrirCatalogo(nav: NavHostController) {
 
     LaunchedEffect(modo, recarregar) {
         lista = null; erro = null
-        try { lista = app.pub.catalogo(modo) } catch (e: Exception) {
+        try { lista = CacheCatalogo.pegar(modo, forcar = recarregar > 0) } catch (e: Exception) {
             erro = if (e.message?.contains("PERMISSION_DENIED") == true) "O catálogo ainda não está liberado (faltam as Regras novas do Firestore)." else "Sem conexão com o catálogo. Toque para tentar de novo."
         }
     }
@@ -167,9 +167,9 @@ fun TelaDescobrirCatalogo(nav: NavHostController) {
             }
         }
         item {
-            Text("Gêneros", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, modifier = Modifier.padding(start = 18.dp, top = 24.dp, bottom = 12.dp))
-            FlowRow(Modifier.padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GENEROS.forEach { g -> Chip(g, modo == "genero:$g") { modo = "genero:$g" } }
+            CabSecao("Explorar gêneros", "${GENEROS.size} gêneros", "Todos ›") { nav.navigate("generos") }
+            LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(GENEROS.take(16)) { g -> TileGenero(g, Modifier.width(140.dp)) { nav.navigate("genero/$g") } }
             }
         }
         if (recebidas.isNotEmpty()) item {
@@ -401,11 +401,15 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
                 Text("SINOPSE", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
                 OutlinedTextField(sinopse, { sinopse = it }, minLines = 3, maxLines = 8, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Do que se trata a história…") })
                 Text("GÊNEROS", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GENEROS.forEach { g ->
-                        Chip(g, g in generos) {
-                            val novo = if (g in generos) generos - g else (generos + g).take(4)
-                            salvarDados { it.copy(generos = novo.joinToString(",")) }
+                Text("Escolha até 4 · ${generos.size}/4", fontSize = 12.sp, color = p.textoSuave)
+                com.huryel.novely.data.GENEROS_GRUPOS.forEach { (grupo, lista) ->
+                    Text(grupo, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = p.textoSuave.copy(alpha = 0.8f))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        lista.forEach { g ->
+                            Chip(g, g in generos) {
+                                val novo = if (g in generos) generos - g else (generos + g).take(4)
+                                salvarDados { it.copy(generos = novo.joinToString(",")) }
+                            }
                         }
                     }
                 }

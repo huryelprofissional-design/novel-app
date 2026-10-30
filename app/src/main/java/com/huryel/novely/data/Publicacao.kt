@@ -28,8 +28,18 @@ data class PerfilPublico(val uid: String, val nome: String, val bio: String, val
 
 data class Comentario(val id: String, val uid: String, val nome: String, val texto: String, val em: Long)
 
-val GENEROS = listOf("Fantasia", "Murim", "Romance", "Sistema", "Reencarnação", "Ação", "Aventura", "Terror", "Mistério",
-    "Drama", "Comédia", "Ficção científica", "Slice of life", "Isekai", "Cultivo", "Histórico", "BL", "GL")
+/** Gêneros do catálogo, agrupados por família (a ordem vira a ordem dos cartões). */
+val GENEROS_GRUPOS = linkedMapOf(
+    "Fantasia" to listOf("Fantasia", "Alta fantasia", "Fantasia sombria", "Fantasia urbana", "Romantasy", "Contos de fadas", "Mitologia"),
+    "Oriental" to listOf("Murim", "Wuxia", "Xianxia", "Cultivo", "Artes marciais", "Dorama"),
+    "Poder e progressão" to listOf("Sistema", "LitRPG", "Torre / Masmorra", "Regressão", "Reencarnação", "Isekai", "Protagonista OP", "Construção de reino"),
+    "Romance" to listOf("Romance", "Romance de época", "Slow burn", "Inimigos para amantes", "Vilã", "BL", "GL", "Harém"),
+    "Ação e aventura" to listOf("Ação", "Aventura", "Militar / Guerra", "Sobrevivência", "Pós-apocalíptico", "Esportes"),
+    "Mistério e medo" to listOf("Mistério", "Suspense", "Thriller", "Policial", "Terror", "Horror cósmico", "Sobrenatural", "Psicológico"),
+    "Ficção e mundo real" to listOf("Ficção científica", "Cyberpunk", "Distopia", "Histórico", "Político", "Drama", "Tragédia"),
+    "Leve" to listOf("Comédia", "Slice of life", "Escolar / Academia", "Culinária", "Música", "Conto"),
+)
+val GENEROS = GENEROS_GRUPOS.values.flatten()
 val CLASSIFICACOES = listOf("LIVRE", "12", "14", "16", "18")
 
 /**

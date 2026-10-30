@@ -139,7 +139,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             exitTransition = { fadeOut(tween(160)) },
             popEnterTransition = { fadeIn(tween(220)) },
             popExitTransition = { fadeOut(tween(160)) }) {
-            composable("inicio") { TelaInicioAba(nav) }
+            composable("inicio") { TelaInicioNova(nav) }
             composable("biblioteca") { TelaBibliotecaAba(nav) }
             composable("escrever") { TelaEscreverAba(nav) }
             composable("descobrir") { TelaDescobrirCatalogo(nav) }
@@ -149,6 +149,8 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("ajustes/{s}") { e -> TelaAjusteSecao(e.arguments?.getString("s") ?: "", nav) }
             composable("avisos") { TelaAvisos(nav) }
             composable("dono") { TelaDono(nav) }
+            composable("generos") { TelaGeneros(nav) }
+            composable("genero/{g}") { e -> TelaGenero(e.arguments?.getString("g") ?: "", nav) }
             composable("colaboracao/{id}", idArg) { e -> TelaColaboracao(e.arguments!!.getLong("id"), nav) }
             composable("colaborar") { TelaColaborar(nav) }
             composable("colab/{p}") { e -> TelaColabObra(e.arguments?.getString("p") ?: "", nav) }
