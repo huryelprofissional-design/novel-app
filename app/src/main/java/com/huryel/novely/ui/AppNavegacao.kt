@@ -86,7 +86,13 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     val usuario by app.conta.usuario.collectAsState()
     if (usuario == null) { TelaLogin(); return }
     // sincroniza ao entrar, a cada 3 minutos com o app aberto e ao sair/minimizar
-    LaunchedEffect(usuario?.uid) { while (true) { app.sinc.sincronizar(); kotlinx.coroutines.delay(180_000) } }
+    LaunchedEffect(usuario?.uid) {
+        while (true) {
+            app.sinc.sincronizar()
+            try { app.pub.atualizarSeguidas() } catch (_: Exception) {}
+            kotlinx.coroutines.delay(180_000)
+        }
+    }
     val donoCiclo = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(donoCiclo) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
@@ -134,12 +140,14 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("inicio") { TelaInicioAba(nav) }
             composable("biblioteca") { TelaBibliotecaAba(nav) }
             composable("escrever") { TelaEscreverAba(nav) }
-            composable("descobrir") { TelaDescobrirAba(nav) }
+            composable("descobrir") { TelaDescobrirCatalogo(nav) }
             composable("perfil") { TelaPerfilAba(nav) }
             composable("buscar") { TelaBusca(nav) }
             composable("ajustes") { TelaAjustesNova(nav) }
             composable("ajustes/{s}") { e -> TelaAjusteSecao(e.arguments?.getString("s") ?: "", nav) }
             composable("avisos") { TelaAvisos(nav) }
+            composable("pub/{p}") { e -> TelaObraPublica(e.arguments?.getString("p") ?: "", nav) }
+            composable("publicar/{id}", idArg) { e -> TelaPublicar(e.arguments!!.getLong("id"), nav) }
             composable("lixeira/{id}", idArg) { e -> TelaLixeira(nav, e.arguments!!.getLong("id")) }
             composable("obra/{id}", idArg) { e -> TelaObra(e.arguments!!.getLong("id"), nav) }
             composable(

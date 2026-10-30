@@ -44,6 +44,14 @@ data class Obra(
     @ColumnInfo(defaultValue = "0") val trancada: Boolean = false,
     /** Nome do autor (preenchido quando a obra foi publicada por alguém). */
     @ColumnInfo(defaultValue = "") val autor: String = "",
+    /** Minha obra está publicada no catálogo (id público = nuvemId). */
+    @ColumnInfo(defaultValue = "0") val publicada: Boolean = false,
+    /** Obra de outro autor baixada do catálogo: id dela lá. */
+    @ColumnInfo(defaultValue = "") val publicaId: String = "",
+    @ColumnInfo(defaultValue = "") val generos: String = "",
+    @ColumnInfo(defaultValue = "") val tagsPub: String = "",
+    @ColumnInfo(defaultValue = "LIVRE") val classificacao: String = "LIVRE",
+    @ColumnInfo(defaultValue = "pt") val idioma: String = "pt",
     /** Identidade na nuvem (igual em todos os aparelhos). */
     @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
     /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
@@ -90,6 +98,12 @@ data class Capitulo(
     @ColumnInfo(defaultValue = "") val notas: String = "",
     /** Etiquetas separadas por vírgula (ex.: "luta,revelação"). */
     @ColumnInfo(defaultValue = "") val tags: String = "",
+    /** Capítulo de obra baixada do catálogo: id dele lá. */
+    @ColumnInfo(defaultValue = "") val publicaId: String = "",
+    /** Minha obra: quando publiquei (0 = não publicado; no futuro = agendado). Obra baixada: versão que tenho. */
+    @ColumnInfo(defaultValue = "0") val publicadoEm: Long = 0,
+    /** Minha obra: assinatura do texto publicado (para saber se mudou e oferecer "republicar"). */
+    @ColumnInfo(defaultValue = "") val publicadoHash: String = "",
     /** Identidade na nuvem (igual em todos os aparelhos). */
     @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
     /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
@@ -229,6 +243,9 @@ data class ItemIndice(val capId: Long, val obraId: Long, val capTitulo: String, 
 
 @Dao
 interface NovelyDao {
+    @Query("SELECT * FROM obras WHERE publicaId = :p LIMIT 1") suspend fun obraPublica(p: String): Obra?
+    @Query("SELECT * FROM obras WHERE publicaId <> ''") suspend fun obrasSeguidas(): List<Obra>
+    @Query("SELECT * FROM capitulos WHERE obraId = :obraId AND publicaId = :p LIMIT 1") suspend fun capituloPublico(obraId: Long, p: String): Capitulo?
     // ── sincronização ──
     @Query("SELECT * FROM obras") suspend fun sincObras(): List<Obra>
     @Query("SELECT * FROM volumes") suspend fun sincVolumes(): List<Volume>
@@ -365,7 +382,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 8, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 9, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -406,6 +423,18 @@ abstract class BancoNovely : RoomDatabase() {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE obras ADD COLUMN trancada INTEGER NOT NULL DEFAULT 0")
                         db.execSQL("ALTER TABLE obras ADD COLUMN autor TEXT NOT NULL DEFAULT ''")
+                    }
+                }, object : androidx.room.migration.Migration(8, 9) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE obras ADD COLUMN publicada INTEGER NOT NULL DEFAULT 0")
+                        db.execSQL("ALTER TABLE obras ADD COLUMN publicaId TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("ALTER TABLE obras ADD COLUMN generos TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("ALTER TABLE obras ADD COLUMN tagsPub TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("ALTER TABLE obras ADD COLUMN classificacao TEXT NOT NULL DEFAULT 'LIVRE'")
+                        db.execSQL("ALTER TABLE obras ADD COLUMN idioma TEXT NOT NULL DEFAULT 'pt'")
+                        db.execSQL("ALTER TABLE capitulos ADD COLUMN publicaId TEXT NOT NULL DEFAULT ''")
+                        db.execSQL("ALTER TABLE capitulos ADD COLUMN publicadoEm INTEGER NOT NULL DEFAULT 0")
+                        db.execSQL("ALTER TABLE capitulos ADD COLUMN publicadoHash TEXT NOT NULL DEFAULT ''")
                     }
                 }, object : androidx.room.migration.Migration(7, 8) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {

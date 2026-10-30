@@ -110,6 +110,7 @@ fun Avatar(tamanho: Dp, modifier: Modifier = Modifier) {
 fun TopoAba(titulo: String?, nav: NavHostController, noPerfil: Boolean = false) {
     val p = LocalPaleta.current
     val estadoAt by NovelyApp.instancia.atualizador.estado.collectAsState()
+    val novidades by NovelyApp.instancia.prefs.novidades.estado.collectAsState()
     Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 10.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (titulo == null) Text(buildAnnotatedString { append("Novely"); withStyle(SpanStyle(color = p.destaque)) { append(".") } },
             fontWeight = FontWeight.Black, fontSize = 24.sp, letterSpacing = (-0.5).sp, modifier = Modifier.weight(1f))
@@ -120,7 +121,7 @@ fun TopoAba(titulo: String?, nav: NavHostController, noPerfil: Boolean = false) 
             IconButton(onClick = { nav.navigate("avisos") }) {
                 Box {
                     Icon(Icones.sino, "Avisos", tint = p.texto)
-                    if (estadoAt is EstadoAtualizacao.Disponivel) Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(CircleShape).background(p.destaque))
+                    if (estadoAt is EstadoAtualizacao.Disponivel || novidades.isNotBlank()) Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(CircleShape).background(p.destaque))
                 }
             }
             Avatar(34.dp, Modifier.clickable { irAba(nav, "perfil") })
@@ -773,8 +774,14 @@ fun TelaAvisos(nav: NavHostController) {
                 nav.navigate("historico/$cap")
             }
         }
+        val novidades by app.prefs.novidades.estado.collectAsState()
+        val novas = novidades.split('\n').filter { it.isNotBlank() }.mapNotNull { l -> l.split('|').takeIf { it.size >= 3 } }
+        novas.reversed().forEach { (id, titulo, n) ->
+            ItemAvisoLinha("✦ $n capítulo(s) novo(s) em “$titulo”", "Já baixados — toque para abrir a obra") { nav.navigate("obra/$id") }
+        }
+        if (novas.isNotEmpty()) TextButton(onClick = { app.prefs.novidades.definir("") }, modifier = Modifier.padding(horizontal = 10.dp)) { Text("Marcar novidades como vistas", color = p.textoSuave) }
         if (linhas.isNotEmpty()) TextButton(onClick = { app.prefs.conflitos.definir("") }, modifier = Modifier.padding(horizontal = 10.dp)) { Text("Limpar avisos", color = p.textoSuave) }
-        if (v == null && linhas.isEmpty()) Text("Nada novo por aqui. Quando as obras que você segue tiverem capítulos novos, eles aparecem aqui.",
+        if (v == null && linhas.isEmpty() && novas.isEmpty()) Text("Nada novo por aqui. Quando as obras que você segue tiverem capítulos novos, eles aparecem aqui.",
             color = p.textoSuave, modifier = Modifier.padding(18.dp))
     }
 }

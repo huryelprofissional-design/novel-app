@@ -427,13 +427,13 @@ private fun PainelOpcoesObra(
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Text(o.titulo, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (o.minha && livre) Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.destaque).clickable(onClick = e { abrirDialogo(Dialogo.Publicar) }).padding(16.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.destaque).clickable(onClick = e { navegar("publicar/${o.id}") }).padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Filled.Share, null, tint = p.sobreDestaque)
                 Column(Modifier.padding(start = 14.dp)) {
-                    Text("Publicar para leitores", fontWeight = FontWeight.ExtraBold, color = p.sobreDestaque)
-                    Text("Mande para outras pessoas lerem sem editar", fontSize = 12.sp, color = p.sobreDestaque.copy(alpha = 0.75f))
+                    Text(if (o.publicada) "Publicação" else "Publicar para leitores", fontWeight = FontWeight.ExtraBold, color = p.sobreDestaque)
+                    Text(if (o.publicada) "Capítulos, agendamento, dados da obra" else "No catálogo do Novely: outras pessoas leem, seguem e comentam", fontSize = 12.sp, color = p.sobreDestaque.copy(alpha = 0.75f))
                 }
             }
             GradeOpcoes(listOfNotNull(
@@ -441,6 +441,7 @@ private fun PainelOpcoesObra(
                 Triple(Icons.Filled.DateRange, "Linha do tempo", e { navegar("tempo/${o.id}") }),
                 Triple(Icons.Filled.Star, "Grifos", e { navegar("marcadores/${o.id}") }),
                 Triple(Icons.Filled.Favorite, "Coleção", e { abrirDialogo(Dialogo.Colecao) }),
+                if (o.publicaId.isNotEmpty()) Triple(Icons.Filled.Share, "Página pública", e { navegar("pub/${o.publicaId}") }) else null,
             ))
             SecaoOpcoes("Organizar") {
                 GradeOpcoes(listOfNotNull(

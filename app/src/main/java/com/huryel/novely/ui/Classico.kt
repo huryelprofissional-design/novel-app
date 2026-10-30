@@ -345,6 +345,12 @@ fun LinhaCapEstilo(
         c.progresso in 0.01f..0.979f -> "${(c.progresso * 100).toInt()}% · faltam ${((1 - c.progresso) * c.palavras / 230).toInt().coerceAtLeast(1)} min"
         lido -> "lido"
         else -> "${formatarPalavras(c.palavras.toLong())} palavras"
+    }.let { base ->
+        if (!o.publicada || !o.minha) base else when {
+            c.publicadoEm == 0L -> "○ não publicado · $base"
+            c.publicadoEm > System.currentTimeMillis() -> "◷ agendado · $base"
+            else -> "● publicado · $base"
+        }
     }
     Row(
         Modifier.fillMaxWidth().background(if (selecionado) p.destaque.copy(alpha = 0.12f) else Color.Transparent)

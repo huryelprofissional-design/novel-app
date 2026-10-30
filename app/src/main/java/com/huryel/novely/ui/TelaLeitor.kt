@@ -291,6 +291,15 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
     val obra by remember(c.obraId) {
         repo.obra(c.obraId).map { it?.copy(lidaEm = 0, atualizadaEm = 0, ultimoCapituloId = null) }.distinctUntilChanged()
     }.collectAsState(initial = null)
+    // obra publicada (minha ou baixada do catálogo): curtidas, comentários e contagem de leitura
+    val social = obra?.let { ob ->
+        when {
+            ob.publicaId.isNotEmpty() && c.publicaId.isNotEmpty() -> ob.publicaId to c.publicaId
+            ob.publicada && ob.minha && c.publicadoEm in 1..System.currentTimeMillis() -> ob.nuvemId to c.nuvemId
+            else -> null
+        }
+    }
+    LaunchedEffect(social) { if (social != null && obra?.publicaId?.isNotEmpty() == true) app.pub.contarLeitura(social.first, social.second) }
     val idx = lista.indexOfFirst { it.id == c.id }
     val anterior = lista.getOrNull(idx - 1)
     val proximo = lista.getOrNull(idx + 1)
@@ -537,7 +546,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = margem.dp, vertical = 20.dp)) {
                             FimCapitulo(b.isEmpty(), proximo, obra, idx + 1, lista.size, lista.count { it.progresso >= 0.98f || it.id == c.id }, ::irPara,
                                 voltarObra = { nav.popBackStack() },
-                                concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } })
+                                concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } }, social = social)
                         }
                     } else Column(
                         Modifier.fillMaxSize().padding(start = margem.dp, end = margem.dp, top = TOPO_LIVRO.dp, bottom = BASE_LIVRO.dp),
@@ -627,7 +636,7 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
             item(key = "fim") {
                 FimCapitulo(b.isEmpty(), proximo, obra, idx + 1, lista.size, lista.count { it.progresso >= 0.98f || it.id == c.id }, ::irPara,
                     voltarObra = { nav.popBackStack() },
-                    concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } })
+                    concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } }, social = social)
             }
         }
 
@@ -952,10 +961,11 @@ private fun destacarBusca(base: AnnotatedString, normal: String, q: String, p: P
 
 @Composable
 private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, obra: com.huryel.novely.data.Obra?, posicao: Int, total: Int, lidos: Int,
-                        ir: (Capitulo) -> Unit, voltarObra: () -> Unit, concluir: (() -> Unit)?) {
+                        ir: (Capitulo) -> Unit, voltarObra: () -> Unit, concluir: (() -> Unit)?, social: Pair<String, String>? = null) {
     val p = LocalPaleta.current
     Column(Modifier.fillMaxWidth().padding(top = 36.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (vazio) Text("Este capítulo ainda está vazio.", color = p.textoSuave)
+        social?.let { (pid, cid) -> SocialCapitulo(pid, cid) }
         val pulso = androidx.compose.animation.core.rememberInfiniteTransition(label = "fim")
         val brilho by pulso.animateFloat(0.45f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "brilho")
         Text("◆", color = p.destaque.copy(alpha = brilho), fontSize = 26.sp)

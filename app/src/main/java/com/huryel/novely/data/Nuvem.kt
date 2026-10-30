@@ -150,7 +150,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
         try { bloco() } finally { sql.execSQL("UPDATE sync_flag SET ativo = 0 WHERE id = 0") }
     }
 
-    private fun hash(f: File?): String {
+    fun hash(f: File?): String {
         if (f == null || !f.exists()) return ""
         val crc = CRC32()
         f.inputStream().use { ins -> val b = ByteArray(64 * 1024); while (true) { val r = ins.read(b); if (r <= 0) break; crc.update(b, 0, r) } }
@@ -222,6 +222,8 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                     "bannerX" to o.bannerX, "bannerY" to o.bannerY, "bannerZoom" to o.bannerZoom, "corBase" to o.corBase, "criadaEm" to o.criadaEm,
                     "atualizadaEm" to o.atualizadaEm, "lidaEm" to o.lidaEm, "colecao" to o.colecao, "minha" to o.minha, "trancada" to o.trancada, "autor" to o.autor,
                     "ultimoCap" to (o.ultimoCapituloId?.let { nidCap[it] } ?: ""),
+                    "publicada" to o.publicada, "publicaId" to o.publicaId, "generos" to o.generos, "tagsPub" to o.tagsPub,
+                    "classificacao" to o.classificacao, "idioma" to o.idioma,
                 ))
                 e.enviadoEm = o.alteradoEm; e.capaHash = capaH; e.bannerHash = banH; n++
             }
@@ -264,7 +266,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                 val dados = mutableMapOf<String, Any?>("titulo" to c.titulo, "ordem" to c.ordem, "volume" to (c.volumeId?.let { nidVol[it] } ?: ""),
                     "rascunho" to c.rascunho, "palavras" to c.palavras, "progresso" to c.progresso, "posicaoBloco" to c.posicaoBloco,
                     "posicaoDeslocamento" to c.posicaoDeslocamento, "atualizadoEm" to c.atualizadoEm, "resumo" to c.resumo, "notas" to c.notas,
-                    "tags" to c.tags, "textoHash" to h)
+                    "tags" to c.tags, "textoHash" to h, "publicaId" to c.publicaId, "publicadoEm" to c.publicadoEm, "publicadoHash" to c.publicadoHash)
                 if (partes > 0) dados["partes"] = partes
                 lote.set(eu.collection("itens").document(c.nuvemId), mapOf("tipo" to "capitulos", "obra" to (nidObra[c.obraId] ?: continue),
                     "apagado" to false, "alteradoEm" to c.alteradoEm, "servidorEm" to servidor, "dados" to dados), juntar = true)
@@ -368,6 +370,8 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
             corBase = d.getLong("corBase") ?: 0xFF3B2A4A, ultimoCapituloId = local?.ultimoCapituloId, criadaEm = d.getLong("criadaEm") ?: System.currentTimeMillis(),
             atualizadaEm = d.getLong("atualizadaEm") ?: System.currentTimeMillis(), lidaEm = d.getLong("lidaEm") ?: 0, colecao = d.getString("colecao") ?: "",
             minha = d.getBoolean("minha") ?: true, trancada = d.getBoolean("trancada") ?: false, autor = d.getString("autor") ?: "",
+            publicada = d.getBoolean("publicada") ?: false, publicaId = d.getString("publicaId") ?: "", generos = d.getString("generos") ?: "",
+            tagsPub = d.getString("tagsPub") ?: "", classificacao = d.getString("classificacao") ?: "LIVRE", idioma = d.getString("idioma") ?: "pt",
             nuvemId = nid, alteradoEm = alt,
         )
         quieto { if (local == null) dao.inserirObra(o) else dao.atualizarObra(o) }
@@ -445,7 +449,8 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                     val c = Capitulo(id = id, obraId = obra.id, volumeId = vol, titulo = s("titulo"), ordem = dbl("ordem"), rascunho = b("rascunho"),
                         palavras = l("palavras").toInt(), progresso = dbl("progresso").toFloat(), posicaoBloco = l("posicaoBloco").toInt(),
                         posicaoDeslocamento = l("posicaoDeslocamento").toInt(), atualizadoEm = l("atualizadoEm"), resumo = s("resumo"),
-                        notas = s("notas"), tags = s("tags"), nuvemId = nid, alteradoEm = alt)
+                        notas = s("notas"), tags = s("tags"), publicaId = s("publicaId"), publicadoEm = l("publicadoEm"), publicadoHash = s("publicadoHash"),
+                        nuvemId = nid, alteradoEm = alt)
                     quieto { if (local == null) id = dao.inserirCapituloS(c) else dao.atualizarCapituloS(c) }
                     e.enviadoEm = alt
                 } else if (metaIgual) e.enviadoEm = alt

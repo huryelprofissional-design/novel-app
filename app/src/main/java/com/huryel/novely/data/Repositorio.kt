@@ -371,6 +371,15 @@ class Preferencias(ctx: Context) {
     @Synchronized fun adicionarConflito(capId: Long, titulo: String) {
         conflitos.definir((conflitos.valor.split('\n').filter { it.isNotBlank() } + "$capId|${titulo.replace('|', ' ')}|${System.currentTimeMillis()}").takeLast(20).joinToString("\n"))
     }
+    /** Capítulos novos em obras seguidas: "obraId|título|quantos|quando" por linha. */
+    val novidades = texto("novidades", "")
+    @Synchronized fun adicionarNovidades(l: List<Triple<Long, String, Int>>) {
+        val agora = System.currentTimeMillis()
+        novidades.definir((novidades.valor.split('\n').filter { it.isNotBlank() } + l.map { (id, t, n) -> "$id|${t.replace('|', ' ')}|$n|$agora" }).takeLast(30).joinToString("\n"))
+    }
+    private val contados = texto("contados", "")
+    fun jaContado(k: String) = contados.valor.split('\n').contains(k)
+    @Synchronized fun marcarContado(k: String) = contados.definir((contados.valor.split('\n').filter { it.isNotBlank() } + k).takeLast(3000).joinToString("\n"))
     val bio = texto("bio", "")
     val fotoPerfil = texto("fotoPerfil", "")
     /** Seções visíveis no Início, separadas por vírgula. */
