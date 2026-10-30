@@ -99,6 +99,8 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
     suspend fun publicarCapitulos(o: Obra, caps: List<Capitulo>, quando: Long = System.currentTimeMillis()): String? = withContext(Dispatchers.IO) {
         try {
             val ref = col.document(o.nuvemId)
+            // a obra precisa existir no catálogo antes dos capítulos (as regras conferem quem é o autor nela)
+            if (!ref.get().await().exists()) publicarObra(o)?.let { return@withContext it }
             for (c in caps) {
                 val texto = repo.textos.ler(c.id)
                 val pedacos = if (texto.isEmpty()) listOf("") else texto.chunked(PARTE)
