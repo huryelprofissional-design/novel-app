@@ -59,4 +59,51 @@ class MarcasTest {
         assertEquals('&' to "", Marcas.digitando("Vinha de &"))
         assertNull(Marcas.digitando("joao@si"))
     }
+
+    // ── casos reportados: hífen, nome cortado, nomes misturados ──
+
+    @Test fun hifenComEspacosEhSeparador() {
+        val r = Marcas.encontrar("@Lin Feng - o último herdeiro do clã Yun.")
+        assertEquals("Lin Feng", r[0].first.nome)
+        assertTrue(r[0].first.definicao)
+        assertEquals("Lin Feng - o último herdeiro do clã Yun.", Marcas.limpar("@Lin Feng - o último herdeiro do clã Yun."))
+    }
+
+    @Test fun nomeComHifenInteiro() {
+        assertEquals("Ha-eun", Marcas.encontrar("@Ha-eun, a curandeira.")[0].first.nome)
+        assertEquals("Kang Seo-jun", Marcas.encontrar("@Kang Seo-jun, o espadachim.")[0].first.nome)
+    }
+
+    @Test fun colchetesPegamQualquerNome() {
+        val r = Marcas.encontrar("@[Seo-yeon do clã Baek], a filha mais nova.")
+        assertEquals("Seo-yeon do clã Baek", r[0].first.nome)
+        assertTrue(r[0].first.definicao)
+        assertEquals("Seo-yeon do clã Baek, a filha mais nova.", Marcas.limpar("@[Seo-yeon do clã Baek], a filha mais nova."))
+    }
+
+    @Test fun nomeConhecidoTemPrioridade() {
+        assertEquals("Lin Feng", Marcas.encontrar("@Lin Feng Entrou no salão.", listOf("Lin Feng"))[0].first.nome)
+        assertEquals("Lin Feng", Marcas.encontrar("@lin feng, de novo.", listOf("Lin Feng"))[0].first.nome)
+        assertEquals("Kang Seo-jun", Marcas.encontrar("@Kang Seo-jun, x", listOf("Kang", "Kang Seo-jun"))[0].first.nome)
+        assertEquals("Kang", Marcas.encontrar("@Kang, x", listOf("Kang", "Kang Seo-jun"))[0].first.nome)
+    }
+
+    @Test fun pontuacaoGrudadaNoNome() {
+        assertEquals("Lin Feng", Marcas.encontrar("— Pare, @Lin Feng!")[0].first.nome)
+        assertEquals("Lin Feng", Marcas.encontrar("(@Lin Feng), disse.")[0].first.nome)
+        assertEquals("Lin Feng", Marcas.encontrar("“@Lin Feng”")[0].first.nome)
+    }
+
+    @Test fun leitorNaoMisturaNomes() {
+        val rx = Marcas.regexNomes(listOf("Ha", "Ha-eun"))!!
+        assertEquals(listOf("Ha-eun", "Ha"), rx.findAll("Ha-eun e Ha chegaram.").map { it.value }.toList())
+        assertTrue(Marcas.regexNomes(listOf("Ha"))!!.findAll("Ha-eun chegou.").none())
+        assertEquals(listOf("Lin Feng"), Marcas.regexNomes(listOf("Lin Feng"))!!.findAll("Lin Feng, venha!").map { it.value }.toList())
+        assertEquals(listOf("Lin Feng"), Marcas.regexNomes(listOf("Lin Feng"))!!.findAll("—Lin Feng.").map { it.value }.toList())
+    }
+
+    @Test fun marcarUsaColchetesQuandoPrecisa() {
+        assertEquals("@Lin Feng", Marcas.marcar('@', "Lin Feng"))
+        assertEquals("@[Seo-yeon do clã Baek]", Marcas.marcar('@', "Seo-yeon do clã Baek"))
+    }
 }

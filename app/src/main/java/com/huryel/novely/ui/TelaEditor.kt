@@ -447,8 +447,8 @@ fun TelaEditor(capId: Long, nav: NavHostController) {
     fun completarMarca(simbolo: Char, termo: String, nome: String, definir: Boolean) {
         val i = focado.takeIf { it in pedacos.indices } ?: return
         val pd = pedacos[i]; val v = pd.valor; val cur = v.selection.start
-        val ini = (cur - termo.length - 1).coerceAtLeast(0)
-        val ins = "$simbolo$nome" + if (definir) ", " else " "
+        val ini = v.text.lastIndexOf(simbolo, (cur - 1).coerceAtLeast(0)).takeIf { it >= 0 } ?: (cur - termo.length - 1).coerceAtLeast(0)
+        val ins = Marcas.marcar(simbolo, nome) + if (definir) ", " else " "
         aoMudar(i, pd, TextFieldValue(v.text.substring(0, ini) + ins + v.text.substring(cur), TextRange(ini + ins.length)))
     }
     val selecao = pdFocado?.valor?.selection
@@ -806,10 +806,9 @@ private class RealceEditor(private val p: Paleta, private val busca: String, pri
                 }
                 inicio = fim + 1
             }
-            if ('@' in t || '&' in t) Marcas.REGRA.findAll(t).forEach { m ->
-                val fimNome = m.groups[2]!!.range.last + 1
-                addStyle(SpanStyle(color = if (m.groupValues[1] == "&") p.destaque else p.destaque2, fontWeight = FontWeight.Bold), m.range.first, fimNome)
-                m.groups[3]?.let { g -> addStyle(SpanStyle(color = p.textoSuave), g.range.first, g.range.last + 1) }
+            Marcas.faixas(t).forEach { (lugar, nome, apelidos) ->
+                addStyle(SpanStyle(color = if (lugar) p.destaque else p.destaque2, fontWeight = FontWeight.Bold), nome.first, (nome.last + 1).coerceAtMost(t.length))
+                apelidos?.let { g -> addStyle(SpanStyle(color = p.textoSuave), g.first, g.last + 1) }
             }
             if (busca.isNotEmpty()) {
                 val base = if (ignorarCaixa) Texto.normalizar(t) else t

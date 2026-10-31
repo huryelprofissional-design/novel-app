@@ -52,10 +52,18 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
     var filtro by remember { mutableStateOf("") }
     var editando by remember { mutableStateOf<Ficha?>(null) }
     var aberta by remember { mutableStateOf<Long?>(null) }
+    var juntar by remember { mutableStateOf<Ficha?>(null) }
+    var renomear by remember { mutableStateOf<Ficha?>(null) }
+    var relendo by remember { mutableStateOf(false) }
+    val escopoF = rememberCoroutineScope()
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Topo("Personagens e lugares", nav)
+            Topo("Personagens e lugares", nav) {
+                TextButton(onClick = { relendo = true; escopoF.launch { repo.reindexarObra(obraId); relendo = false } }, enabled = !relendo) {
+                    Text(if (relendo) "Relendo…" else "↻ Reler o texto", color = p.destaque)
+                }
+            }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip("Todos · ${fichas.size}", filtro == "") { filtro = "" }
                 Chip("Personagens", filtro == TipoFicha.PERSONAGEM) { filtro = TipoFicha.PERSONAGEM }
@@ -82,7 +90,12 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
                             Text(f.nome, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             if (f.descricao.isNotBlank()) Text(f.descricao, fontSize = 14.sp, color = p.textoSuave, lineHeight = 20.sp,
                                 maxLines = if (aberta == f.id) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis)
-                            if (aberta == f.id) TextButton(onClick = { editando = f }) { Text("Editar") }
+                            if (f.apelidos.isNotBlank()) Text("também: ${f.apelidos}", fontSize = 12.sp, color = p.textoSuave)
+                            if (aberta == f.id) Row {
+                                TextButton(onClick = { editando = f }) { Text("Editar") }
+                                TextButton(onClick = { juntar = f }) { Text("Juntar com…") }
+                                TextButton(onClick = { renomear = f }) { Text("Renomear") }
+                            }
                         }
                     }
                 }
@@ -92,6 +105,26 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
             shape = forma(20.dp), modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Icon(Icons.Filled.Add, "Nova ficha") }
     }
     editando?.let { f -> DialogoFicha(f, { editando = null }) }
+    juntar?.let { origem ->
+        AlertDialog(onDismissRequest = { juntar = null }, title = { Text("Juntar “${origem.nome}” com…") },
+            text = {
+                Column {
+                    Text("Escolha a ficha certa. “${origem.nome}” vira apelido dela e tudo que estava em “${origem.nome}” passa para lá.", fontSize = 13.sp, color = p.textoSuave)
+                    LazyColumn(Modifier.heightIn(max = 380.dp).padding(top = 8.dp)) {
+                        items(fichas.filter { it.id != origem.id && it.tipo == origem.tipo }, key = { it.id }) { d ->
+                            Text(d.nome, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth().clickable {
+                                juntar = null; app.escopo.launch { repo.juntarFichas(d, origem) }
+                            }.padding(vertical = 12.dp))
+                        }
+                    }
+                }
+            }, confirmButton = { TextButton(onClick = { juntar = null }) { Text("Cancelar") } })
+    }
+    renomear?.let { f ->
+        DialogoTexto("Renomear ficha", "Nome completo", f.nome, aoFechar = { renomear = null }) { novo ->
+            renomear = null; if (novo.isNotBlank()) app.escopo.launch { repo.renomearFicha(f, novo) }
+        }
+    }
 }
 
 private fun Modifier.animateContentSizeSeguro() = this.then(Modifier)

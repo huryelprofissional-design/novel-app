@@ -279,7 +279,9 @@ class Repositorio(ctx: Context) {
      * e guarda os parágrafos de definição como trechos (por capítulo). Retorna os nomes das fichas novas.
      */
     suspend fun indexarFichas(c: Capitulo, texto: String): List<String> {
-        val achados = Marcas.encontrar(texto)
+        if ('@' !in texto && '&' !in texto && dao.contarTrechosCap(c.id) == 0) return emptyList()
+        val conhecidos = dao.fichasAgora(c.obraId).flatMap { f -> listOf(f.nome) + f.apelidos.split(',') }.map { it.trim() }.filter { it.length >= 2 }
+        val achados = Marcas.encontrar(texto, conhecidos)
         if (achados.isEmpty() && dao.contarTrechosCap(c.id) == 0) return emptyList()
         val novos = ArrayList<String>()
         banco.withTransaction {
@@ -308,6 +310,27 @@ class Repositorio(ctx: Context) {
     }
 
     fun trechosFicha(fichaId: Long) = dao.trechos(fichaId)
+
+    /**
+     * Junta duas fichas da mesma pessoa/lugar (ex.: "Kang" criada por engano + "Kang Seo-jun"):
+     * os trechos vão para [destino], o nome da outra vira apelido e campos vazios são completados.
+     */
+    suspend fun juntarFichas(destino: Ficha, origem: Ficha) = banco.withTransaction {
+        dao.moverTrechos(origem.id, destino.id)
+        val apelidos = (destino.apelidos.split(',') + origem.nome + origem.apelidos.split(','))
+            .map { it.trim() }.filter { it.isNotEmpty() && !it.equals(destino.nome, true) }.distinctBy { it.lowercase() }
+        fun junta(a: String, b: String) = if (a.isBlank()) b else if (b.isBlank() || a.contains(b)) a else "$a\n$b"
+        dao.atualizarFicha(destino.copy(apelidos = apelidos.joinToString(", "), descricao = junta(destino.descricao, origem.descricao),
+            idade = destino.idade.ifBlank { origem.idade }, aparencia = junta(destino.aparencia, origem.aparencia), poder = junta(destino.poder, origem.poder),
+            faccao = destino.faccao.ifBlank { origem.faccao }, relacoes = junta(destino.relacoes, origem.relacoes), imagem = destino.imagem ?: origem.imagem))
+        dao.excluirFicha(origem)
+    }
+
+    /** Renomeia mantendo o nome antigo como apelido (o texto antigo continua reconhecido). */
+    suspend fun renomearFicha(f: Ficha, novo: String) {
+        val apelidos = (f.apelidos.split(',') + f.nome).map { it.trim() }.filter { it.isNotEmpty() && !it.equals(novo.trim(), true) }.distinctBy { it.lowercase() }
+        dao.atualizarFicha(f.copy(nome = novo.trim(), apelidos = apelidos.joinToString(", ")))
+    }
 
     suspend fun gravarTexto(c: Capitulo, texto: String): List<String> {
         textos.guardarVersaoSePreciso(c.id)

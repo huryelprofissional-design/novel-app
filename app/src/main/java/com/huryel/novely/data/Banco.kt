@@ -348,6 +348,8 @@ interface NovelyDao {
     suspend fun fichasAgora(obraId: Long): List<Ficha>
     @Insert suspend fun inserirFicha(f: Ficha): Long
     @Insert suspend fun inserirTrecho(t: FichaTrecho): Long
+    @Query("UPDATE ficha_trechos SET fichaId = :destino WHERE fichaId = :origem")
+    suspend fun moverTrechos(origem: Long, destino: Long)
     @Query("DELETE FROM ficha_trechos WHERE capId = :capId")
     suspend fun apagarTrechosCap(capId: Long)
     @Query("SELECT COUNT(*) FROM ficha_trechos WHERE capId = :capId")

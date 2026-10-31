@@ -440,14 +440,11 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
 
     // ── Nomes de personagens/lugares destacados (toque abre a ficha) ──
     val regraNomes = remember(fichas) {
+        // só nome completo e apelidos escritos pelo autor (sem adivinhar primeiro nome: misturava personagens)
         val mapa = HashMap<String, com.huryel.novely.data.Ficha>()
-        fichas.forEach { f -> val n = f.nome.trim(); if (n.length >= 3) mapa[n] = f }
-        fichas.forEach { f -> f.apelidos.split(',').map { it.trim() }.forEach { a -> if (a.length >= 3 && !mapa.containsKey(a)) mapa[a] = f } }
-        // primeiro nome também conta ("Lin" para "Lin Feng"), se não for ambíguo
-        fichas.groupBy { it.nome.trim().substringBefore(' ') }.forEach { (pn, fs) ->
-            if (pn.length >= 3 && fs.size == 1 && !mapa.containsKey(pn)) mapa[pn] = fs[0]
-        }
-        if (mapa.isEmpty()) null else Regex("(?<![\\p{L}\\p{N}])(" + mapa.keys.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) } + ")(?![\\p{L}\\p{N}])") to mapa
+        fichas.forEach { f -> val n = f.nome.trim(); if (n.length >= 2) mapa[n] = f }
+        fichas.forEach { f -> f.apelidos.split(',').map { it.trim() }.forEach { a -> if (a.length >= 2 && !mapa.containsKey(a)) mapa[a] = f } }
+        Marcas.regexNomes(mapa.keys)?.let { it to mapa }
     }
     fun comNomes(t: AnnotatedString): AnnotatedString {
         val (rx, mapa) = regraNomes ?: return t
