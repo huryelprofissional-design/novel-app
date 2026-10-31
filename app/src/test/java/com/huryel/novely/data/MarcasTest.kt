@@ -106,4 +106,20 @@ class MarcasTest {
         assertEquals("@Lin Feng", Marcas.marcar('@', "Lin Feng"))
         assertEquals("@[Seo-yeon do clã Baek]", Marcas.marcar('@', "Seo-yeon do clã Baek"))
     }
+
+    @Test fun parteDoNomeUnica() {
+        val p = Marcas.partesUnicas(mapOf("Kang Seo-jun" to 1L, "Kang Min-ho" to 2L, "Li Mei" to 3L))
+        assertEquals(1L, p["Seo-jun"])
+        assertEquals(2L, p["Min-ho"])
+        assertNull(p["Kang"]) // dois Kang: não vale sozinho
+        assertEquals(3L, p["Mei"])
+    }
+
+    @Test fun achaNomesSemFicha() {
+        val t = "Ele olhou para Seo-jun. Depois, Seo-jun riu. Então disse Seo-jun que não. Viu Ha-eun uma vez."
+        val r = Marcas.nomesSemFicha(t, emptyList())
+        assertEquals("Seo-jun", r.first().first)
+        assertTrue(r.none { it.first == "Ha-eun" }) // só 1 vez
+        assertTrue(Marcas.nomesSemFicha(t, listOf("Kang Seo-jun")).isEmpty() || Marcas.nomesSemFicha(t, listOf("Seo-jun")).isEmpty())
+    }
 }

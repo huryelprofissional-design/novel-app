@@ -83,6 +83,42 @@ object Marcas {
         return m.groupValues[1][0] to termo
     }
 
+    /**
+     * Partes do nome que podem valer sozinhas: "Kang Seo-jun" → "Seo-jun" (e "Kang", se ninguém mais tiver Kang).
+     * Uma parte só entra se aparece em UMA ficha só — assim dois personagens do mesmo clã não se misturam.
+     */
+    fun partesUnicas(nomes: Map<String, Long>): Map<String, Long> {
+        val contagem = HashMap<String, MutableSet<Long>>()
+        nomes.forEach { (nome, id) ->
+            val partes = nome.trim().split(Regex("\\s+"))
+            if (partes.size < 2) return@forEach
+            partes.filter { it.length >= 3 && !Regex("^$LIGA$", RegexOption.IGNORE_CASE).matches(it) }.forEach { contagem.getOrPut(it.lowercase()) { HashSet() }.add(id) }
+        }
+        val saida = HashMap<String, Long>()
+        nomes.forEach { (nome, _) ->
+            nome.trim().split(Regex("\\s+")).forEach { parte ->
+                val ids = contagem[parte.lowercase()] ?: return@forEach
+                if (ids.size == 1 && nomes.keys.none { it.equals(parte, true) }) saida[parte] = ids.first()
+            }
+        }
+        return saida
+    }
+
+    /**
+     * Nomes próprios no texto que ainda não têm ficha: palavras com maiúscula no MEIO da frase
+     * (depois de minúscula ou vírgula), contadas. Ex.: "… disse Seo-jun …" → Seo-jun.
+     */
+    fun nomesSemFicha(texto: String, existentes: Collection<String>, minimo: Int = 3): List<Pair<String, Int>> {
+        val ja = existentes.map { it.lowercase() }.toSet()
+        val rx = Regex("(?<=[\\p{Ll},;:)”]\\s|—\\s)(\\p{Lu}[\\p{L}'’]+(?:-[\\p{L}'’]+)*(?:\\s\\p{Lu}[\\p{L}'’]+(?:-[\\p{L}'’]+)*)?)")
+        val cont = HashMap<String, Int>()
+        limpar(texto).split('\n').forEach { l -> rx.findAll(l).forEach { m -> cont[m.value] = (cont[m.value] ?: 0) + 1 } }
+        // junta "Kang Seo-jun" e "Seo-jun": se a forma longa existe, conta para ela também
+        return cont.filter { (n, c) -> c >= minimo && n.lowercase() !in ja && n.split(' ').none { it.lowercase() in ja } && n.lowercase() !in COMUNS }
+            .toList().sortedByDescending { it.second }.take(40)
+    }
+    private val COMUNS = setOf("deus", "senhor", "senhora", "mestre", "rei", "rainha", "príncipe", "princesa", "dona", "dom", "não", "sim", "então")
+
     /** Regex para achar nomes de fichas no texto do leitor (hífen e apóstrofo contam como parte do nome). */
     fun regexNomes(nomes: Collection<String>): Regex? {
         val l = nomes.map { it.trim() }.filter { it.length >= 2 }.distinct().sortedByDescending { it.length }

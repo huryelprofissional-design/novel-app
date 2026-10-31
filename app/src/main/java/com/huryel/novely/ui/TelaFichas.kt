@@ -55,6 +55,8 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
     var juntar by remember { mutableStateOf<Ficha?>(null) }
     var renomear by remember { mutableStateOf<Ficha?>(null) }
     var relendo by remember { mutableStateOf(false) }
+    var sugestoes by remember { mutableStateOf<List<Pair<String, Int>>?>(null) }
+    var procurando by remember { mutableStateOf(false) }
     val escopoF = rememberCoroutineScope()
 
     Box(Modifier.fillMaxSize()) {
@@ -69,6 +71,14 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
                 Chip("Personagens", filtro == TipoFicha.PERSONAGEM) { filtro = TipoFicha.PERSONAGEM }
                 Chip("Lugares", filtro == TipoFicha.LUGAR) { filtro = TipoFicha.LUGAR }
                 Chip("Outros", filtro == TipoFicha.OUTRO) { filtro = TipoFicha.OUTRO }
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).clip(forma(14.dp)).background(p.superficie)
+                .clickable(enabled = !procurando) { procurando = true; escopoF.launch { sugestoes = repo.nomesSemFicha(obraId); procurando = false } }.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (procurando) "Procurando nomes…" else "🔍 Procurar nomes sem ficha", fontWeight = FontWeight.Bold, color = p.destaque)
+                    Text("Acha personagens e lugares que aparecem no texto mas não têm ficha (quando o @ não foi usado).", fontSize = 12.sp, color = p.textoSuave)
+                }
             }
             val lista = fichas.filter { filtro == "" || it.tipo == filtro }
             if (lista.isEmpty()) Text("Nenhuma ficha ainda. Toque em + para criar a primeira (nome, descrição e foto).",
@@ -119,6 +129,25 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
                     }
                 }
             }, confirmButton = { TextButton(onClick = { juntar = null }) { Text("Cancelar") } })
+    }
+    sugestoes?.let { l ->
+        AlertDialog(onDismissRequest = { sugestoes = null }, title = { Text("Nomes sem ficha") },
+            text = {
+                if (l.isEmpty()) Text("Não achei nenhum nome repetido sem ficha. Tudo certo!")
+                else LazyColumn(Modifier.heightIn(max = 460.dp)) {
+                    item { Text("Crie a ficha e o nome passa a ser destacado no leitor. Depois dá para completar a ficha.", fontSize = 12.sp, color = p.textoSuave) }
+                    items(l, key = { it.first }) { (nome, n) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(nome, fontWeight = FontWeight.Bold)
+                                Text("aparece $n vezes", fontSize = 12.sp, color = p.textoSuave)
+                            }
+                            TextButton(onClick = { sugestoes = l - (nome to n); app.escopo.launch { repo.salvarFicha(Ficha(obraId = obraId, nome = nome, tipo = TipoFicha.PERSONAGEM)) } }) { Text("☺ Pessoa") }
+                            TextButton(onClick = { sugestoes = l - (nome to n); app.escopo.launch { repo.salvarFicha(Ficha(obraId = obraId, nome = nome, tipo = TipoFicha.LUGAR)) } }) { Text("⌂ Lugar") }
+                        }
+                    }
+                }
+            }, confirmButton = { TextButton(onClick = { sugestoes = null }) { Text("Fechar") } })
     }
     renomear?.let { f ->
         DialogoTexto("Renomear ficha", "Nome completo", f.nome, aoFechar = { renomear = null }) { novo ->

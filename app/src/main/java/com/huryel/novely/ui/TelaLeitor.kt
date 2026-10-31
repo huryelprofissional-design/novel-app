@@ -444,6 +444,8 @@ fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = ""
         val mapa = HashMap<String, com.huryel.novely.data.Ficha>()
         fichas.forEach { f -> val n = f.nome.trim(); if (n.length >= 2) mapa[n] = f }
         fichas.forEach { f -> f.apelidos.split(',').map { it.trim() }.forEach { a -> if (a.length >= 2 && !mapa.containsKey(a)) mapa[a] = f } }
+        // partes do nome que só um personagem tem ("Seo-jun" para "Kang Seo-jun")
+        Marcas.partesUnicas(fichas.associate { it.nome to it.id }).forEach { (parte, id) -> if (!mapa.containsKey(parte)) fichas.firstOrNull { it.id == id }?.let { mapa[parte] = it } }
         Marcas.regexNomes(mapa.keys)?.let { it to mapa }
     }
     fun comNomes(t: AnnotatedString): AnnotatedString {

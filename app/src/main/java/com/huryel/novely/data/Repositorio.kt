@@ -280,7 +280,9 @@ class Repositorio(ctx: Context) {
      */
     suspend fun indexarFichas(c: Capitulo, texto: String): List<String> {
         if ('@' !in texto && '&' !in texto && dao.contarTrechosCap(c.id) == 0) return emptyList()
-        val conhecidos = dao.fichasAgora(c.obraId).flatMap { f -> listOf(f.nome) + f.apelidos.split(',') }.map { it.trim() }.filter { it.length >= 2 }
+        val fichasObra = dao.fichasAgora(c.obraId)
+        val conhecidos = (fichasObra.flatMap { f -> listOf(f.nome) + f.apelidos.split(',') } + Marcas.partesUnicas(fichasObra.associate { it.nome to it.id }).keys)
+            .map { it.trim() }.filter { it.length >= 2 }
         val achados = Marcas.encontrar(texto, conhecidos)
         if (achados.isEmpty() && dao.contarTrechosCap(c.id) == 0) return emptyList()
         val novos = ArrayList<String>()
@@ -288,7 +290,9 @@ class Repositorio(ctx: Context) {
             val fichas = dao.fichasAgora(c.obraId).toMutableList()
             dao.apagarTrechosCap(c.id)
             achados.forEachIndexed { i, (m, trecho) ->
-                fun casa(f: Ficha) = f.nome.equals(m.nome, true) || f.apelidos.split(',').any { it.trim().equals(m.nome, true) }
+                val partes = Marcas.partesUnicas(fichas.associate { it.nome to it.id })
+                fun casa(f: Ficha) = f.nome.equals(m.nome, true) || f.apelidos.split(',').any { it.trim().equals(m.nome, true) } ||
+                    partes.entries.any { (p, id) -> id == f.id && p.equals(m.nome, true) }
                 var f = fichas.firstOrNull { casa(it) }
                 if (f == null) {
                     val nova = Ficha(obraId = c.obraId, tipo = if (m.lugar) TipoFicha.LUGAR else TipoFicha.PERSONAGEM, nome = m.nome, apelidos = m.apelidos.joinToString(", "))
@@ -302,6 +306,15 @@ class Repositorio(ctx: Context) {
             }
         }
         return novos
+    }
+
+    /** Nomes que aparecem muito no texto da obra e ainda não têm ficha. */
+    suspend fun nomesSemFicha(obraId: Long): List<Pair<String, Int>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val fichas = dao.fichasAgora(obraId)
+        val existentes = fichas.flatMap { listOf(it.nome) + it.apelidos.split(',').map { a -> a.trim() } + it.nome.split(' ') }.filter { it.isNotBlank() }
+        val sb = StringBuilder()
+        dao.capitulosAgora(obraId).forEach { sb.append(textos.ler(it.id)).append('\n') }
+        Marcas.nomesSemFicha(sb.toString(), existentes)
     }
 
     /** Relê todos os capítulos de uma obra (depois de restaurar ou receber uma obra publicada). */
