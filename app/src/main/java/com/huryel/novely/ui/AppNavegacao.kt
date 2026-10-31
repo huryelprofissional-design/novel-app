@@ -85,6 +85,10 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     val app = NovelyApp.instancia
     val usuario by app.conta.usuario.collectAsState()
     if (usuario == null) { TelaLogin(); return }
+    // outra conta entrou num aparelho que tem obras de alguém: perguntar antes de sincronizar qualquer coisa
+    val donoAparelho by app.prefs.contaDoAparelho.estado.collectAsState()
+    if (donoAparelho.isEmpty()) LaunchedEffect(usuario?.uid) { app.prefs.contaDoAparelho.definir(usuario!!.uid) }
+    else if (donoAparelho != usuario?.uid) { TelaOutraConta(usuario?.email ?: ""); return }
     // sincroniza ao entrar, a cada 3 minutos com o app aberto e ao sair/minimizar
     LaunchedEffect(usuario?.uid) {
         while (true) {

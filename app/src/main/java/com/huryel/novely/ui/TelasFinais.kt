@@ -138,3 +138,34 @@ fun TelaDono(nav: NavHostController) {
         }
     }
 }
+
+
+// ───────────────────────── Outra conta no mesmo aparelho ─────────────────────────
+
+@Composable
+fun TelaOutraConta(email: String) {
+    val app = NovelyApp.instancia
+    val p = LocalPaleta.current
+    val escopo = rememberCoroutineScope()
+    var apagando by remember { mutableStateOf(false) }
+    var confirmar by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().background(p.fundo).padding(28.dp), verticalArrangement = Arrangement.Center) {
+        Text("Outra conta neste aparelho", fontWeight = FontWeight.Black, fontSize = 24.sp)
+        Text("Você entrou como $email, mas as obras guardadas aqui são de outra conta. Para não misturar as obras de duas pessoas, escolha:",
+            color = p.textoSuave, lineHeight = 21.sp, modifier = Modifier.padding(top = 10.dp))
+        Button(onClick = { confirmar = true }, enabled = !apagando, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.padding(top = 24.dp).fillMaxWidth().height(54.dp)) { Text(if (apagando) "Limpando…" else "Usar esta conta (limpar o aparelho)", fontWeight = FontWeight.ExtraBold) }
+        Text("As obras da outra conta continuam salvas na nuvem dela — só saem deste celular.", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
+        OutlinedButton(onClick = { app.conta.sair() }, enabled = !apagando, shape = RoundedCornerShape(16.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth().height(54.dp)) {
+            Text("Sair e entrar com a outra conta", color = p.texto)
+        }
+    }
+    if (confirmar) DialogoConfirmar("Limpar este aparelho?", "Tudo o que está aqui sai do celular (a outra conta ainda tem a cópia na nuvem dela, se sincronizou). Depois as obras de $email descem da nuvem.", "Limpar", { confirmar = false }) {
+        confirmar = false; apagando = true
+        escopo.launch {
+            app.repo.apagarTudoLocal(app.prefs)
+            app.prefs.contaDoAparelho.definir(app.conta.usuario.value?.uid ?: "")
+            apagando = false
+        }
+    }
+}

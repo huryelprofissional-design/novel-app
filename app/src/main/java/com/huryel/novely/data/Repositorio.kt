@@ -6,8 +6,8 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-class Repositorio(ctx: Context) {
-    val banco = BancoNovely.criar(ctx)
+class Repositorio(private val ctxApp: Context) {
+    val banco = BancoNovely.criar(ctxApp)
     val dao = banco.dao()
     val textos = ArquivosTexto(ctx)
     val imagens = ArquivosImagem(ctx)
@@ -311,6 +311,17 @@ class Repositorio(ctx: Context) {
 
     fun trechosFicha(fichaId: Long) = dao.trechos(fichaId)
 
+    /** Apaga tudo deste aparelho (troca de conta). A nuvem da conta antiga não é tocada. */
+    suspend fun apagarTudoLocal(prefs: Preferencias) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        banco.clearAllTables()
+        val sql = banco.openHelper.writableDatabase
+        sql.execSQL("DELETE FROM exclusoes"); sql.execSQL("DELETE FROM sincronia")
+        for (pasta in listOf("textos", "imagens", "versoes", "lixeira")) java.io.File(ctxApp.filesDir, pasta).listFiles()?.forEach { it.deleteRecursively() }
+        listOf(prefs.ultimoPull, prefs.autorNome, prefs.bio, prefs.fotoPerfil, prefs.fotoHash, prefs.novidades, prefs.conflitos,
+            prefs.autoresSeguidos, prefs.colabs).forEach { it.definir("") }
+        listOf(prefs.perfilAlteradoEm, prefs.perfilPublicadoEm, prefs.ultimaSinc).forEach { it.definir(0L) }
+    }
+
     /**
      * Junta duas fichas da mesma pessoa/lugar (ex.: "Kang" criada por engano + "Kang Seo-jun"):
      * os trechos vão para [destino], o nome da outra vira apelido e campos vazios são completados.
@@ -409,6 +420,8 @@ class Preferencias(ctx: Context) {
     val autoresSeguidos = texto("autoresSeguidos", "")
     /** Obras onde colaboro: "pid|título|papel|autor" por linha. */
     val colabs = texto("colabs", "")
+    /** Conta dona dos dados deste aparelho (evita misturar obras de duas pessoas). */
+    val contaDoAparelho = texto("contaDoAparelho", "")
     val autoresChecadoEm = longo("autoresChecadoEm", 0L)
     val maior18 = bool("maior18", false)
     val pediuNotificacao = bool("pediuNotificacao", false)
