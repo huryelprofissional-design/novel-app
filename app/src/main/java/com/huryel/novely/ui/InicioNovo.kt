@@ -22,6 +22,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -246,6 +247,7 @@ private val SECOES_INICIO = linkedMapOf(
     "QUERO" to "Quero ler", "MINHAS" to "Suas obras", "SUASEMANA" to "Sua semana", "CONCLUIDAS" to "Concluídas para maratonar",
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TelaInicioNova(nav: NavHostController) {
     val app = NovelyApp.instancia
@@ -276,6 +278,17 @@ fun TelaInicioNova(nav: NavHostController) {
     val lendo = outras.filter { it.status == StatusObra.LENDO }.sortedByDescending { it.lidaEm }
     val minhas = obras.filter { it.minha && !it.trancada }.sortedByDescending { it.atualizadaEm }
 
+    var atualizando by remember { mutableStateOf(false) }
+    PullToRefreshBox(atualizando, onRefresh = {
+        atualizando = true
+        escopo.launch {
+            try {
+                alta = CacheCatalogo.pegar("ALTA", true); semana = CacheCatalogo.pegar("SEMANA", true); novas = CacheCatalogo.pegar("NOVIDADES", true); semRede = false
+                app.sinc.sincronizar(); app.pub.atualizarSeguidas()
+            } catch (_: Exception) { semRede = true }
+            atualizando = false
+        }
+    }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
         item { TopoAba(null, nav) }
         item {
@@ -360,6 +373,8 @@ fun TelaInicioNova(nav: NavHostController) {
                     .border(1.dp, p.borda, RoundedCornerShape(16.dp)).clickable { editando = true }.padding(horizontal = 16.dp, vertical = 9.dp))
             }
         }
+    }
+
     }
 
     if (editando) AlertDialog(onDismissRequest = { editando = false }, title = { Text("O que aparece no Início") },

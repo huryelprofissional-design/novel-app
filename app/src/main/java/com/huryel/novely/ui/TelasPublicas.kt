@@ -73,7 +73,7 @@ private fun quando(ms: Long): String {
 
 // ───────────────────────── DESCOBRIR (catálogo) ─────────────────────────
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TelaDescobrirCatalogo(nav: NavHostController) {
     val app = NovelyApp.instancia
@@ -95,6 +95,7 @@ fun TelaDescobrirCatalogo(nav: NavHostController) {
     val q = busca.trim().lowercase()
     val filtrada = lista?.filter { q.isEmpty() || it.titulo.lowercase().contains(q) || it.autorNome.lowercase().contains(q) || it.tags.any { t -> t.contains(q) } }
 
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(lista == null && recarregar > 0, onRefresh = { recarregar++ }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
         item { TopoAba("Descobrir", nav) }
         item {
@@ -184,6 +185,7 @@ fun TelaDescobrirCatalogo(nav: NavHostController) {
             }
         }
     }
+}
 }
 
 @Composable
@@ -374,7 +376,7 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
         trabalhando = texto; msg = null
         escopo.launch {
             repo.salvarObra(o.copy(descricao = sinopse.trim(), tagsPub = tags))
-            val r = acao(); trabalhando = null; msg = r ?: "✓ Pronto!"
+            val r = try { acao() } catch (e: Exception) { "Não deu certo: ${e.message}" }; trabalhando = null; msg = r ?: "✓ Pronto!"
             if (r == null) selecionados.clear()
         }
     }
@@ -432,7 +434,7 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
                     }
                     Switch(o.exportavel, { v -> salvarDados { it.copy(exportavel = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = p.destaque, checkedThumbColor = p.sobreDestaque))
                 }
-                if (o.publicada) OutlinedButton(onClick = { rodar("Atualizando dados…") { pub.publicarObra(repo.dao.obraAgora(o.id)!!) } }, enabled = trabalhando == null && pend.isEmpty(),
+                if (o.publicada) OutlinedButton(onClick = { rodar("Atualizando dados…") { pub.publicarObra((repo.dao.obraAgora(o.id) ?: o)) } }, enabled = trabalhando == null && pend.isEmpty(),
                     modifier = Modifier.fillMaxWidth()) { Text("Atualizar dados no catálogo") }
                 Text("CAPÍTULOS", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, modifier = Modifier.padding(top = 8.dp))
                 Text("Marque os que quer publicar. Rascunhos só vão se você marcar. Mudou um capítulo já publicado? Ele aparece com “republicar”.",
@@ -471,7 +473,7 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
                 val escolhidos = caps.filter { it.id in selecionados }
                 trabalhando?.let { Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(16.dp), color = p.destaque, strokeWidth = 2.dp); Text("  $it", fontSize = 13.sp) } }
                 msg?.let { Text(it, fontSize = 13.sp, color = if (it.startsWith("✓")) p.destaque2 else Color(0xFFE57373)) }
-                Button(onClick = { rodar("Publicando ${escolhidos.size} capítulo(s)…") { pub.publicarCapitulos(repo.dao.obraAgora(o.id)!!, escolhidos) } },
+                Button(onClick = { rodar("Publicando ${escolhidos.size} capítulo(s)…") { pub.publicarCapitulos((repo.dao.obraAgora(o.id) ?: o), escolhidos) } },
                     enabled = trabalhando == null && escolhidos.isNotEmpty() && pend.isEmpty(), colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque),
                     shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text(if (escolhidos.isEmpty()) "Marque capítulos para publicar" else "Publicar ${escolhidos.size} agora", fontWeight = FontWeight.ExtraBold)
@@ -500,7 +502,7 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
                         set(utc.get(java.util.Calendar.YEAR), utc.get(java.util.Calendar.MONTH), utc.get(java.util.Calendar.DAY_OF_MONTH), hora.hour, hora.minute, 0)
                     }
                     val escolhidos = caps.filter { it.id in selecionados }
-                    rodar("Agendando…") { pub.publicarCapitulos(repo.dao.obraAgora(o.id)!!, escolhidos, local.timeInMillis) }
+                    rodar("Agendando…") { pub.publicarCapitulos((repo.dao.obraAgora(o.id) ?: o), escolhidos, local.timeInMillis) }
                 }) { Text("Agendar") }
             }, dismissButton = { TextButton(onClick = { agendar = false }) { Text("Cancelar") } })
     }

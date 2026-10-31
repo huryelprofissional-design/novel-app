@@ -31,7 +31,8 @@ class NovelyApp : Application() {
     /** Bloqueio por digital/senha ativo (começa travado se a opção estiver ligada). */
     val bloqueado = kotlinx.coroutines.flow.MutableStateFlow(false)
     /** Escopo que sobrevive à troca de tela: usado para terminar salvamentos ao sair. */
-    val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+    val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default +
+        kotlinx.coroutines.CoroutineExceptionHandler { _, e -> com.huryel.novely.data.Diagnostico.registrarErro(e) })
     override fun onCreate() {
         super.onCreate()
         instancia = this

@@ -131,7 +131,17 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
     }
 
     // ── estado local de cada item já enviado ──
-    private class Item(var enviadoEm: Long = 0, var textoHash: String = "", var capaHash: String = "", var bannerHash: String = "")
+    private class Item(var enviadoEm: Long = 0, var textoHash: String = "", var capaHash: String = "", var bannerHash: String = "") {
+        private val original = listOf(enviadoEm, textoHash, capaHash, bannerHash)
+        val mudou get() = original != listOf(enviadoEm, textoHash, capaHash, bannerHash)
+    }
+
+    /** Grava só o que mudou, numa transação só (antes eram milhares de gravações soltas a cada sincronização). */
+    private fun gravarMudados(sinc: Map<String, Item>) {
+        val mudados = sinc.filter { it.value.mudou }
+        if (mudados.isEmpty()) return
+        repo.banco.runInTransaction { mudados.forEach { (k, v) -> gravar(k, v) } }
+    }
 
     private fun lerSincronia(): HashMap<String, Item> {
         val m = HashMap<String, Item>()
@@ -213,8 +223,10 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
 
         for (o in obras) {
             val e = item("obras", o.nuvemId)
-            val capaH = imagem("${o.nuvemId}-capa", o.capa, 900, e.capaHash)
-            val banH = imagem("${o.nuvemId}-banner", o.banner, 1400, e.bannerHash)
+            // capa/banner trocados sempre mudam a obra (caminho novo): só confere as imagens nesse caso
+            val conferir = o.alteradoEm > e.enviadoEm || e.enviadoEm == 0L
+            val capaH = if (conferir) imagem("${o.nuvemId}-capa", o.capa, 900, e.capaHash) else e.capaHash
+            val banH = if (conferir) imagem("${o.nuvemId}-banner", o.banner, 1400, e.bannerHash) else e.bannerHash
             if (o.alteradoEm > e.enviadoEm || capaH != e.capaHash || banH != e.bannerHash) {
                 lote.set(eu.collection("obras").document(o.nuvemId), mapOf(
                     "apagado" to false, "alteradoEm" to o.alteradoEm, "servidorEm" to servidor, "capaHash" to capaH, "bannerHash" to banH,
@@ -240,7 +252,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
         }
         for (f in dao.sincFichas()) {
             val e = item("fichas", f.nuvemId)
-            val imgH = imagem("${f.nuvemId}-foto", f.imagem, 500, e.capaHash)
+            val imgH = if (f.alteradoEm > e.enviadoEm || e.enviadoEm == 0L) imagem("${f.nuvemId}-foto", f.imagem, 500, e.capaHash) else e.capaHash
             if (f.alteradoEm > e.enviadoEm || imgH != e.capaHash) {
                 itemDoc("fichas", f.nuvemId, f.alteradoEm, nidObra[f.obraId] ?: continue, mapOf("tipo" to f.tipo, "nome" to f.nome, "descricao" to f.descricao,
                     "criadaEm" to f.criadaEm, "apelidos" to f.apelidos, "idade" to f.idade, "aparencia" to f.aparencia, "poder" to f.poder,
@@ -251,7 +263,9 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
         for (c in caps) {
             val e = item("capitulos", c.nuvemId)
             val arq = repo.textos.arquivo(c.id)
-            val h = hash(arq)
+            // só lê o arquivo se o capítulo mudou ou se o arquivo foi mexido depois do último envio
+            val conferir = c.alteradoEm > e.enviadoEm || e.enviadoEm == 0L || arq.lastModified() > e.enviadoEm
+            val h = if (conferir) hash(arq) else e.textoHash
             var partes = -1
             if (h != e.textoHash) {
                 // texto primeiro: quem baixar o capítulo já encontra o texto lá
@@ -300,7 +314,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
         }
         lote.fechar()
         for ((nid, tipo) in apagar) { sql.execSQL("DELETE FROM exclusoes WHERE nuvemId = ?", arrayOf(nid)); sinc.remove("$tipo:$nid") }
-        sinc.forEach { (k, v) -> gravar(k, v) }
+        gravarMudados(sinc)
         return n
     }
 
@@ -331,7 +345,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
             val c = dao.capituloNuvem(cap) ?: continue
             if (o.ultimoCapituloId != c.id) quieto { dao.atualizarObra(o.copy(ultimoCapituloId = c.id)) }
         }
-        sinc.forEach { (k, v) -> gravar(k, v) }
+        gravarMudados(sinc)
         prefs.ultimoPull.definir("${maior.seconds}:${maior.nanoseconds}")
         return n
     }
@@ -457,6 +471,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                 } else if (metaIgual) e.enviadoEm = alt
                 if (textoNovo != null && id != 0L) {
                     repo.textos.gravar(id, textoNovo)
+                    repo.textos.arquivo(id).setLastModified(alt) // não precisa reconferir no próximo envio
                     dao.capituloAgora(id)?.let { try { repo.indexarFichas(it, textoNovo) } catch (_: Exception) {} }
                 }
                 return !metaIgual || textoNovo != null

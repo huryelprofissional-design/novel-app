@@ -61,12 +61,23 @@ object Diagnostico {
 
     /** Relatório pendente (o mais recente), ou null. */
     fun relatorio(): String? {
-        val fs = listOf(arquivoFechou, arquivoTravou).filter { it.exists() }.sortedByDescending { it.lastModified() }
+        val fs = listOf(arquivoFechou, arquivoTravou, arquivoErros).filter { it.exists() }.sortedByDescending { it.lastModified() }
         if (fs.isEmpty()) return null
         return fs.joinToString("\n\n────────\n\n") { it.readText() }
     }
 
     fun ultimoProblemaEm(): Long = listOf(arquivoFechou, arquivoTravou).filter { it.exists() }.maxOfOrNull { it.lastModified() } ?: 0L
 
-    fun apagar() { arquivoFechou.delete(); arquivoTravou.delete() }
+    fun apagar() { arquivoFechou.delete(); arquivoTravou.delete(); arquivoErros.delete() }
+
+    val arquivoErros get() = File(pasta, "erros.txt")
+
+    /** Erro em tarefa de fundo (sincronizar, baixar…): o app NÃO fecha, só anota (guarda os 10 últimos). */
+    fun registrarErro(e: Throwable) {
+        try {
+            val quando = SimpleDateFormat("dd/MM HH:mm:ss", Locale("pt", "BR")).format(Date())
+            val antigos = if (arquivoErros.exists()) arquivoErros.readText().split("\n§\n").takeLast(9) else emptyList()
+            arquivoErros.writeText((antigos + "$quando · Novely $versao\n${e.stackTraceToString().take(3000)}").joinToString("\n§\n"))
+        } catch (_: Throwable) {}
+    }
 }

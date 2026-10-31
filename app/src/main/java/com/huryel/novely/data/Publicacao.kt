@@ -248,11 +248,16 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         val saida = ArrayList<Pair<Obra, Int>>()
         for (o in dao.obrasSeguidas()) {
             try {
+                // 1 leitura: só baixa a lista de capítulos se a obra mudou desde a última olhada
+                val remota = col.document(o.publicaId).get().await()
+                val atualizadaEm = remota.getLong("atualizadaEm") ?: 0
+                if (!remota.exists() || atualizadaEm <= prefs.vistoPublica(o.publicaId)) continue
                 val caps = capitulos(o.publicaId)
                 val locais = dao.capitulosAgora(o.id).associateBy { it.publicaId }
                 val novos = caps.count { locais[it.id] == null }
                 val mudou = caps.any { c -> locais[c.id]?.let { c.atualizadoEm > it.publicadoEm } ?: true }
                 if (mudou) { baixar(o.publicaId); if (novos > 0) saida.add(o to novos) }
+                prefs.marcarVistoPublica(o.publicaId, atualizadaEm)
             } catch (_: Exception) {}
         }
         if (saida.isNotEmpty()) prefs.adicionarNovidades(saida.map { (o, n) -> Triple(o.id, o.titulo, n) })
@@ -394,6 +399,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         val autores = prefs.autoresSeguidos.valor.split(',').filter { it.isNotBlank() }
         val desde = prefs.autoresChecadoEm.valor
         val agora = System.currentTimeMillis()
+        if (agora - desde < 30 * 60_000L) return@withContext emptyList() // no máx. a cada 30 min
         if (autores.isEmpty()) { prefs.autoresChecadoEm.definir(agora); return@withContext emptyList() }
         val novas = ArrayList<ObraPublica>()
         for (a in autores) try {

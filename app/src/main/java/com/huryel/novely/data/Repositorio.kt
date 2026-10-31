@@ -413,6 +413,11 @@ class Preferencias(ctx: Context) {
     val maior18 = bool("maior18", false)
     val pediuNotificacao = bool("pediuNotificacao", false)
     val notificadaVersao = longo("notificadaVersao", 0L)
+    /** Última versão vista de cada obra seguida: "pid=ms" separados por vírgula. */
+    private val vistos = texto("vistosPublicas", "")
+    fun vistoPublica(pid: String): Long = vistos.valor.split(',').firstOrNull { it.startsWith("$pid=") }?.substringAfter('=')?.toLongOrNull() ?: 0
+    @Synchronized fun marcarVistoPublica(pid: String, ms: Long) =
+        vistos.definir((vistos.valor.split(',').filter { it.isNotBlank() && !it.startsWith("$pid=") } + "$pid=$ms").joinToString(","))
     private val contados = texto("contados", "")
     fun jaContado(k: String) = contados.valor.split('\n').contains(k)
     @Synchronized fun marcarContado(k: String) = contados.definir((contados.valor.split('\n').filter { it.isNotBlank() } + k).takeLast(3000).joinToString("\n"))
