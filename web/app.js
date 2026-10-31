@@ -36,8 +36,9 @@ function contarPalavras(t) { const m = t.match(/[\p{L}\p{N}][\p{L}\p{N}'’\-]*/
 function partir(t) { if (!t) return [""]; const r = []; for (let i = 0; i < t.length; i += PARTE) r.push(t.slice(i, i + PARTE)); return r; }
 
 // Marcas @Personagem e &Lugar somem na leitura (igual ao app).
-const RX_MARCA = /(?<![\p{L}\p{N}@&])([@&])(\p{L}[\p{L}\p{N}'’\-]*(?:\s(?:(?:d[aeo]s?|von|van)\s)?\p{Lu}[\p{L}\p{N}'’\-]*){0,4})(\s*\(([^)\n]{1,80})\))?(\s*[,—–:])?/gu;
-const limparMarcas = (s) => (s.includes("@") || s.includes("&")) ? s.replace(RX_MARCA, (_m, _s, nome, _a, _b, pont) => nome + (pont || "")) : s;
+const PAL = "[\\p{L}\\p{N}'’]*(?:-[\\p{L}\\p{N}'’]+)*";
+const RX_MARCA = new RegExp(`(?<![\\p{L}\\p{N}@&])([@&])(?:\\[([^\\]\\n]{1,60})\\]|(\\p{L}${PAL}(?:\\s(?:(?:d[aeo]s?|de|di|del|della|du|la|le|van|von|der|den|bin|ibn|al)\\s)?\\p{Lu}${PAL}){0,4}))(\\s*\\(([^)\\n]{1,80})\\))?(\\s*[,—–:;]|\\s+-(?=\\s))?`, "gu");
+const limparMarcas = (s) => (s.includes("@") || s.includes("&")) ? s.replace(RX_MARCA, (_m, _s, col, nome, _a, _b, sep) => (col || nome) + (sep || "")) : s;
 
 const ICONES = {
   inicio: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
@@ -276,7 +277,7 @@ rota("/obra/(\\w+)", async (id) => {
 // ───────── LEITOR ─────────
 function htmlTexto(t, nomes = []) {
   const linhas = limparMarcas(t).split("\n").map((l) => l.trim()).filter(Boolean);
-  const rxNomes = nomes.length ? new RegExp(`(?<![\\p{L}\\p{N}])(${nomes.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{N}])`, "gu") : null;
+  const rxNomes = nomes.length ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(${[...nomes].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{N}]|[-'’]\\p{L})`, "gu") : null;
   return linhas.map((l) => {
     if (/^(\* \* \*|\*\*\*|---|◆)$/.test(l)) return `<div class="sep">◆ ◆ ◆</div>`;
     if (/^#/.test(l)) return `<h3>${esc(l.replace(/^#+\s*/, ""))}</h3>`;
