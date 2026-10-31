@@ -6,8 +6,8 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-class Repositorio(private val ctxApp: Context) {
-    val banco = BancoNovely.criar(ctxApp)
+class Repositorio(ctx: Context) {
+    val banco = BancoNovely.criar(ctx)
     val dao = banco.dao()
     val textos = ArquivosTexto(ctx)
     val imagens = ArquivosImagem(ctx)
