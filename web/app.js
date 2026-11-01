@@ -155,7 +155,7 @@ window.addEventListener("hashchange", desenhar);
 
 function casca(aba, html) {
   const itens = [["/", "inicio", "Início"], ["/biblioteca", "biblioteca", "Biblioteca"], ["/escrever", "escrever", "Escrever"], ["/descobrir", "descobrir", "Descobrir"], ["/perfil", "perfil", "Perfil"]];
-  raiz.innerHTML = `<div class="casca"><nav class="lado"><div class="logo">Novely<i>.</i></div>
+  raiz.innerHTML = `<div class="casca"><nav class="lado vidro"><div class="logo"><span class="losango"></span>Novely</div>
     ${itens.map(([h, ic, n]) => `<a class="item ${aba === ic ? "on" : ""}" href="#${h}">${svg(ic)}<span>${n}</span></a>`).join("")}
     <div class="rodape">${instalar ? `<button class="btn2 peq" id="instalar">⬇ Instalar no PC</button>` : ""}
       <div class="suave peq" style="padding:0 12px">${esc(perfil.nome || usuario.email || "")}</div></div></nav>
@@ -169,8 +169,8 @@ function cartao(o, sub) {
 
 // ───────── LOGIN ─────────
 function telaLogin() {
-  raiz.innerHTML = `<div class="login"><div class="caixa">
-    <h1>Novely<span style="color:var(--amb)">.</span></h1>
+  raiz.innerHTML = `<div class="login"><div class="caixa vidro">
+    <h1><span class="losango" style="width:30px;height:30px"></span>Novely</h1>
     <p class="suave" style="margin:0 0 18px">Escreva, publique e leia novels gigantes — no celular e no PC.</p>
     <button class="btn google" id="g"><b style="color:#4285F4">G</b>&nbsp; Continuar com Google</button>
     <div class="suave peq" style="text-align:center;margin:8px 0">ou com e-mail</div>
@@ -190,19 +190,59 @@ function telaLogin() {
 }
 
 // ───────── INÍCIO ─────────
+const urlBlob = (b) => b ? URL.createObjectURL(new Blob([b.toUint8Array()], { type: "image/jpeg" })) : null;
+const recente = (ms) => agora() - (ms || 0) < 3 * 86400000;
+function haQuanto(ms) { const m = Math.max(0, (agora() - (ms || 0)) / 60000); return m < 1 ? "agora" : m < 60 ? Math.round(m) + " min" : m < 1440 ? Math.round(m / 60) + " h" : m < 10080 ? Math.round(m / 1440) + " d" : Math.round(m / 10080) + " sem"; }
+const notaTxt = (o) => o.numEstrelas ? "★ " + (o.somaEstrelas / o.numEstrelas).toFixed(1).replace(".", ",") : "NOVO";
+function posterHTML(o) {
+  const url = urlBlob(o.capaMini);
+  return `<a class="poster" href="#/pub/${o.id}" data-poster="${o.id}">${url ? `<img src="${url}" alt="">` : ""}
+    <div class="autor vidro"><span class="av">${esc((o.autorNome || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(o.autorNome || "")}</b><small>${milhar(o.seguidores)} SEGUIDORES DA OBRA</small></div></div>
+    <div class="baixo"><h3>${esc(o.titulo)}</h3><div class="info">${recente(o.atualizadaEm) ? `<span class="selo">NOVO CAP</span>` : ""}<span>● ${haQuanto(o.atualizadaEm)}</span><span>▶ ${milhar(o.leituras)}</span></div></div></a>`;
+}
+function cartaoPub(o) {
+  const url = urlBlob(o.capaMini);
+  return `<a class="obra-c" data-busca="${esc((o.titulo + " " + o.autorNome + " " + (o.tags || []).join(" ")).toLowerCase())}" href="#/pub/${o.id}">
+    <div class="capa"><span class="nota">${notaTxt(o)}</span>${url ? `<img src="${url}">` : `<div class="sol"></div><div class="t">${esc(o.titulo)}</div>`}</div>
+    <div class="nm">${esc(o.titulo)}</div><div class="sb">${esc(o.autorNome || "")} · ${o.numCaps || 0} caps</div></a>`;
+}
+// troca a capa pequena dos pôsteres pela capa grande (melhor qualidade)
+async function capasGrandes() {
+  for (const el of raiz.querySelectorAll("[data-poster]")) {
+    const url = await imagem(collection(db, "publicas", el.dataset.poster, "arquivos"), "capa");
+    if (url) { const img = el.querySelector("img") || el.insertAdjacentElement("afterbegin", document.createElement("img")); img.src = url; }
+  }
+}
+let cacheCatalogo = { em: 0, novas: [], alta: [] };
+async function catalogo() {
+  if (agora() - cacheCatalogo.em < 5 * 60000) return cacheCatalogo;
+  const col = collection(db, "publicas");
+  try {
+    const [n, a] = await Promise.all([getDocs(query(col, orderBy("atualizadaEm", "desc"), limit(12))), getDocs(query(col, orderBy("leituras", "desc"), limit(18)))]);
+    const f = (s) => s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((o) => (o.numCaps || 0) > 0);
+    cacheCatalogo = { em: agora(), novas: f(n), alta: f(a) };
+  } catch (e) { console.warn(e); }
+  return cacheCatalogo;
+}
+
 rota("/", async () => {
   const l = lista();
   const cont = l.filter((o) => o.lidaEm > 0 && o.ultimoCap).sort((a, b) => b.lidaEm - a.lidaEm)[0];
   const lendo = l.filter((o) => !o.minha && o.status === "LENDO").sort((a, b) => b.lidaEm - a.lidaEm);
   const minhas = l.filter((o) => o.minha && !o.trancada).sort((a, b) => b.atualizadaEm - a.atualizadaEm);
-  casca("inicio", `<div class="topo"><h1>Boa leitura${perfil.nome ? ", " + esc(perfil.nome.split(" ")[0]) : ""}</h1></div>
-    ${cont ? `<div class="card continuar" onclick="location.hash='#/ler/${cont.id}/${cont.ultimoCap}'">${capaHTML(cont, cont.id, corHex(cont.corBase))}
-      <div style="flex:1"><div class="rotulo">Continuar lendo</div><div style="font-weight:800;font-size:18px;margin:4px 0">${esc(cont.titulo)}</div><div class="suave peq">Toque para voltar de onde parou</div></div>
-      <span class="btn">▶</span></div>` : ""}
+  const h = new Date().getHours(); const saud = h >= 5 && h < 12 ? "Bom dia" : h < 18 && h >= 12 ? "Boa tarde" : "Boa noite";
+  const cat = await catalogo();
+  casca("inicio", `<div class="topo"><h1>${saud}${perfil.nome ? ", " + esc(perfil.nome.split(" ")[0]) : ""}</h1></div>
+    ${cont ? `<div class="continuar vidro" onclick="location.hash='#/ler/${cont.id}/${cont.ultimoCap}'">${capaHTML(cont, cont.id, corHex(cont.corBase))}
+      <div style="flex:1;min-width:0"><div class="rotulo">Continuar lendo</div><div style="font-weight:800;font-size:19px;margin:4px 0">${esc(cont.titulo)}</div><div class="suave peq">Volta de onde você parou</div></div>
+      <span class="play">▶</span></div>` : ""}
+    ${cat.novas.length ? `<div class="sec"><h2>Saindo agora<span class="sub">capítulos que acabaram de sair</span></h2><a class="suave peq" href="#/descobrir/NOVIDADES">Ver tudo ›</a></div>
+      <div class="fileira">${cat.novas.map(posterHTML).join("")}</div>` : ""}
+    ${cat.alta.length ? `<div class="sec"><h2>Populares no Novely</h2><a class="suave peq" href="#/descobrir">Ver tudo ›</a></div><div class="grade">${cat.alta.slice(0, 12).map(cartaoPub).join("")}</div>` : ""}
     ${lendo.length ? `<div class="sec"><h2>Na sua estante</h2><a class="suave peq" href="#/biblioteca">Ver tudo ›</a></div><div class="grade">${lendo.slice(0, 12).map((o) => cartao(o, "lendo")).join("")}</div>` : ""}
-    ${minhas.length ? `<div class="sec"><h2>Escrevendo</h2><a class="suave peq" href="#/escrever">Ver tudo ›</a></div><div class="grade">${minhas.slice(0, 6).map((o) => cartao(o, "sua obra")).join("")}</div>` : ""}
-    ${!l.length ? `<div class="card" style="margin-top:20px">Nenhuma obra ainda. Se você já usa o app no celular, abra ele uma vez para sincronizar — as obras aparecem aqui sozinhas.</div>` : ""}`);
-  preencherCapas();
+    ${minhas.length ? `<div class="sec"><h2>Suas obras</h2><a class="suave peq" href="#/escrever">Ver tudo ›</a></div><div class="grade">${minhas.slice(0, 6).map((o) => cartao(o, o.publicada ? "● publicada" : "escrevendo")).join("")}</div>` : ""}
+    ${!l.length && !cat.novas.length ? `<div class="card" style="margin-top:20px">Nenhuma obra ainda. Se você já usa o app no celular, abra ele uma vez para sincronizar — as obras aparecem aqui sozinhas.</div>` : ""}`);
+  preencherCapas(); capasGrandes();
 });
 
 // ───────── BIBLIOTECA ─────────
@@ -242,12 +282,13 @@ rota("/obra/(\\w+)", async (id) => {
   const lidos = caps.filter((c) => (c.progresso || 0) >= .98).length;
   let especiais = 0;
   casca(pode ? "escrever" : "biblioteca", `
-    <div class="topo"><a class="voltar" href="javascript:history.back()">←</a><div style="flex:1"></div></div>
-    <div class="cab-obra"><div class="fundo" style="${banner ? `background-image:url(${banner})` : `background:${corHex(o.corBase)}`}"></div>
-      <div class="frente">${capaHTML(o, id, corHex(o.corBase))}<div style="flex:1">
-        <div class="rotulo">${pode ? (o.publicada ? "Publicada" : "Escrevendo") : o.trancada ? "Publicada · por " + esc(o.autor) : "Lendo"}</div>
-        <h1>${esc(o.titulo)}</h1><div class="suave peq">${caps.length} caps · ${palavrasFmt(palavras)} palavras${caps.length ? ` · ${Math.round(lidos * 100 / caps.length)}% lido` : ""}</div>
-        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">${alvo ? `<a class="btn" href="#/ler/${id}/${alvo}">▶ Ler</a>` : ""}
+    <div class="topo"><a class="voltar vidro" href="javascript:history.back()">←</a><div style="flex:1"></div></div>
+    <div class="cab-obra"><div class="fundo" id="fundo-obra" style="${banner ? `background-image:url(${banner})` : `background:${corHex(o.corBase)}`}"></div>
+      <div class="frente">${capaHTML(o, id, corHex(o.corBase))}<div style="flex:1;min-width:0">
+        <span class="selo">${pode ? (o.publicada ? "NO CATÁLOGO" : "ESCREVENDO") : o.trancada ? "PUBLICADA" : o.status === "CONCLUIDA" ? "LIDA" : "LENDO"}</span>${o.autor ? `<span class="suave peq" style="margin-left:10px">por ${esc(o.autor)}</span>` : ""}
+        <h1>${esc(o.titulo)}</h1>
+        <div class="chips"><span class="pilula">${caps.length} caps</span><span class="pilula">${palavrasFmt(palavras)} palavras</span>${caps.length && !o.minha ? `<span class="pilula">${Math.round(lidos * 100 / caps.length)}% lido</span>` : ""}</div>
+        <div class="acoes">${alvo ? `<a class="btn" href="#/ler/${id}/${alvo}">▶ ${alvo === o.ultimoCap ? "Continuar" : "Ler agora"}</a>` : ""}
           ${pode ? `<button class="btn2" id="maiscap">+ Capítulo</button><button class="btn2" id="editinfo">Editar título e sinopse</button>` : ""}</div>
       </div></div></div>
     ${o.descricao ? `<p class="suave" style="line-height:1.6;max-width:760px">${esc(o.descricao)}</p>` : ""}
@@ -260,7 +301,9 @@ rota("/obra/(\\w+)", async (id) => {
         <span class="suave peq">${c.rascunho && pode ? "rascunho · " : ""}${palavrasFmt(c.palavras || 0)} palavras</span>
         ${pode ? `<a class="btn2 peq" href="#/editar/${id}/${c.id}" onclick="event.stopPropagation()">✎</a>` : ""}</div>`;
     }).join("")}</div>`);
-  preencherCapas();
+  await preencherCapas();
+  // sem banner: o fundo vira a própria capa desfocada
+  const im = raiz.querySelector(".cab-obra .capa img"); if (!banner && im) $("#fundo-obra").style.backgroundImage = `url(${im.src})`;
   if (pode) {
     $("#maiscap").onclick = async () => { const c = await novoCapitulo(id); location.hash = `#/editar/${id}/${c}`; };
     $("#editinfo").onclick = () => {
@@ -305,11 +348,11 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   const tam = Number(localStorage.getItem("tam") || 20);
   const pode = o.minha && !o.trancada;
   casca(o.minha ? "escrever" : "biblioteca", `<div class="prog" id="prog"></div><div class="leitor" style="--tam:${tam}px">
-    <div class="controles"><a class="voltar" href="#/obra/${obraId}">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span>
+    <div class="controles vidro"><a class="voltar" href="#/obra/${obraId}">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span>
       <button class="btn2 peq" id="menos">A−</button><button class="btn2 peq" id="mais">A+</button>${pode ? `<a class="btn2 peq" href="#/editar/${obraId}/${capId}">✎ Editar</a>` : ""}</div>
     <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo || "Sem título")}</h1><div class="suave peq">${palavrasFmt(c.palavras || 0)} palavras · ◷ ${Math.max(1, Math.round((c.palavras || 0) / 230))} min</div></div>
     <div class="texto" id="texto">${htmlTexto(texto, nomes) || '<p class="suave">Capítulo vazio.</p>'}</div>
-    <div class="fim"><div style="color:var(--amb)">◆</div><div class="rotulo" style="color:var(--suave)">Fim do capítulo</div>
+    <div class="fim"><div style="color:var(--fala)">◆</div><div class="rotulo" style="color:var(--suave)">Fim do capítulo</div>
       <div style="display:flex;gap:10px">${ant ? `<a class="btn2" href="#/ler/${obraId}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/ler/${obraId}/${prox.id}">Próximo: ${esc(prox.titulo)} ›</a>` : `<span class="suave">Último capítulo.</span>`}</div></div></div>`);
   const ajusta = (d) => { const n = Math.min(32, Math.max(14, tam + d)); localStorage.setItem("tam", n); desenhar(); };
   $("#menos").onclick = () => ajusta(-1); $("#mais").onclick = () => ajusta(1);
@@ -343,7 +386,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   const c = caps.find((x) => x.id === capId); if (!c) { location.hash = `#/obra/${obraId}`; return; }
   const original = await lerTexto(collection(db, "users", usuario.uid, "textos"), capId, c.partes);
   casca("escrever", `<div class="editor">
-    <div class="barra-ed"><a class="voltar" href="#/obra/${obraId}">←</a><input class="titulo" id="titulo" value="${esc(c.titulo || "")}" placeholder="Título do capítulo">
+    <div class="barra-ed vidro"><a class="voltar" href="#/obra/${obraId}">←</a><input class="titulo" id="titulo" value="${esc(c.titulo || "")}" placeholder="Título do capítulo">
       <span class="estado suave" id="estado">Salvo</span><a class="btn2 peq" href="#/ler/${obraId}/${capId}">Ler</a></div>
     <textarea id="txt" spellcheck="true" placeholder="Escreva aqui… (@Personagem, descrição · &Lugar, descrição)"></textarea>
     <div class="suave peq" style="margin-top:8px" id="cont"></div></div>`);
@@ -380,15 +423,9 @@ rota("/descobrir(?:/(\\w+))?", async (modo = "ALTA") => {
   try { l = (await getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() })).filter((o) => (o.numCaps || 0) > 0); } catch (e) { console.warn(e); }
   if (modo === "CONCLUIDAS") l = l.filter((o) => o.status === "CONCLUIDA");
   const nomes = { ALTA: "Em alta", SEMANA: "Ranking da semana", NOVIDADES: "Novidades", CONCLUIDAS: "Concluídas" };
-  casca("descobrir", `<div class="topo"><h1>Descobrir</h1><input class="campo" id="busca" placeholder="Buscar obra, autor ou tag…" style="max-width:320px"></div>
+  casca("descobrir", `<div class="topo"><h1>Descobrir</h1><input class="campo vidro" id="busca" placeholder="Buscar obra, autor ou tag…" style="max-width:340px;border-radius:24px"></div>
     <div class="abas">${Object.keys(nomes).map((k) => `<a href="#/descobrir/${k}" class="${k === modo ? "on" : ""}">${nomes[k]}</a>`).join("")}</div>
-    <div class="grade" id="grade">${l.map((o, n) => {
-      const url = o.capaMini ? URL.createObjectURL(new Blob([o.capaMini.toUint8Array()], { type: "image/jpeg" })) : null;
-      const nota = o.numEstrelas ? "★ " + (o.somaEstrelas / o.numEstrelas).toFixed(1).replace(".", ",") : "★ —";
-      return `<a class="obra-c" data-busca="${esc((o.titulo + " " + o.autorNome + " " + (o.tags || []).join(" ")).toLowerCase())}" href="#/pub/${o.id}">
-        <div class="capa">${url ? `<img src="${url}">` : `<div class="sol"></div><div class="t">${esc(o.titulo)}</div>`}</div>
-        <div class="nm">${modo !== "NOVIDADES" ? `<span style="color:var(--amb)">${n + 1}.</span> ` : ""}${esc(o.titulo)}</div><div class="sb">${nota} · ${o.numCaps} caps · por ${esc(o.autorNome)}</div></a>`;
-    }).join("") || `<p class="suave">Nada por aqui ainda.</p>`}</div>`);
+    <div class="grade" id="grade">${l.map((o) => cartaoPub(o)).join("") || `<p class="suave">Nada por aqui ainda.</p>`}</div>`);
   $("#busca").oninput = (e) => { const t = e.target.value.toLowerCase().trim(); for (const a of $("#grade").children) a.style.display = !t || (a.dataset.busca || "").includes(t) ? "" : "none"; };
 });
 
@@ -399,11 +436,14 @@ rota("/pub/(\\w+)", async (pid) => {
   const caps = (await getDocs(collection(db, "publicas", pid, "caps"))).docs.map((x) => ({ id: x.id, ...x.data() })).filter((c) => c.publicadoEm <= agora()).sort((a, b) => a.ordem - b.ordem);
   const capa = await imagem(collection(db, "publicas", pid, "arquivos"), "capa");
   const nota = o.numEstrelas ? "★ " + (o.somaEstrelas / o.numEstrelas).toFixed(1).replace(".", ",") : "★ —";
-  casca("descobrir", `<div class="topo"><a class="voltar" href="javascript:history.back()">←</a><div style="flex:1"></div></div>
-    <div class="cab-obra"><div class="fundo" style="${capa ? `background-image:url(${capa});filter:blur(20px) brightness(.5)` : "background:#3B2A4A"}"></div>
-      <div class="frente"><div class="capa">${capa ? `<img src="${capa}">` : ""}</div><div style="flex:1"><div class="rotulo">${esc((o.generos || []).join(" · "))}${o.classificacao && o.classificacao !== "LIVRE" ? " · +" + o.classificacao : ""}</div>
-        <h1>${esc(o.titulo)}</h1><div class="suave peq">por <b style="color:var(--tx)">${esc(o.autorNome)}</b> · ${nota} · ${milhar(o.leituras)} leituras · ${milhar(o.seguidores)} seguidores · ${caps.length} caps</div>
-        ${caps.length ? `<a class="btn" style="margin-top:14px" href="#/publer/${pid}/${caps[0].id}">▶ Ler do início</a>` : ""}</div></div></div>
+  casca("descobrir", `<div class="topo"><a class="voltar vidro" href="javascript:history.back()">←</a><div style="flex:1"></div></div>
+    <div class="cab-obra"><div class="fundo" style="${capa ? `background-image:url(${capa})` : "background:#3B2A4A"}"></div>
+      <div class="frente"><div class="capa">${capa ? `<img src="${capa}">` : ""}</div><div style="flex:1;min-width:0">
+        <span class="selo">${recente(o.atualizadaEm) ? "NOVO CAP" : o.status === "CONCLUIDA" ? "CONCLUÍDA" : "EM ANDAMENTO"}</span><span class="suave peq" style="margin-left:10px">${esc((o.generos || []).slice(0, 3).join(" · "))}${o.classificacao && o.classificacao !== "LIVRE" ? " · +" + o.classificacao : ""}</span>
+        <h1>${esc(o.titulo)}</h1>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="av">${esc((o.autorNome || "?").slice(0, 1).toUpperCase())}</span><b>${esc(o.autorNome)}</b></div>
+        <div class="chips"><span class="pilula">▶ ${milhar(o.leituras)}</span><span class="pilula">♥ ${milhar(o.seguidores)}</span><span class="pilula">${nota}</span><span class="pilula">${caps.length} caps</span></div>
+        <div class="acoes">${caps.length ? `<a class="btn" href="#/publer/${pid}/${caps[0].id}">▶ Ler agora</a>` : ""}</div></div></div></div>
     ${o.sinopse ? `<p class="suave" style="line-height:1.6;max-width:760px">${esc(o.sinopse)}</p>` : ""}
     <p class="suave peq">Para seguir, curtir, comentar e baixar para ler offline, use o app no celular.</p>
     <div class="sec"><h2>Capítulos</h2></div>
@@ -418,22 +458,33 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   const texto = await lerTexto(collection(db, "publicas", pid, "textos"), cid, c.partes);
   const prox = caps[i + 1], ant = caps[i - 1];
   const tam = Number(localStorage.getItem("tam") || 20);
-  casca("descobrir", `<div class="leitor" style="--tam:${tam}px"><div class="controles"><a class="voltar" href="#/pub/${pid}">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span></div>
+  casca("descobrir", `<div class="leitor" style="--tam:${tam}px"><div class="controles vidro"><a class="voltar" href="#/pub/${pid}">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span></div>
     <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo)}</h1><div class="suave peq">por ${esc(o.autorNome)}</div></div>
     <div class="texto">${htmlTexto(texto)}</div>
-    <div class="fim"><div style="color:var(--amb)">◆</div><div style="display:flex;gap:10px">${ant ? `<a class="btn2" href="#/publer/${pid}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/publer/${pid}/${prox.id}">Próximo ›</a>` : `<span class="suave">Último capítulo publicado.</span>`}</div></div></div>`);
+    <div class="fim"><div style="color:var(--fala)">◆</div><div style="display:flex;gap:10px">${ant ? `<a class="btn2" href="#/publer/${pid}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/publer/${pid}/${prox.id}">Próximo ›</a>` : `<span class="suave">Último capítulo publicado.</span>`}</div></div></div>`);
   scrollTo(0, 0);
 });
 
 // ───────── PERFIL ─────────
 rota("/perfil", async () => {
   const minhas = lista().filter((o) => o.minha && !o.trancada);
-  const palavras = minhas.length;
-  casca("perfil", `<div class="topo"><h1>Perfil</h1></div>
-    <div class="card" style="display:flex;gap:18px;align-items:center"><div style="width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,#E9A65A,#7A3B8F);display:grid;place-items:center;font-size:30px;font-weight:900;color:#1A1206">${esc((perfil.nome || "?").slice(0, 1).toUpperCase())}</div>
-      <div style="flex:1"><div style="font-size:22px;font-weight:900">${esc(perfil.nome || "Sem nome")}</div><div class="suave">${esc(perfil.bio || "")}</div><div class="suave peq" style="margin-top:6px">${esc(usuario.email || "")} · ${palavras} obra(s) suas</div></div></div>
-    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap"><button class="btn2" id="nome">Editar nome e bio</button><button class="btn2" id="sair">Sair da conta</button></div>
-    <div class="card" style="margin-top:24px"><b>Instalar no Windows:</b> <span class="suave">no Chrome ou Edge, clique no ícone de instalar na barra de endereço (ou no botão “Instalar no PC” do menu). O Novely abre como um programa e funciona sem internet com o que já foi aberto.</span></div>`);
+  const lendo = lista().filter((o) => !o.minha && o.status === "LENDO");
+  casca("perfil", `<div class="carregando" style="height:300px">◆</div>`);
+  const [banner, foto] = await Promise.all([perfil.bannerHash ? imagemMinha("perfilBanner") : null, perfil.fotoHash ? imagemMinha("perfil") : null]);
+  let seguidores = 0; try { seguidores = (await getDoc(doc(db, "perfis", usuario.uid))).data()?.seguidores || 0; } catch (_) {}
+  const palavras = minhas.reduce((s, o) => s + (o.palavras || 0), 0);
+  casca("perfil", `<div class="perfil-topo">${banner || foto ? `<img src="${banner || foto}" alt="">` : ""}</div>
+    <div class="perfil-card vidro">
+      <div style="display:flex;align-items:center;gap:16px"><span class="av" style="width:84px;height:84px;font-size:32px">${foto ? `<img src="${foto}">` : esc((perfil.nome || "?").slice(0, 1).toUpperCase())}</span>
+        <div style="flex:1"></div><button class="btn peq" id="nome">Editar perfil</button><button class="btn2 peq" id="sair">Sair</button></div>
+      <div class="rotulo" style="margin-top:16px">${minhas.length ? `Autor · ${minhas.length} ${minhas.length === 1 ? "obra" : "obras"}` : "Leitor"}</div>
+      <div class="nome">${esc(perfil.nome || "Sem nome")}</div>
+      <div class="suave">${esc(perfil.bio || "Escreva sua bio em Editar perfil.")}</div>
+      <div class="numeros"><div><b>${milhar(seguidores)}</b><span>seguidores</span></div><div><b>${minhas.length}</b><span>obras</span></div><div><b>${lendo.length}</b><span>lendo</span></div><div><b>${esc(usuario.email ? "☁" : "")}</b><span>${esc(usuario.email || "")}</span></div></div>
+    </div>
+    ${minhas.length ? `<div class="sec"><h2>Minhas obras</h2></div><div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : "escrevendo")).join("")}</div>` : ""}
+    <div class="card" style="margin-top:28px"><b>Instalar no Windows:</b> <span class="suave">no Chrome ou Edge, clique no ícone de instalar na barra de endereço (ou no botão “Instalar no PC” do menu). O Novely abre como um programa e funciona sem internet com o que já foi aberto.</span></div>`);
+  preencherCapas();
   $("#sair").onclick = () => signOut(auth);
   $("#nome").onclick = async () => {
     const n = prompt("Nome de autor:", perfil.nome || ""); if (n === null) return;
@@ -441,6 +492,14 @@ rota("/perfil", async () => {
     await setDoc(eu(), { nome: n.trim(), bio: b.trim(), alteradoEm: agora() }, { merge: true });
     perfil = { ...perfil, nome: n.trim(), bio: b.trim() }; toast("Salvo"); desenhar();
   };
+});
+
+// brilho do vidro acompanha o mouse
+document.addEventListener("pointermove", (e) => {
+  const v = e.target.closest?.(".vidro"); if (!v) return;
+  const b = v.getBoundingClientRect();
+  v.style.setProperty("--mx", ((e.clientX - b.left) / b.width * 100).toFixed(1) + "%");
+  v.style.setProperty("--my", ((e.clientY - b.top) / b.height * 100).toFixed(1) + "%");
 });
 
 // ───────── início ─────────
