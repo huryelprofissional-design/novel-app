@@ -718,7 +718,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             androidx.activity.compose.BackHandler { fichaVer = null }
             Box(Modifier.fillMaxSize().background(Color(0x40000000)).pointerInput(Unit) { detectTapGestures { fichaVer = null } }) {
                 Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(10.dp).fillMaxWidth()
-                    .vidroLiquido(vidro, 32.dp).pointerInput(Unit) { detectTapGestures { } }) {
+                    .vidroLiquido(vidro, 32.dp, tinta = Color(0xE610131A)).pointerInput(Unit) { detectTapGestures { } }) {
                     VerFicha(f, c.ordem)
                 }
             }

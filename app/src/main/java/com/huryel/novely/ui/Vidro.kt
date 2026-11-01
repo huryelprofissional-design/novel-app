@@ -63,7 +63,10 @@ internal data class AreaVidro(val ret: Rect, val raio: Float, val borda: Float, 
 @Composable
 fun rememberVidro(): EstadoVidro = remember { EstadoVidro() }
 
-val temDesfoque: Boolean get() = Build.VERSION.SDK_INT >= 31
+/** Liga/desliga o vidro líquido (Ajustes › Aparência). Desligado = vidro fosco leve, sem custo. */
+object ModoVidro { var liquido by mutableStateOf(false) }
+
+val temDesfoque: Boolean get() = Build.VERSION.SDK_INT >= 31 && ModoVidro.liquido
 
 private const val REFRACAO = """
 uniform shader content;
@@ -142,19 +145,19 @@ fun Modifier.fonteVidro(e: EstadoVidro, desfoque: Dp = 10.dp): Modifier = compos
 }
 
 /** Painel de vidro líquido. [borda] = largura da faixa que refrata; [forca] = quanto entorta. */
-fun Modifier.vidroLiquido(e: EstadoVidro?, raio: Dp, borda: Dp = 28.dp, forca: Dp = 60.dp): Modifier = composed {
+fun Modifier.vidroLiquido(e: EstadoVidro?, raio: Dp, borda: Dp = 28.dp, forca: Dp = 60.dp, tinta: Color = Color(0x7010131A)): Modifier = composed {
     val id = remember { Any() }
     val dens = LocalDensity.current
     val raioPx = with(dens) { raio.toPx() }
     val bordaPx = with(dens) { borda.toPx() }
     val forcaPx = with(dens) { forca.toPx() }
-    DisposableEffect(e) { onDispose { e?.areas?.remove(id) } }
     val real = e != null && temDesfoque
+    DisposableEffect(e, real) { if (!real) e?.areas?.remove(id); onDispose { e?.areas?.remove(id) } }
     val forma = RoundedCornerShape(raio)
     this
-        .onGloballyPositioned { c -> e?.areas?.put(id, AreaVidro(Rect(c.positionInRoot(), c.size.toSize()), raioPx, bordaPx, forcaPx)) }
+        .onGloballyPositioned { c -> if (real) e?.areas?.put(id, AreaVidro(Rect(c.positionInRoot(), c.size.toSize()), raioPx, bordaPx, forcaPx)) }
         .clip(forma)
-        .then(if (real) Modifier else Modifier.background(Color(0xEB181B21)))
+        .background(if (real) tinta else Color(0xEE15181E))
         .drawWithContent {
             val w = size.width; val h = size.height
             val cr = CornerRadius(raioPx.coerceAtMost(minOf(w, h) / 2f))

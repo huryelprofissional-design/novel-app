@@ -713,6 +713,7 @@ fun TelaAjustesNova(nav: NavHostController) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Topo("Ajustes", nav)
         Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            ItemAjuste("Aparência", "Efeito de vidro nas barras") { nav.navigate("ajustes/aparencia") }
             ItemAjuste("Escrita", "Meta diária de palavras") { nav.navigate("ajustes/escrita") }
             ItemAjuste("Conta", "Entrar com Google ou e-mail (em breve)") { nav.navigate("ajustes/conta") }
             ItemAjuste("Privacidade", "Pedir digital ou senha ao abrir") { nav.navigate("ajustes/privacidade") }
@@ -745,6 +746,27 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
     val p = LocalPaleta.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         when (secao) {
+            "aparencia" -> {
+                Topo("Aparência", nav)
+                val modo by app.prefs.efeitoVidro.estado.collectAsState()
+                Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("EFEITO DE VIDRO", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
+                    listOf(
+                        Triple("LEVE", "Leve (recomendado)", "Vidro fosco escuro com borda de luz. Rápido e o texto das barras fica sempre legível."),
+                        Triple("LIQUIDO", "Líquido", "O conteúdo de trás aparece desfocado e entorta na borda (Android 12+). Bonito, mas pesa em alguns celulares."),
+                    ).forEach { (k, t, d) ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie)
+                            .border(1.dp, if (modo == k) p.destaque else p.borda, RoundedCornerShape(16.dp))
+                            .clickable { app.prefs.efeitoVidro.definir(k) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(modo == k, { app.prefs.efeitoVidro.definir(k) }, colors = RadioButtonDefaults.colors(selectedColor = p.destaque))
+                            Column(Modifier.padding(start = 8.dp)) {
+                                Text(t, fontWeight = FontWeight.Bold)
+                                Text(d, fontSize = 12.5.sp, color = p.textoSuave)
+                            }
+                        }
+                    }
+                }
+            }
             "escrita" -> {
                 Topo("Escrita", nav)
                 val meta by app.prefs.metaDiaria.estado.collectAsState()

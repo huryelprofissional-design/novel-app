@@ -450,6 +450,7 @@ class Preferencias(ctx: Context) {
     val bio = texto("bio", "")
     val fotoPerfil = texto("fotoPerfil", "")
     val bannerPerfil = texto("bannerPerfil", "")
+    val efeitoVidro = texto("efeitoVidro", "LEVE")
     val bannerHash = texto("bannerHash", "")
     /** Seções visíveis no Início, separadas por vírgula. */
     val secoesInicio = texto("secoesInicio", "CONT,ATALHO,LENDO,QUERO,RECEBIDAS,LIDAS")

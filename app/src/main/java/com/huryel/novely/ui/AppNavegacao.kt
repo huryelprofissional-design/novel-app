@@ -123,6 +123,8 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         }
     }
     val p = LocalPaleta.current
+    val modoVidro by app.prefs.efeitoVidro.estado.collectAsState()
+    LaunchedEffect(modoVidro) { ModoVidro.liquido = modoVidro == "LIQUIDO" }
 
     Scaffold(
         containerColor = p.fundo,
