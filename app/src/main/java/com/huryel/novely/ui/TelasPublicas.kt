@@ -266,11 +266,16 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
             item {
                 // estilo Pôster: capa grande ocupando o topo, título gritante por cima do escurecido
-                Box(Modifier.fillMaxWidth().height(520.dp)) {
+                Box(Modifier.fillMaxWidth().height(540.dp)) {
                     val img = imagemDeBytes(capa ?: o.capaMini)
-                    if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(28.dp))
                     else CapaObra(o.titulo, null, .5f, .5f, 1f, 0xFF3B2A4A, Modifier.fillMaxSize(), 12.sp, semCantos = true, mostrarTitulo = false)
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x55000000), 0.3f to Color(0x10000000), 0.7f to Color(0xB0000000), 1f to p.fundo)))
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x99000000), 0.45f to Color(0x66000000), 0.75f to Color(0xDD000000), 1f to p.fundo)))
+                    Box(Modifier.align(Alignment.TopCenter).padding(top = 64.dp).width(160.dp).height(232.dp).shadow(26.dp, RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))) {
+                        if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        else CapaPublica(o, Modifier.fillMaxSize())
+                    }
                     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         BotaoVidro(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") { nav.popBackStack() }
                     }
@@ -281,8 +286,8 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
                             Text(o.generos.take(2).joinToString(" · ") + if (o.classificacao != "LIVRE") " · +${o.classificacao}" else "",
                                 fontSize = 12.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp))
                         }
-                        Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 44.sp, lineHeight = 42.sp, letterSpacing = (-0.6).sp, color = Color.White,
-                            maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
+                        Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 36.sp, lineHeight = 36.sp, letterSpacing = (-0.5).sp, color = Color.White,
+                            maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
                     }
                 }
             }

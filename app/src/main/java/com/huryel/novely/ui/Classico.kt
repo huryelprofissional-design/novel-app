@@ -29,6 +29,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
@@ -282,11 +283,13 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
     if (verCapa) VisorCapa(o) { verCapa = false }
     Column(Modifier.fillMaxWidth()) {
         // estilo Pôster: a capa ocupa o topo inteiro, escurece embaixo e o título aparece grande, em maiúsculas
-        Box(Modifier.fillMaxWidth().height(500.dp).clipToBounds()) {
-            Box(Modifier.fillMaxSize().clickable { menuCapa = true }) {
-                CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxSize(), 30.sp, semCantos = true, mostrarTitulo = false)
-            }
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x40000000), 0.3f to Color(0x00000000), 0.55f to Color(0x66000000), 0.8f to Color(0xEE000000), 1f to p.fundo)))
+        Box(Modifier.fillMaxWidth().height(540.dp).clipToBounds()) {
+            // fundo: a própria capa desfocada; no meio, a capa inteira como um livro
+            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxSize().blur(28.dp), 30.sp, semCantos = true, mostrarTitulo = false)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x99000000), 0.45f to Color(0x66000000), 0.75f to Color(0xDD000000), 1f to p.fundo)))
+            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
+                Modifier.align(Alignment.TopCenter).padding(top = 64.dp).width(160.dp).height(232.dp).shadow(26.dp, RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(16.dp)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp)).clickable { menuCapa = true }, 15.sp)
             DropdownMenu(menuCapa, { menuCapa = false }) {
                 DropdownMenuItem(text = { Text("Ver capa") }, onClick = { menuCapa = false; verCapa = true })
                 if (!o.trancada) DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })
@@ -303,8 +306,8 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
                     val extra = if (o.trancada) "Publicada" else if (!o.minha) "Só leitura" else if (o.publicada) "No catálogo" else null
                     if (extra != null) Text(extra, fontSize = 12.sp, color = Color(0xFFDDDDDD), modifier = Modifier.padding(start = 10.dp))
                 }
-                Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 40.sp, lineHeight = 39.sp, letterSpacing = (-0.5).sp,
-                    maxLines = 4, overflow = TextOverflow.Ellipsis, color = Color.White, modifier = Modifier.padding(top = 12.dp))
+                Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 36.sp, lineHeight = 36.sp, letterSpacing = (-0.5).sp,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis, color = Color.White, modifier = Modifier.padding(top = 12.dp))
                 if (o.autor.isNotBlank()) Text("por ${o.autor}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 8.dp))
             }
         }
