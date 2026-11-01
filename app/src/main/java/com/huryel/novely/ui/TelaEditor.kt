@@ -575,7 +575,9 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                 LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = p.destaque, trackColor = p.fundo)
             } else {
                 val realce = remember(p, qNorm, repeticoes, ignorarCaixa) { RealceEditor(p, if (consulta.length >= 2) qNorm else "", ignorarCaixa, repeticoes) }
-                LazyColumn(state = lista, modifier = Modifier.weight(1f).fillMaxWidth(),
+                val vidroEd = rememberVidro()
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(state = lista, modifier = Modifier.fillMaxSize().background(p.fundo).fonteVidro(vidroEd),
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = if (modoFoco) 48.dp else 12.dp)) {
                     itemsIndexed(pedacos, key = { _, x -> x.id }) { i, pd ->
                         BasicTextField(
@@ -590,8 +592,8 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                     }
                     item { Spacer(Modifier.height(240.dp)) }
                 }
-                AnimatedVisibility(!modoFoco) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp).vidro(RoundedCornerShape(26.dp))) {
+                AnimatedVisibility(!modoFoco, Modifier.align(Alignment.BottomCenter)) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).vidroLiquido(vidroEd, 26.dp)) {
                         if (textoSelecionado.isNotEmpty()) {
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -636,6 +638,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                             BotaoFerramenta("☰", p) { mostrarMapa = true }
                         }
                     }
+                }
                 }
             }
         }

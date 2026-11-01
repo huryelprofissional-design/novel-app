@@ -515,7 +515,9 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     var origemLivro by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     val limitesTrechos = remember { HashMap<Pair<Int, Int>, androidx.compose.ui.geometry.Rect>() }
 
+    val vidro = rememberVidro()
     Box(Modifier.fillMaxSize().background(p.fundo)) {
+        Box(Modifier.fillMaxSize().background(p.fundo).fonteVidro(vidro)) {
         if (modoPaginas) Box(
             Modifier.fillMaxSize()
                 .onGloballyPositioned { areaLivro = it.size; origemLivro = it.positionInRoot() }
@@ -646,6 +648,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             }
         }
 
+        }
+
         // brilho reduzido e luz quente (por cima do texto, sem bloquear toques)
         if (escurecer > 0.01f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = escurecer)))
         if (luzQuente > 0.01f) Box(Modifier.fillMaxSize().background(Color(0xFFFF8A2A).copy(alpha = luzQuente * 0.28f)))
@@ -655,8 +659,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.35f), p.destaque))))
 
         AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
-            Surface(color = p.superficie.copy(alpha = 0.97f)) {
-                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp).vidroLiquido(vidro, 26.dp)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
                     IconButton(onClick = { irInicio(nav) }) { Icon(Icons.Filled.Home, "Início") }
                     Column(Modifier.weight(1f)) {
@@ -698,7 +702,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             }
             AnimatedVisibility(controles, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp)
-                    .vidro(RoundedCornerShape(30.dp))) {
+                    .vidroLiquido(vidro, 30.dp)) {
                     Row(Modifier.fillMaxWidth().height(66.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                         BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, { Icon(Icons.Filled.PlayArrow, null) }) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
                         BotaoBarra("Buscar", painel == Painel.BUSCA, { Icon(Icons.Filled.Search, null) }) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
@@ -706,6 +710,16 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                         if (!modoPaginas) BotaoBarra("Rolar", rolando, { Text("⇣", fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
                         BotaoBarra("Leitura", false, { Text("Aa", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { mostrarAjustes = true }
                     }
+                }
+            }
+        }
+        // ficha do personagem: cartão de vidro por cima do texto
+        fichaVer?.let { f ->
+            androidx.activity.compose.BackHandler { fichaVer = null }
+            Box(Modifier.fillMaxSize().background(Color(0x40000000)).pointerInput(Unit) { detectTapGestures { fichaVer = null } }) {
+                Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(10.dp).fillMaxWidth()
+                    .vidroLiquido(vidro, 32.dp).pointerInput(Unit) { detectTapGestures { } }) {
+                    VerFicha(f, c.ordem)
                 }
             }
         }
@@ -722,8 +736,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         FolhaParagrafo(b[blocoSel].plano, marcasPorBloco[blocoSel], c.obraId, c.id, blocoSel, obra?.titulo ?: "", c.titulo, fichas,
             fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it })
     }
-    fichaVer?.let { f -> ModalBottomSheet(onDismissRequest = { fichaVer = null }, containerColor = Color(0xF214171C),
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), dragHandle = { Box(Modifier.padding(top = 12.dp).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f))) }) { VerFicha(f, c.ordem) } }
+    // (ficha agora abre como vidro dentro da tela, acima)
     if (mostrarAjustes) ModalBottomSheet(onDismissRequest = { mostrarAjustes = false }, containerColor = p.superficie) { AjustesLeitura() }
     if (mostrarCapitulos) ModalBottomSheet(onDismissRequest = { mostrarCapitulos = false }, containerColor = p.superficie) {
         val estadoLista = rememberLazyListState((idx - 3).coerceAtLeast(0))
