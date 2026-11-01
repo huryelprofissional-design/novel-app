@@ -68,6 +68,42 @@ object CacheCatalogo {
     fun ja(modo: String): List<ObraPublica>? = dados[modo]?.second
 }
 
+/** Capas grandes (900 px) e perfis de autores, guardados enquanto o app está aberto. */
+object CachePoster {
+    private val capas = HashMap<String, ByteArray?>()
+    private val perfis = HashMap<String, com.huryel.novely.data.PerfilPublico?>()
+    suspend fun capa(pid: String): ByteArray? {
+        if (capas.containsKey(pid)) return capas[pid]
+        val b = try { NovelyApp.instancia.pub.imagem(pid, "capa") } catch (_: Exception) { return null }
+        capas[pid] = b; return b
+    }
+    suspend fun perfil(uid: String): com.huryel.novely.data.PerfilPublico? {
+        if (perfis.containsKey(uid)) return perfis[uid]
+        val r = try { NovelyApp.instancia.pub.perfil(uid) } catch (_: Exception) { return null }
+        perfis[uid] = r; return r
+    }
+    fun perfilJa(uid: String) = perfis[uid]
+}
+
+/** "agora", "12 min", "3 h", "2 d", "5 sem". */
+fun haQuanto(ms: Long): String {
+    val d = (System.currentTimeMillis() - ms).coerceAtLeast(0) / 60_000
+    return when { d < 1 -> "agora"; d < 60 -> "$d min"; d < 1440 -> "${d / 60} h"; d < 10080 -> "${d / 1440} d"; else -> "${d / 10080} sem" }
+}
+
+/** Foto do autor (baixa o perfil uma vez); sem foto, a inicial num degradê. */
+@Composable
+fun AvatarAutor(uid: String, nome: String, tamanho: Dp, quadrado: Boolean = false) {
+    val pf by produceState(CachePoster.perfilJa(uid), uid) { value = CachePoster.perfil(uid) }
+    val img = imagemDeBytes(pf?.foto)
+    val (a, b) = coresGenero(uid)
+    Box(Modifier.size(tamanho).clip(if (quadrado) RoundedCornerShape(tamanho * 0.3f) else CircleShape)
+        .background(Brush.linearGradient(listOf(a.copy(red = (a.red + 0.25f).coerceAtMost(1f)), b))), contentAlignment = Alignment.Center) {
+        if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        else Text((pf?.nome ?: nome).trim().take(1).uppercase().ifEmpty { "?" }, fontWeight = FontWeight.Black, fontSize = (tamanho.value * 0.4f).sp, color = Color.White)
+    }
+}
+
 // ───────────────────────── gêneros com cor própria ─────────────────────────
 
 private val CORES_GENERO = listOf(
@@ -103,13 +139,12 @@ fun Esqueleto(largura: Dp, altura: Dp, raio: Dp = 12.dp) {
 @Composable
 fun CabSecao(titulo: String, sub: String? = null, link: String? = null, aoTocar: () -> Unit = {}) {
     val p = LocalPaleta.current
-    Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 28.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
-        Box(Modifier.padding(bottom = 4.dp).width(4.dp).height(18.dp).clip(RoundedCornerShape(2.dp)).background(p.destaque))
-        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text(titulo, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            if (sub != null) Text(sub, fontSize = 12.sp, color = p.textoSuave)
+    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 26.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
+        Column(Modifier.weight(1f)) {
+            Text(titulo, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, letterSpacing = (-0.2).sp)
+            if (sub != null) Text(sub, fontSize = 12.5.sp, color = p.textoSuave)
         }
-        if (link != null) Text(link, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = p.destaque, modifier = Modifier.clickable(onClick = aoTocar).padding(4.dp))
+        if (link != null) Text(link, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = p.textoSuave, modifier = Modifier.clickable(onClick = aoTocar).padding(4.dp))
     }
 }
 
@@ -130,14 +165,17 @@ fun CartaoPublico(o: ObraPublica, largura: Dp?, posicao: Int? = null, aoTocar: (
     Apertavel(if (largura != null) Modifier.width(largura) else Modifier.fillMaxWidth(), aoTocar) {
         Column {
             Box {
-                CapaPublica(o, Modifier.fillMaxWidth().aspectRatio(0.7f).shadow(8.dp, RoundedCornerShape(10.dp)))
+                CapaPublica(o, Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(20.dp)))
+                if (posicao == null) Text(if (o.numEstrelas > 0) notaTxt(o) else "NOVO", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color.White,
+                    modifier = Modifier.padding(8.dp).clip(RoundedCornerShape(9.dp)).background(com.huryel.novely.ui.theme.AzulNota).padding(horizontal = 8.dp, vertical = 2.dp))
                 if (o.classificacao == "18") Text("+18", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White,
                     modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xCCB3261E)).padding(horizontal = 5.dp, vertical = 1.dp))
                 if (posicao != null) Text("$posicao", modifier = Modifier.align(Alignment.BottomStart).offset(x = (-4).dp, y = 16.dp),
                     style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(5f), color = p.destaque, fontSize = 46.sp, fontWeight = FontWeight.Black))
             }
-            Text(o.titulo, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = if (posicao != null) 12.dp else 7.dp))
-            Text("${notaTxt(o)} · ${o.generos.firstOrNull() ?: "${o.numCaps} caps"}", fontSize = 11.sp, color = p.textoSuave, maxLines = 1)
+            Text(o.titulo, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = if (posicao != null) 12.dp else 8.dp))
+            Text(if (posicao != null) "${notaTxt(o)} · ${o.generos.firstOrNull() ?: "${o.numCaps} caps"}" else o.autorNome.ifBlank { o.generos.firstOrNull() ?: "" },
+                fontSize = 11.5.sp, color = p.textoSuave, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -147,6 +185,71 @@ private fun FileiraPublica(lista: List<ObraPublica>?, nav: NavHostController, la
     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(if (ranking) 16.dp else 12.dp)) {
         if (lista == null) items(4) { Esqueleto(largura, largura / 0.7f) }
         else itemsIndexed(lista, key = { _, o -> o.id }) { i, o -> CartaoPublico(o, largura, if (ranking) i + 1 else null) { nav.navigate("pub/${o.id}") } }
+    }
+}
+
+// ───────────────────────── pôsteres (estilo C) ─────────────────────────
+
+@Composable
+fun PosterObra(o: ObraPublica, nav: NavHostController, selo: String?, largura: Dp = 258.dp) {
+    val escopo = rememberCoroutineScope()
+    val pub = NovelyApp.instancia.pub
+    val bytes by produceState(o.capaMini, o.id) { value = CachePoster.capa(o.id) ?: o.capaMini }
+    val img = imagemDeBytes(bytes)
+    var segue by remember(o.autorUid) { mutableStateOf(pub.segueAutor(o.autorUid)) }
+    Apertavel(Modifier.width(largura).height(largura * 1.3f), { nav.navigate("pub/${o.id}") }) {
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp))) {
+            if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            else CapaObra(o.titulo, null, .5f, .5f, 1f, 0xFF3B2A4A, Modifier.fillMaxSize(), 12.sp, semCantos = true, mostrarTitulo = false)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x66000000), 0.25f to Color.Transparent, 0.45f to Color.Transparent, 1f to Color(0xE6000000))))
+            if (o.autorUid != pub.meuUid) Row(Modifier.align(Alignment.TopStart).padding(12.dp).fillMaxWidth().height(46.dp).clip(RoundedCornerShape(23.dp))
+                .background(Color(0x66000000)).clickable { nav.navigate("autor/${o.autorUid}") }.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                AvatarAutor(o.autorUid, o.autorNome, 34.dp)
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    Text(o.autorNome, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${mil(o.seguidores)} SEGUIDORES DA OBRA", fontSize = 8.5.sp, color = Color(0xFFBBBBBB), maxLines = 1, letterSpacing = 0.3.sp)
+                }
+                Text(if (segue) "Seguindo" else "Seguir", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = if (segue) Color(0xFFBBBBBB) else Color(0xFFFFD54A),
+                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.12f)).clickable {
+                        val novo = !segue; segue = novo
+                        escopo.launch { try { pub.seguirAutor(o.autorUid, novo) } catch (_: Exception) { segue = !novo } }
+                    }.padding(horizontal = 11.dp, vertical = 5.dp))
+            }
+            Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+                Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 29.sp, lineHeight = 29.sp, letterSpacing = (-0.3).sp, color = Color.White,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (selo != null) SeloPoster(selo)
+                    Text("●  ${haQuanto(o.atualizadaEm)}", fontSize = 12.sp, color = Color(0xFFDDDDDD), modifier = Modifier.padding(start = if (selo != null) 10.dp else 0.dp))
+                    Text("   ▶ ${mil(o.leituras)}", fontSize = 12.sp, color = Color(0xFFDDDDDD), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FileiraPosteres(lista: List<ObraPublica>, nav: NavHostController, selo: (Int, ObraPublica) -> String?) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        itemsIndexed(lista, key = { _, o -> o.id }) { i, o -> PosterObra(o, nav, selo(i, o)) }
+    }
+}
+
+/** Fileira de autores: quadradinhos com foto e bolinha verde quando atualizaram nos últimos 3 dias. */
+@Composable
+private fun FileiraAutores(autores: List<Pair<String, String>>, ativos: Set<String>, nav: NavHostController) {
+    val p = LocalPaleta.current
+    LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(autores, key = { it.first }) { (uid, nome) ->
+            Column(Modifier.width(60.dp).clickable { nav.navigate("autor/$uid") }, horizontalAlignment = Alignment.CenterHorizontally) {
+                Box {
+                    AvatarAutor(uid, nome, 58.dp, quadrado = true)
+                    if (uid in ativos) Box(Modifier.align(Alignment.BottomEnd).offset(2.dp, 2.dp).size(15.dp).clip(CircleShape).background(p.fundo).padding(2.5.dp)
+                        .clip(CircleShape).background(com.huryel.novely.ui.theme.VerdeOnline))
+                }
+                Text(nome.substringBefore(' ').ifBlank { "Autor" }, fontSize = 11.sp, color = p.textoSuave, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+            }
+        }
     }
 }
 
@@ -242,8 +345,8 @@ private fun SuaSemana(nav: NavHostController) {
 // ───────────────────────── INÍCIO ─────────────────────────
 
 private val SECOES_INICIO = linkedMapOf(
-    "DESTAQUES" to "Destaques (carrossel)", "CONT" to "Continuar lendo", "NOVOSCAPS" to "Capítulos novos", "ALTA" to "Em alta",
-    "GENEROS" to "Explorar gêneros", "SEMANA" to "Ranking da semana", "LENDO" to "Na sua estante", "NOVIDADES" to "Recém-publicadas",
+    "AUTORES" to "Seus autores", "DESTAQUES" to "Saindo agora (pôsteres)", "CONT" to "Continuar lendo", "NOVOSCAPS" to "Capítulos novos", "ALTA" to "Populares",
+    "GENEROS" to "Explorar gêneros", "SEMANA" to "Ranking da semana", "LENDO" to "Na sua estante", "NOVIDADES" to "Mais novidades",
     "QUERO" to "Quero ler", "MINHAS" to "Suas obras", "SUASEMANA" to "Sua semana", "CONCLUIDAS" to "Concluídas para maratonar",
 )
 
@@ -258,6 +361,7 @@ fun TelaInicioNova(nav: NavHostController) {
     val secoesTxt by app.prefs.secoesInicio.estado.collectAsState()
     // migração: lista antiga de seções → todas ligadas
     val secoes = secoesTxt.split(',').toSet().let { s -> if (s.none { it in SECOES_INICIO }) SECOES_INICIO.keys else s }
+        .let { s -> if ("v2" in s || s.isEmpty()) s else s + "AUTORES" } // seção nova entra ligada para quem já tinha personalizado
     var alta by remember { mutableStateOf(CacheCatalogo.ja("ALTA")) }
     var semana by remember { mutableStateOf(CacheCatalogo.ja("SEMANA")) }
     var novas by remember { mutableStateOf(CacheCatalogo.ja("NOVIDADES")) }
@@ -293,20 +397,35 @@ fun TelaInicioNova(nav: NavHostController) {
         item { TopoAba(null, nav) }
         item {
             Text("$saudacao${if (nome.isNotBlank()) ", ${nome.substringBefore(' ')}" else ""}", fontSize = 13.sp, color = p.textoSuave,
-                modifier = Modifier.padding(start = 18.dp, bottom = 10.dp))
+                modifier = Modifier.padding(start = 20.dp, bottom = 2.dp))
+        }
+        val seguidosTxt = app.prefs.autoresSeguidos.valor
+        val catalogo = (novas.orEmpty() + alta.orEmpty()).distinctBy { it.id }
+        val ativos = catalogo.filter { System.currentTimeMillis() - it.atualizadaEm < 3 * 86_400_000L }.map { it.autorUid }.toSet()
+        if ("AUTORES" in secoes) {
+            val seguidos = seguidosTxt.split(',').filter { it.isNotBlank() }
+            val nomes = catalogo.associate { it.autorUid to it.autorNome }
+            val autores = if (seguidos.isNotEmpty()) seguidos.map { it to (nomes[it] ?: CachePoster.perfilJa(it)?.nome ?: "") }.sortedByDescending { it.first in ativos }
+                else catalogo.filter { it.autorUid != app.pub.meuUid }.distinctBy { it.autorUid }.take(10).map { it.autorUid to it.autorNome }
+            if (autores.isNotEmpty()) item {
+                CabSecao(if (seguidos.isNotEmpty()) "Seus autores" else "Autores no Novely", if (seguidos.isEmpty()) "toque para conhecer e seguir" else null)
+                FileiraAutores(autores, ativos, nav)
+            }
         }
         if ("DESTAQUES" in secoes) item {
-            val d = alta
+            val d = novas
             when {
-                d == null -> Box(Modifier.padding(horizontal = 18.dp)) { Esqueleto(1000.dp, 230.dp, 22.dp) }
-                d.isNotEmpty() -> Carrossel(d.take(5), nav)
-                else -> Column(Modifier.padding(horizontal = 18.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF3B2A4A), Color(0xFF120A10)))).padding(22.dp)) {
-                    Text(if (semRede) "Sem conexão" else "O catálogo está começando", fontWeight = FontWeight.Black, fontSize = 22.sp)
+                d == null -> { CabSecao("Saindo agora"); Row(Modifier.padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) { repeat(2) { Esqueleto(258.dp, 335.dp, 26.dp) } } }
+                d.isNotEmpty() -> {
+                    CabSecao("Saindo agora", "capítulos que acabaram de sair")
+                    FileiraPosteres(d.take(10), nav) { _, o -> if (System.currentTimeMillis() - o.atualizadaEm < 3 * 86_400_000L) "NOVO CAP" else null }
+                }
+                else -> Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp).fillMaxWidth().clip(RoundedCornerShape(26.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF3A1E12), Color(0xFF1A0B24)))).padding(22.dp)) {
+                    Text(if (semRede) "SEM CONEXÃO" else "O CATÁLOGO ESTÁ COMEÇANDO", fontWeight = FontWeight.Black, fontSize = 24.sp, lineHeight = 25.sp)
                     Text(if (semRede) "As obras do catálogo aparecem quando a internet voltar. Suas obras continuam aqui embaixo."
                         else "Seja um dos primeiros: publique sua obra e ela aparece aqui para todo mundo.", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
-                    if (!semRede && minhas.isNotEmpty()) Text("Publicar “${minhas[0].titulo}” ›", fontWeight = FontWeight.ExtraBold, color = p.destaque,
-                        modifier = Modifier.padding(top = 14.dp).clickable { nav.navigate("publicar/${minhas[0].id}") })
+                    if (!semRede && minhas.isNotEmpty()) BotaoBranco("Publicar “${minhas[0].titulo}”", Modifier.padding(top = 16.dp).fillMaxWidth()) { nav.navigate("publicar/${minhas[0].id}") }
                 }
             }
         }
@@ -321,8 +440,8 @@ fun TelaInicioNova(nav: NavHostController) {
             }
         }
         if ("ALTA" in secoes && alta?.isNotEmpty() != false) item {
-            CabSecao("Em alta", "as mais lidas do Novely", "Ver tudo ›") { irAba(nav, "descobrir") }
-            FileiraPublica(alta, nav, ranking = true)
+            CabSecao("Populares no Novely", "as mais lidas", "Ver tudo ›") { irAba(nav, "descobrir") }
+            FileiraPublica(alta, nav, largura = 124.dp)
         }
         if ("GENEROS" in secoes) item {
             CabSecao("Explorar gêneros", "${GENEROS.size} gêneros", "Todos ›") { nav.navigate("generos") }
@@ -340,9 +459,9 @@ fun TelaInicioNova(nav: NavHostController) {
                 items(lendo, key = { it.id }) { o -> CapaLocal(o, 112.dp, null) { nav.navigate("obra/${o.id}") } }
             }
         }
-        if ("NOVIDADES" in secoes && novas?.isNotEmpty() != false) item {
-            CabSecao("Recém-publicadas", "capítulos e obras que acabaram de sair", "Ver tudo ›") { irAba(nav, "descobrir") }
-            FileiraPublica(novas?.drop(0), nav, largura = 104.dp)
+        if ("NOVIDADES" in secoes && (novas?.size ?: 0) > 10) item {
+            CabSecao("Mais novidades", "atualizadas nos últimos dias", "Ver tudo ›") { irAba(nav, "descobrir") }
+            FileiraPublica(novas?.drop(10), nav, largura = 104.dp)
         }
         if ("SUASEMANA" in secoes) item { CabSecao("Você"); SuaSemana(nav) }
         if ("MINHAS" in secoes && minhas.isNotEmpty()) item {
@@ -383,7 +502,7 @@ fun TelaInicioNova(nav: NavHostController) {
                 items(SECOES_INICIO.entries.toList()) { (k, n) ->
                     Row(Modifier.fillMaxWidth().clickable {
                         val novo = if (k in secoes) secoes - k else secoes + k
-                        app.prefs.secoesInicio.definir(SECOES_INICIO.keys.filter { it in novo }.joinToString(","))
+                        app.prefs.secoesInicio.definir((SECOES_INICIO.keys.filter { it in novo } + "v2").joinToString(","))
                     }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(k in secoes, null, colors = CheckboxDefaults.colors(checkedColor = p.destaque, checkmarkColor = p.sobreDestaque))
                         Text(n, modifier = Modifier.padding(start = 6.dp))
@@ -419,8 +538,8 @@ private fun FaixaContinuarNova(o: ResumoObra, abrir: () -> Unit) {
     val cap by remember(o.ultimoCapituloId) { NovelyApp.instancia.repo.capitulo(o.ultimoCapituloId ?: -1) }.collectAsState(initial = null)
     val c = cap
     Apertavel(Modifier.padding(horizontal = 18.dp).fillMaxWidth(), abrir) {
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brush.horizontalGradient(listOf(Color(o.corBase).copy(alpha = 0.55f), p.superficie)))
-            .border(1.dp, p.borda, RoundedCornerShape(18.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brush.horizontalGradient(listOf(Color(o.corBase).copy(alpha = 0.55f), p.superficie)))
+            .padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(54.dp).height(78.dp).shadow(10.dp, RoundedCornerShape(8.dp)), 7.sp)
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(o.titulo, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -435,8 +554,8 @@ private fun FaixaContinuarNova(o: ResumoObra, abrir: () -> Unit) {
                     }
                 }
             }
-            Box(Modifier.padding(start = 12.dp).size(46.dp).clip(CircleShape).background(p.destaque), contentAlignment = Alignment.Center) {
-                Text("▶", color = p.sobreDestaque, fontSize = 16.sp)
+            Box(Modifier.padding(start = 12.dp).size(48.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                Text("▶", color = Color.Black, fontSize = 16.sp)
             }
         }
     }

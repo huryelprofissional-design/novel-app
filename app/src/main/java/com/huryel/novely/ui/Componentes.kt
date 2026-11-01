@@ -91,11 +91,11 @@ fun ImagemEnquadrada(
 @Composable
 fun CapaObra(
     titulo: String, caminho: String?, x: Float, y: Float, zoom: Float, corBase: Long,
-    modifier: Modifier, tamanhoTitulo: TextUnit = 14.sp,
+    modifier: Modifier, tamanhoTitulo: TextUnit = 14.sp, semCantos: Boolean = false, mostrarTitulo: Boolean = true,
 ) {
-    ImagemEnquadrada(caminho, x, y, zoom, corBase, modifier.clip(forma(12.dp)), 600) {
+    ImagemEnquadrada(caminho, x, y, zoom, corBase, if (semCantos) modifier else modifier.clip(forma(12.dp)), if (semCantos) 1400 else 600) {
         ArteCapa(titulo, corBase)
-        Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.BottomStart) {
+        if (mostrarTitulo) Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.BottomStart) {
             Text(titulo, fontFamily = Serifa, fontWeight = FontWeight.Bold, fontSize = tamanhoTitulo,
                 lineHeight = tamanhoTitulo * 1.15f, color = Color(0xFFF5EEE2), maxLines = 4, overflow = TextOverflow.Ellipsis)
         }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -214,7 +215,7 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
             obra = pub.obra(pid) ?: run { erro = "Esta obra não está mais publicada."; return@LaunchedEffect }
             caps = pub.capitulos(pid, autor = obra?.autorUid == pub.meuUid)
             seguindo = pub.seguindo(pid); minhaNota = pub.minhaNota(pid)
-            capa = pub.imagem(pid, "capa")
+            capa = CachePoster.capa(pid)
         } catch (e: Exception) { erro = "Sem conexão. Volte e tente de novo." }
     }
     val o = obra
@@ -262,63 +263,68 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
     }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
             item {
-                Box(Modifier.fillMaxWidth().height(330.dp)) {
+                // estilo Pôster: capa grande ocupando o topo, título gritante por cima do escurecido
+                Box(Modifier.fillMaxWidth().height(520.dp)) {
                     val img = imagemDeBytes(capa ?: o.capaMini)
-                    if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(20.dp))
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x88000000), 1f to p.fundo)))
-                    IconButton(onClick = { nav.popBackStack() }, modifier = Modifier.statusBarsPadding().padding(8.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
-                    Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp).width(150.dp).height(214.dp).shadow(24.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp))) {
-                        if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        else CapaPublica(o, Modifier.fillMaxSize())
+                    if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    else CapaObra(o.titulo, null, .5f, .5f, 1f, 0xFF3B2A4A, Modifier.fillMaxSize(), 12.sp, semCantos = true, mostrarTitulo = false)
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x55000000), 0.3f to Color(0x10000000), 0.7f to Color(0xB0000000), 1f to p.fundo)))
+                    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        BotaoVidro(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") { nav.popBackStack() }
+                    }
+                    Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val recente = System.currentTimeMillis() - o.atualizadaEm < 3 * 86_400_000L
+                            SeloPoster(when { recente -> "NOVO CAP"; o.status == StatusObra.CONCLUIDA -> "CONCLUÍDA"; else -> "EM ANDAMENTO" })
+                            Text(o.generos.take(2).joinToString(" · ") + if (o.classificacao != "LIVRE") " · +${o.classificacao}" else "",
+                                fontSize = 12.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp))
+                        }
+                        Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 44.sp, lineHeight = 42.sp, letterSpacing = (-0.6).sp, color = Color.White,
+                            maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
                     }
                 }
             }
             item {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(o.titulo, fontWeight = FontWeight.Black, fontSize = 25.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 10.dp))
-                    Text("por ${o.autorNome} ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = p.destaque,
-                        modifier = Modifier.padding(top = 5.dp).clickable { nav.navigate("autor/${o.autorUid}") })
-                    Text(o.generos.take(3).joinToString(" · ") + if (o.classificacao != "LIVRE") " · +${o.classificacao}" else "",
-                        fontSize = 13.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 3.dp))
-                    Text("${nota(o)} (${o.numEstrelas}) · ${milhar(o.leituras)} leituras · ${milhar(o.seguidores)} seguidores · ${o.numCaps} caps · " +
-                        if (o.status == StatusObra.CONCLUIDA) "concluída" else "em andamento", fontSize = 12.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
-                    Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = { ler(null) }, enabled = caps.isNotEmpty() && trabalhando == null, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque),
-                            shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f).height(50.dp)) {
-                            Text(if (caps.isEmpty()) "Sem capítulos" else "▶  Ler", fontWeight = FontWeight.ExtraBold)
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                    var segueAutor by remember(o.autorUid) { mutableStateOf(pub.segueAutor(o.autorUid)) }
+                    Row(Modifier.padding(top = 6.dp).fillMaxWidth().clickable { nav.navigate("autor/${o.autorUid}") }, verticalAlignment = Alignment.CenterVertically) {
+                        AvatarAutor(o.autorUid, o.autorNome, 40.dp)
+                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                            Text(o.autorNome, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("ver perfil do autor", fontSize = 11.5.sp, color = p.textoSuave)
                         }
-                        if (!souAutor) OutlinedButton(onClick = {
-                            escopo.launch {
-                                try {
-                                    val novo = !seguindo
-                                    pub.seguir(pid, novo); seguindo = novo
-                                    if (novo) { trabalhando = "Adicionando à biblioteca…"; pub.baixar(pid) { trabalhando = it }; trabalhando = null }
-                                    obra = pub.obra(pid)
-                                } catch (e: Exception) { trabalhando = null; erro = e.message }
-                            }
-                        }, shape = RoundedCornerShape(14.dp), modifier = Modifier.height(50.dp)) {
-                            Text(if (seguindo) "✓ Seguindo" else "+ Seguir", color = if (seguindo) p.destaque else p.texto, fontWeight = FontWeight.Bold)
-                        } else OutlinedButton(onClick = { app.escopo.launch { app.repo.dao.obraNuvem(pid)?.let { withContext(Dispatchers.Main) { nav.navigate("obra/${it.id}") } } } },
-                            shape = RoundedCornerShape(14.dp), modifier = Modifier.height(50.dp)) { Text("Minha obra", color = p.texto) }
+                        if (!souAutor) Text(if (segueAutor) "✓ Seguindo" else "Seguir autor", fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
+                            color = if (segueAutor) p.textoSuave else Color.White,
+                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(16.dp)).clickable {
+                                val novo = !segueAutor; segueAutor = novo
+                                escopo.launch { try { pub.seguirAutor(o.autorUid, novo) } catch (_: Exception) { segueAutor = !novo } }
+                            }.padding(horizontal = 14.dp, vertical = 8.dp))
                     }
-                    trabalhando?.let { Text(it, fontSize = 12.sp, color = p.destaque, modifier = Modifier.padding(top = 8.dp)) }
-                    erro?.let { Text(it, fontSize = 12.sp, color = Color(0xFFE57373), modifier = Modifier.padding(top = 8.dp)) }
-                    if (!souAutor) Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Sua nota: ", fontSize = 13.sp, color = p.textoSuave)
+                    if (o.sinopse.isNotBlank()) Text(o.sinopse, fontSize = 14.sp, lineHeight = 21.sp, color = Color(0xFFCCCCCC), maxLines = if (sinopseAberta) Int.MAX_VALUE else 5,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 16.dp).fillMaxWidth().clickable { sinopseAberta = !sinopseAberta })
+                    Row(Modifier.padding(top = 16.dp).fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PilulaInfo("▶ ${milhar(o.leituras)}")
+                        PilulaInfo("♥ ${milhar(o.seguidores)}")
+                        PilulaInfo("${nota(o)}${if (o.numEstrelas > 0) " (${o.numEstrelas})" else ""}")
+                        PilulaInfo("${o.numCaps} caps")
+                        PilulaInfo(if (o.status == StatusObra.CONCLUIDA) "concluída" else "em andamento")
+                    }
+                    trabalhando?.let { Text(it, fontSize = 12.sp, color = p.destaque, modifier = Modifier.padding(top = 10.dp)) }
+                    erro?.let { Text(it, fontSize = 12.sp, color = Color(0xFFE57373), modifier = Modifier.padding(top = 10.dp)) }
+                    if (!souAutor) Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Sua nota", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.padding(end = 8.dp))
                         (1..5).forEach { n ->
-                            Text(if (n <= minhaNota) "★" else "☆", fontSize = 26.sp, color = if (n <= minhaNota) p.destaque else p.textoSuave,
+                            Text(if (n <= minhaNota) "★" else "☆", fontSize = 26.sp, color = if (n <= minhaNota) Color(0xFFFFD54A) else p.textoSuave,
                                 modifier = Modifier.clickable { escopo.launch { try { pub.avaliar(pid, n); minhaNota = n; obra = pub.obra(pid) } catch (_: Exception) {} } }.padding(horizontal = 3.dp))
                         }
                     }
-                    if (o.sinopse.isNotBlank()) Text(o.sinopse, fontSize = 14.sp, lineHeight = 21.sp, color = p.textoSuave, maxLines = if (sinopseAberta) Int.MAX_VALUE else 5,
-                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 14.dp).fillMaxWidth().clickable { sinopseAberta = !sinopseAberta })
-                    if (o.tags.isNotEmpty()) Row(Modifier.padding(top = 10.dp).fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        o.tags.forEach { t -> Text("#$t", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(p.superficie).padding(horizontal = 10.dp, vertical = 5.dp)) }
+                    if (o.tags.isNotEmpty()) Row(Modifier.padding(top = 12.dp).fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        o.tags.forEach { t -> Text("#$t", fontSize = 12.sp, color = Color(0xFFCCCCCC), modifier = Modifier.clip(RoundedCornerShape(14.dp)).border(1.dp, Color(0xFF444444), RoundedCornerShape(14.dp)).padding(horizontal = 11.dp, vertical = 5.dp)) }
                     }
-                    Row(Modifier.fillMaxWidth().padding(top = 22.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Capítulos", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                    Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Capítulos", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, modifier = Modifier.weight(1f))
                         Text(if (maisRecentes) "⇅ mais recentes" else "⇅ do início", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.clickable { maisRecentes = !maisRecentes })
                     }
                 }
@@ -336,6 +342,26 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
                     Text("♥ ${c.curtidas}  💬 ${c.comentarios}", fontSize = 12.sp, color = p.textoSuave)
                 }
             }
+        }
+        // barra fixa embaixo: coração (seguir a obra) + "Ler agora" branco
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, p.fundo.copy(alpha = 0.92f), p.fundo)))
+            .navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(58.dp).clip(CircleShape).background(if (seguindo) com.huryel.novely.ui.theme.Laranja else Color.White.copy(alpha = 0.1f)).clickable(enabled = trabalhando == null) {
+                if (souAutor) app.escopo.launch { app.repo.dao.obraNuvem(pid)?.let { withContext(Dispatchers.Main) { nav.navigate("obra/${it.id}") } } }
+                else escopo.launch {
+                    try {
+                        val novo = !seguindo
+                        pub.seguir(pid, novo); seguindo = novo
+                        if (novo) { trabalhando = "Adicionando à biblioteca…"; pub.baixar(pid) { trabalhando = it }; trabalhando = null }
+                        obra = pub.obra(pid)
+                    } catch (e: Exception) { trabalhando = null; erro = e.message }
+                }
+            }, contentAlignment = Alignment.Center) {
+                if (souAutor) Icon(Icons.Filled.Edit, "Minha obra", tint = Color.White)
+                else Text(if (seguindo) "♥" else "♡", fontSize = 24.sp, color = Color.White)
+            }
+            Spacer(Modifier.width(12.dp))
+            BotaoBranco(if (caps.isEmpty()) "Sem capítulos" else "▶  Ler agora", Modifier.weight(1f), enabled = caps.isNotEmpty() && trabalhando == null) { ler(null) }
         }
     }
 }
@@ -611,43 +637,40 @@ fun TelaAutor(autor: String, nav: NavHostController) {
     }
     val pf = perfil
     val nome = pf?.nome ?: obras?.firstOrNull()?.autorNome ?: ""
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
-        item { Topo("", nav) }
-        item {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                val foto = imagemDeBytes(pf?.foto)
-                Box(Modifier.size(92.dp).clip(CircleShape).background(Brush.linearGradient(listOf(p.destaque, Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
-                    if (foto != null) Image(foto, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    else Text(nome.take(1).uppercase().ifEmpty { "?" }, fontWeight = FontWeight.Black, fontSize = 36.sp, color = p.sobreDestaque)
-                }
-                Text(nome, fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.padding(top = 12.dp))
-                if (!pf?.bio.isNullOrBlank()) Text(pf!!.bio, fontSize = 13.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 30.dp, vertical = 4.dp))
-                val l = obras.orEmpty()
-                Text("${l.size} obras · ${milhar(l.sumOf { it.leituras })} leituras · ${milhar(pf?.seguidores ?: 0)} seguidores", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 8.dp))
-                if (autor != pub.meuUid) Button(onClick = {
-                    val novo = !seguindo; seguindo = novo
-                    escopo.launch { try { pub.seguirAutor(autor, novo); perfil = pub.perfil(autor) } catch (_: Exception) {} }
-                }, colors = if (seguindo) ButtonDefaults.outlinedButtonColors() else ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque),
-                    shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(top = 14.dp).width(200.dp).height(46.dp)) {
-                    Text(if (seguindo) "✓ Seguindo autor" else "+ Seguir autor", fontWeight = FontWeight.Bold, color = if (seguindo) p.destaque else p.sobreDestaque)
-                }
-                Text("Ao seguir, você recebe aviso quando sair obra nova.", fontSize = 11.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
-            }
+    val l = obras
+    PerfilPoster(
+        imagemDeBytes(pf?.foto),
+        topo = { CirculoTopo(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") { nav.popBackStack() } },
+        nome = nome.ifBlank { "Autor" },
+        papel = "Autor",
+        botoes = {},
+    ) {
+        if (!pf?.bio.isNullOrBlank()) Text(pf!!.bio, fontSize = 14.sp, lineHeight = 20.sp, color = Color.White, modifier = Modifier.padding(top = 10.dp))
+        NumerosPerfil(listOf(milhar(pf?.seguidores ?: 0) to "Seguidores", "${l?.size ?: 0}" to "Obras", milhar(l.orEmpty().sumOf { it.leituras }) to "Leituras"))
+        val generos = l.orEmpty().flatMap { it.generos }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(5).map { it.key }
+        if (generos.isNotEmpty()) Row(Modifier.padding(top = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            generos.forEach { g -> PilulaContorno("#${g.lowercase()}") { nav.navigate("genero/$g") } }
         }
-        val l = obras
-        if (l == null) item { Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p.destaque) } }
-        else l.chunked(3).forEachIndexed { i, linha ->
-            item(key = "a$i") {
-                Row(Modifier.padding(horizontal = 18.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    linha.forEach { o ->
-                        Column(Modifier.weight(1f).clickable { nav.navigate("pub/${o.id}") }) {
-                            CapaPublica(o, Modifier.fillMaxWidth().aspectRatio(0.7f))
-                            Text(o.titulo, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                            Text("${nota(o)} · ${o.numCaps} caps", fontSize = 11.sp, color = p.textoSuave)
-                        }
+        if (autor != pub.meuUid) {
+            BotaoBranco(if (seguindo) "✓ Seguindo autor" else "+ Seguir autor", Modifier.padding(top = 20.dp).fillMaxWidth()) {
+                val novo = !seguindo; seguindo = novo
+                escopo.launch { try { pub.seguirAutor(autor, novo); perfil = pub.perfil(autor) } catch (_: Exception) {} }
+            }
+            Text("Ao seguir, você recebe aviso quando sair obra nova.", fontSize = 11.sp, color = Color(0xFF999999), modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally))
+        }
+        Text("Obras", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White, modifier = Modifier.padding(top = 22.dp, bottom = 10.dp))
+        if (l == null) Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = p.destaque) }
+        else if (l.isEmpty()) Text("Nenhuma obra publicada ainda.", color = Color(0xFF999999), fontSize = 13.sp)
+        else l.chunked(3).forEach { linha ->
+            Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                linha.forEach { o ->
+                    Column(Modifier.weight(1f).clickable { nav.navigate("pub/${o.id}") }) {
+                        CapaPublica(o, Modifier.fillMaxWidth().aspectRatio(0.75f).clip(RoundedCornerShape(16.dp)))
+                        Text(o.titulo, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                        Text("${nota(o)} · ${o.numCaps} caps", fontSize = 11.sp, color = Color(0xFF999999))
                     }
-                    repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
                 }
+                repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

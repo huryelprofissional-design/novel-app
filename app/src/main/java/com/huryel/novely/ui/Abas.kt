@@ -81,6 +81,7 @@ object Icones {
     val sino = icone("sino", "M6 16V11a6 6 0 0 1 12 0v5l2 2H4z", "M10 21h4")
     val lupa = icone("lupa", "M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0", "M20 20l-4-4")
     val mais = icone("mais", "M12 5v14", "M5 12h14")
+    val estrela = icone("estrela", "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z")
 }
 
 /** Troca de aba sem empilhar telas. */
@@ -95,16 +96,23 @@ fun irAba(nav: NavHostController, rota: String) {
 // ───────────────────────── Peças comuns ─────────────────────────
 
 @Composable
-fun Avatar(tamanho: Dp, modifier: Modifier = Modifier) {
+fun Avatar(tamanho: Dp, modifier: Modifier = Modifier, quadrado: Boolean = false) {
     val prefs = NovelyApp.instancia.prefs
     val foto by prefs.fotoPerfil.estado.collectAsState()
     val nome by prefs.autorNome.estado.collectAsState()
     val p = LocalPaleta.current
     val img = rememberImagem(foto.ifEmpty { null }, 400)
-    Box(modifier.size(tamanho).clip(CircleShape).background(Brush.linearGradient(listOf(p.destaque, Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
+    Box(modifier.size(tamanho).clip(if (quadrado) RoundedCornerShape(tamanho * 0.32f) else CircleShape).background(Brush.linearGradient(listOf(p.destaque, Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
         if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         else Text(nome.trim().take(1).uppercase().ifEmpty { "?" }, fontWeight = FontWeight.ExtraBold, fontSize = (tamanho.value * 0.42f).sp, color = p.sobreDestaque)
     }
+}
+
+/** Losango colorido do logo. */
+@Composable
+fun LogoNovely(tamanho: Dp) {
+    Box(Modifier.size(tamanho).graphicsLayer { rotationZ = 45f }.clip(RoundedCornerShape(tamanho * 0.22f))
+        .background(Brush.sweepGradient(listOf(Color(0xFFFF9A5A), Color(0xFFC13DFF), Color(0xFF5AB0FF), Color(0xFFFF9A5A)))))
 }
 
 /** Topo das abas: logo (ou título) + lupa + sino + foto. No Perfil: lupa + engrenagem. */
@@ -114,9 +122,11 @@ fun TopoAba(titulo: String?, nav: NavHostController, noPerfil: Boolean = false) 
     val estadoAt by NovelyApp.instancia.atualizador.estado.collectAsState()
     val novidades by NovelyApp.instancia.prefs.novidades.estado.collectAsState()
     Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 10.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (titulo == null) Text(buildAnnotatedString { append("Novely"); withStyle(SpanStyle(color = p.destaque)) { append(".") } },
-            fontWeight = FontWeight.Black, fontSize = 24.sp, letterSpacing = (-0.5).sp, modifier = Modifier.weight(1f))
-        else Text(titulo, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, modifier = Modifier.weight(1f))
+        if (titulo == null) Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            LogoNovely(26.dp)
+            Text("Novely", fontFamily = com.huryel.novely.ui.theme.Newsreader, fontSize = 28.sp, modifier = Modifier.padding(start = 12.dp))
+        }
+        else Text(titulo, fontWeight = FontWeight.Black, fontSize = 26.sp, letterSpacing = (-0.5).sp, modifier = Modifier.weight(1f))
         IconButton(onClick = { nav.navigate("buscar") }) { Icon(Icones.lupa, "Buscar", tint = p.texto) }
         if (noPerfil) IconButton(onClick = { nav.navigate("ajustes") }) { Icon(Icons.Filled.Settings, "Ajustes", tint = p.texto) }
         else {
@@ -126,7 +136,7 @@ fun TopoAba(titulo: String?, nav: NavHostController, noPerfil: Boolean = false) 
                     if (estadoAt is EstadoAtualizacao.Disponivel || novidades.isNotBlank()) Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(CircleShape).background(p.destaque))
                 }
             }
-            Avatar(34.dp, Modifier.clickable { irAba(nav, "perfil") })
+            Avatar(40.dp, Modifier.clickable { irAba(nav, "perfil") }, quadrado = true)
             Spacer(Modifier.width(6.dp))
         }
     }
@@ -593,63 +603,65 @@ fun TelaPerfilAba(nav: NavHostController) {
     val lendo = obras.filter { !it.minha && it.status == StatusObra.LENDO }.sortedByDescending { it.lidaEm }
     val horasLidas = remember { prefs.estatisticas().values.sumOf { it.first } / 3600f }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
-        item { TopoAba("Perfil", nav, noPerfil = true) }
-        item {
-            Column(Modifier.fillMaxWidth().padding(top = 6.dp)
-                .background(Brush.verticalGradient(listOf(Color(0xFF2A1D33), p.fundo)))
-                .padding(top = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(100.dp).clip(CircleShape).background(Brush.sweepGradient(listOf(p.destaque, Color(0xFF7A3B8F), p.destaque))), contentAlignment = Alignment.Center) {
-                    Avatar(92.dp, Modifier.clickable { editando = true })
-                }
-                Text(nome.ifBlank { "Seu nome de autor" }, fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.padding(top = 12.dp),
-                    color = if (nome.isBlank()) p.textoSuave else p.texto)
-                val estSinc by app.sinc.estado.collectAsState()
-                val ultSinc by app.prefs.ultimaSinc.estado.collectAsState()
-                Text("☁ " + textoSinc(estSinc, ultSinc), fontSize = 11.sp, color = p.textoSuave.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(top = 2.dp).clickable { nav.navigate("ajustes/conta") })
-                if (bio.isNotBlank()) Text(bio, fontSize = 13.sp, color = p.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 30.dp, vertical = 4.dp))
-                Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = { editando = true }, shape = RoundedCornerShape(14.dp)) { Text("Editar perfil", color = p.texto) }
-                    OutlinedButton(onClick = { nav.navigate("estatisticas") }, shape = RoundedCornerShape(14.dp)) { Text("Estatísticas", color = p.texto) }
-                }
-                Text("Ver meu perfil público ›", fontSize = 13.sp, color = p.destaque, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 10.dp).clickable { nav.navigate("autor/${app.pub.meuUid}") })
-            }
-        }
-        item {
-            Row(Modifier.padding(horizontal = 18.dp).padding(top = 20.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie)
-                .border(1.dp, p.borda, RoundedCornerShape(16.dp))) {
-                listOf(
-                    "${minhas.size}" to "obras", formatarPalavras(minhas.sumOf { it.totalPalavras }) to "palavras",
-                    "%.1f h".format(horasLidas).replace('.', ',') to "lendo", "$seq🔥" to "dias",
-                ).forEach { (n, r) ->
-                    Column(Modifier.weight(1f).padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(n, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                        Text(r, fontSize = 11.sp, color = p.textoSuave, modifier = Modifier.padding(top = 3.dp))
-                    }
-                }
-            }
+    val foto by prefs.fotoPerfil.estado.collectAsState()
+    val img = rememberImagem(foto.ifEmpty { null }, 900)
+    val meuPerfil by produceState<com.huryel.novely.data.PerfilPublico?>(null) { value = CachePoster.perfil(app.pub.meuUid) }
+    val estSinc by app.sinc.estado.collectAsState()
+    val ultSinc by app.prefs.ultimaSinc.estado.collectAsState()
+    PerfilPoster(
+        img,
+        topo = {
+            CirculoTopo(Icons.Filled.Settings, "Ajustes") { nav.navigate("ajustes") }
+            Spacer(Modifier.width(8.dp))
+            CirculoTopo(Icones.lupa, "Buscar") { nav.navigate("buscar") }
+            Spacer(Modifier.weight(1f))
+            PilulaPreta("Editar perfil") { editando = true }
+        },
+        nome = nome.ifBlank { "Seu nome" },
+        papel = if (minhas.isNotEmpty()) "Autor" else "Leitor",
+        botoes = {
+            BotaoRedondo(Icones.estrela, "Estatísticas", true) { nav.navigate("estatisticas") }
+            BotaoRedondo(Icones.perfil, "Perfil público", false) { nav.navigate("autor/${app.pub.meuUid}") }
+        },
+    ) {
+        Text("☁ " + textoSinc(estSinc, ultSinc), fontSize = 12.sp, color = Color(0xFFAAAAAA), modifier = Modifier.padding(top = 6.dp).clickable { nav.navigate("ajustes/conta") })
+        Text(bio.ifBlank { "Toque em Editar perfil para escrever sua bio." }, fontSize = 14.sp, lineHeight = 20.sp,
+            color = if (bio.isBlank()) Color(0xFF888888) else Color.White, modifier = Modifier.padding(top = 10.dp))
+        NumerosPerfil(listOf(
+            milharCurto(meuPerfil?.seguidores ?: 0) to "Seguidores", "${minhas.size}" to "Obras",
+            formatarPalavras(minhas.sumOf { it.totalPalavras }) to "Palavras", "$seq🔥" to "Dias",
+        ))
+        Row(Modifier.padding(top = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PilulaContorno("%.1f h lendo".format(horasLidas).replace('.', ',')) { nav.navigate("estatisticas") }
+            PilulaContorno("Meu perfil público") { nav.navigate("autor/${app.pub.meuUid}") }
+            PilulaContorno("Conta e nuvem") { nav.navigate("ajustes/conta") }
         }
         if (minhas.isNotEmpty()) {
-            item { CabecalhoSecao("Minhas obras") }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(minhas, key = { it.id }) { o -> CapaItem(o, 110.dp, "${o.totalCapitulos} caps") { nav.navigate("obra/${o.id}") } }
-                }
+            Text("Minhas obras", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White, modifier = Modifier.padding(top = 22.dp, bottom = 10.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(minhas, key = { it.id }) { o -> CapaPerfil(o) { nav.navigate("obra/${o.id}") } }
             }
         }
         if (lendo.isNotEmpty()) {
-            item { CabecalhoSecao("Lendo agora") }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(lendo, key = { it.id }) { o -> CapaItem(o, 92.dp, null) { nav.navigate("obra/${o.id}") } }
-                }
+            Text("Lendo agora", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White, modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(lendo, key = { it.id }) { o -> CapaPerfil(o) { nav.navigate("obra/${o.id}") } }
             }
         }
+        Spacer(Modifier.height(10.dp))
     }
     if (editando) DialogoPerfil { editando = false }
 }
+
+@Composable
+private fun CapaPerfil(o: ResumoObra, abrir: () -> Unit) {
+    Column(Modifier.width(104.dp).clickable(onClick = abrir)) {
+        CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxWidth().height(138.dp).clip(RoundedCornerShape(18.dp)), 11.sp)
+        Text(o.titulo, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+fun milharCurto(n: Long) = when { n >= 1_000_000 -> "%.1f mi".format(n / 1e6).replace('.', ','); n >= 1000 -> "%.1f mil".format(n / 1e3).replace('.', ','); else -> "$n" }
 
 @Composable
 private fun DialogoPerfil(fechar: () -> Unit) {

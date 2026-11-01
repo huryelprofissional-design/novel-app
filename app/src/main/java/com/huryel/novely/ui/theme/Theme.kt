@@ -69,10 +69,10 @@ data class Paleta(
 
 enum class TemaLeitura(val paleta: Paleta) {
     OLED(Paleta(
-        "Noite", "Preto puro e âmbar",
-        Color(0xFF000000), Color(0xFF121110), Color(0xFF26231E), Color(0xFFE6DFD3), Color(0xFFA39A8B),
-        Color(0xFFE9A65A), Color(0xFF1A1206), Color(0xFF6FC2B4), Color(0xFFE88AA8), true,
-        Inter, Inter, Newsreader, 1f, false, false, false, EstiloFala.BARRA, "◆   ◆   ◆",
+        "Pôster", "Preto, laranja e brilho roxo",
+        Color(0xFF000000), Color(0xFF141414), Color(0xFF262626), Color(0xFFF4F4F4), Color(0xFFA3A3A3),
+        Color(0xFFFF6A2B), Color(0xFFFFFFFF), Color(0xFFC13DFF), Color(0xFF3A8BFF), true,
+        Inter, Inter, Newsreader, 1.25f, false, false, false, EstiloFala.BARRA, "◆   ◆   ◆",
     )),
 }
 
@@ -134,3 +134,10 @@ fun NovelyTheme(tema: TemaLeitura = TemaLeitura.OLED, content: @Composable () ->
         MaterialTheme(colorScheme = esquema, typography = tipografia, shapes = formas, content = content)
     }
 }
+
+// ───────── peças do estilo Pôster ─────────
+val Laranja = Color(0xFFFF6A2B)
+val AzulNota = Color(0xFF3A8BFF)
+val VerdeOnline = Color(0xFF3AD46B)
+/** brilho do ícone selecionado (laranja → roxo) */
+val Brilho = listOf(Color(0xFFFF9A5A), Color(0xFFC13DFF))

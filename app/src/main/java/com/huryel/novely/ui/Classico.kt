@@ -7,6 +7,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -28,6 +30,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -67,7 +70,7 @@ fun BannerFundo(o: Obra?, corBase: Long, titulo: String, modifier: Modifier) {
 }
 
 @Composable
-private fun BotaoVidro(icone: ImageVector, desc: String, acao: () -> Unit) {
+fun BotaoVidro(icone: ImageVector, desc: String, acao: () -> Unit) {
     Box(
         Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f))
             .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape).clickable(onClick = acao),
@@ -93,19 +96,25 @@ private fun Barra(f: Float, modifier: Modifier, altura: Int = 4) {
 /** Barra de navegação inferior. */
 @Composable
 fun BarraTema(abas: List<Triple<String, String, ImageVector>>, atual: String?, ir: (String) -> Unit) {
-    val p = LocalPaleta.current
-    Column(Modifier.fillMaxWidth().background(Color(0xFF0A0908))) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(p.borda))
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().height(70.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+    // estilo Pôster: pílula flutuante, só ícones; o selecionado ganha um círculo com brilho laranja→roxo
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 22.dp, end = 22.dp, bottom = 12.dp, top = 4.dp)) {
+        Row(
+            Modifier.fillMaxWidth().height(64.dp).shadow(18.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp))
+                .background(Color(0xF0221F1C)).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
+            horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically,
+        ) {
             abas.forEach { (r, rot, ic) ->
                 val sel = r == atual
-                val cor = if (sel) p.destaque else Color(0xFF6F675B)
-                Column(
-                    Modifier.clip(RoundedCornerShape(14.dp)).clickable { ir(r) }.padding(horizontal = 14.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp),
+                Box(
+                    Modifier.size(48.dp).clip(CircleShape).clickable { ir(r) }
+                        .then(if (sel) Modifier.drawBehind {
+                            drawCircle(Brush.radialGradient(listOf(Color(0x99C13DFF), Color.Transparent), radius = size.minDimension * 0.75f), radius = size.minDimension * 0.75f)
+                        } else Modifier),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(ic, rot, tint = cor, modifier = Modifier.size(24.dp))
-                    Text(rot, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = cor)
+                    if (sel) Box(Modifier.size(44.dp).clip(CircleShape).background(Brush.radialGradient(com.huryel.novely.ui.theme.Brilho)), contentAlignment = Alignment.Center) {
+                        Icon(ic, rot, tint = Color.White, modifier = Modifier.size(23.dp))
+                    } else Icon(ic, rot, tint = Color(0xFFA8A8A8), modifier = Modifier.size(24.dp))
                 }
             }
         }
@@ -271,63 +280,89 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
     var menuCapa by remember { mutableStateOf(false) }
     if (verCapa) VisorCapa(o) { verCapa = false }
     Column(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(330.dp)) {
-            BannerFundo(o, o.corBase, o.titulo, Modifier.fillMaxWidth().height(300.dp).graphicsLayer { translationY = desloc() * 0.45f }.clickable(onClick = a.banner))
+        // estilo Pôster: a capa ocupa o topo inteiro, escurece embaixo e o título aparece grande, em maiúsculas
+        Box(Modifier.fillMaxWidth().height(500.dp)) {
+            Box(Modifier.fillMaxSize().graphicsLayer { translationY = desloc() * 0.4f }.clickable { menuCapa = true }) {
+                CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxSize(), 30.sp, semCantos = true, mostrarTitulo = false)
+            }
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x33000000), 0.35f to Color(0x10000000), 0.72f to Color(0xCC000000), 1f to p.fundo)))
+            DropdownMenu(menuCapa, { menuCapa = false }) {
+                DropdownMenuItem(text = { Text("Ver capa") }, onClick = { menuCapa = false; verCapa = true })
+                if (!o.trancada) DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })
+                if (!o.trancada) DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuCapa = false; a.banner() })
+            }
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 BotaoVidro(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", a.voltar)
                 Spacer(Modifier.weight(1f))
                 BotaoVidro(Icons.Filled.MoreVert, "Opções da obra", a.menu)
             }
-            Row(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp), verticalAlignment = Alignment.Bottom) {
-                Box {
-                    CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-                        Modifier.width(120.dp).height(178.dp).shadow(14.dp, RoundedCornerShape(12.dp))
-                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                            .clickable { menuCapa = true }, 14.sp)
-                    DropdownMenu(menuCapa, { menuCapa = false }) {
-                        DropdownMenuItem(text = { Text("Ver capa") }, onClick = { menuCapa = false; verCapa = true })
-                        if (!o.trancada) DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })
-                    }
+            Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SeloPoster(nomeStatus(o.status).uppercase())
+                    val extra = if (o.trancada) "Publicada" else if (!o.minha) "Só leitura" else if (o.publicada) "No catálogo" else null
+                    if (extra != null) Text(extra, fontSize = 12.sp, color = Color(0xFFDDDDDD), modifier = Modifier.padding(start = 10.dp))
                 }
-                Spacer(Modifier.width(16.dp))
-                Column(Modifier.padding(bottom = 4.dp)) {
-                    Text(nomeStatus(o.status).uppercase() + if (o.trancada) " · PUBLICADA" else if (!o.minha) " · SÓ LEITURA" else "", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp, color = p.destaque)
-                    Text(o.titulo, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, lineHeight = 26.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 6.dp))
-                    if (o.autor.isNotBlank()) Text("por ${o.autor}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = p.texto.copy(alpha = 0.85f), modifier = Modifier.padding(top = 4.dp))
-                    Text("${caps.size} caps · ${formatarPalavras(palavras)} palavras" + if (caps.isNotEmpty()) " · ${lidos * 100 / caps.size}% lido" else "",
-                        fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
-                }
+                Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 40.sp, lineHeight = 39.sp, letterSpacing = (-0.5).sp,
+                    maxLines = 4, overflow = TextOverflow.Ellipsis, color = Color.White, modifier = Modifier.padding(top = 12.dp))
+                if (o.autor.isNotBlank()) Text("por ${o.autor}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 8.dp))
             }
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
-            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = { a.ler?.invoke() }, enabled = a.ler != null, shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), modifier = Modifier.weight(1f).height(52.dp),
-                ) {
-                    Text("▶  " + when {
-                        alvo == null -> "Sem capítulos"
-                        alvo.progresso in 0.01f..0.97f -> "Continuar · ${alvo.titulo.ifEmpty { "sem título" }}"
-                        else -> "Ler · ${alvo.titulo.ifEmpty { "sem título" }}"
-                    }, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                if (a.novoCap != null) OutlinedButton(onClick = a.novoCap, shape = RoundedCornerShape(14.dp), modifier = Modifier.height(52.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, p.borda)) { Text("+ Cap.", color = p.texto, fontWeight = FontWeight.Bold) }
+            Row(Modifier.padding(top = 4.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PilulaInfo("${caps.size} caps")
+                PilulaInfo("${formatarPalavras(palavras)} palavras")
+                if (caps.isNotEmpty() && !o.minha) PilulaInfo("${lidos * 100 / caps.size}% lido")
             }
-            if (o.descricao.isNotBlank()) Text(o.descricao, fontSize = 14.sp, lineHeight = 21.sp, color = p.textoSuave,
+            if (o.descricao.isNotBlank()) Text(o.descricao, fontSize = 14.sp, lineHeight = 21.sp, color = Color(0xFFCCCCCC),
                 maxLines = if (sinopseAberta) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 16.dp).animateContentSize().clickable { sinopseAberta = !sinopseAberta })
+            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (a.novoCap != null) Box(Modifier.size(58.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).clickable(onClick = a.novoCap),
+                    contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, "Novo capítulo", tint = Color.White) }
+                BotaoBranco(
+                    "▶  " + when {
+                        alvo == null -> "Sem capítulos"
+                        alvo.progresso in 0.01f..0.97f -> "Continuar"
+                        caps.indexOf(alvo) > 0 -> "Ler cap. ${caps.indexOf(alvo) + 1}"
+                        else -> "Ler agora"
+                    }, Modifier.weight(1f), enabled = a.ler != null,
+                ) { a.ler?.invoke() }
+            }
+            if (alvo != null && alvo.progresso in 0.01f..0.97f) Text("Parou em: ${alvo.titulo.ifEmpty { "sem título" }} · ${(alvo.progresso * 100).toInt()}%",
+                fontSize = 12.sp, color = p.textoSuave, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
             Row(Modifier.fillMaxWidth().padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Capítulos", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                    Box(Modifier.padding(top = 8.dp).width(84.dp).height(2.dp).background(p.destaque))
-                }
+                Text("Capítulos", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = a.novoVol) { Text("+ Volume", color = p.destaque) }
+                TextButton(onClick = a.novoVol) { Text("+ Volume", color = p.textoSuave) }
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(p.borda))
         }
+    }
+}
+
+// ───────────────────────── peças do estilo Pôster ─────────────────────────
+
+/** Selo laranja tipo "NOVO CAP", "EM ALTA #1". */
+@Composable
+fun SeloPoster(t: String, cor: Color = com.huryel.novely.ui.theme.Laranja) {
+    Text(t, fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White, maxLines = 1,
+        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(cor).padding(horizontal = 9.dp, vertical = 3.dp))
+}
+
+/** Pílula cinza translúcida com uma informação (▶ 512 mil, ★ 4,8…). */
+@Composable
+fun PilulaInfo(t: String, modifier: Modifier = Modifier, aoTocar: (() -> Unit)? = null) {
+    Text(t, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1,
+        modifier = modifier.clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.1f))
+            .then(if (aoTocar != null) Modifier.clickable(onClick = aoTocar) else Modifier).padding(horizontal = 13.dp, vertical = 8.dp))
+}
+
+/** Botão principal: pílula branca com texto preto. */
+@Composable
+fun BotaoBranco(t: String, modifier: Modifier = Modifier, enabled: Boolean = true, aoTocar: () -> Unit) {
+    Box(modifier.height(58.dp).clip(RoundedCornerShape(29.dp)).background(if (enabled) Color.White else Color(0xFF3A3A3A))
+        .clickable(enabled = enabled, onClick = aoTocar).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+        Text(t, fontWeight = FontWeight.Black, fontSize = 16.sp, color = if (enabled) Color.Black else Color(0xFF888888), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
