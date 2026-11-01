@@ -30,6 +30,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -281,11 +282,11 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
     if (verCapa) VisorCapa(o) { verCapa = false }
     Column(Modifier.fillMaxWidth()) {
         // estilo Pôster: a capa ocupa o topo inteiro, escurece embaixo e o título aparece grande, em maiúsculas
-        Box(Modifier.fillMaxWidth().height(500.dp)) {
-            Box(Modifier.fillMaxSize().graphicsLayer { translationY = desloc() * 0.4f }.clickable { menuCapa = true }) {
+        Box(Modifier.fillMaxWidth().height(500.dp).clipToBounds()) {
+            Box(Modifier.fillMaxSize().clickable { menuCapa = true }) {
                 CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxSize(), 30.sp, semCantos = true, mostrarTitulo = false)
             }
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x33000000), 0.35f to Color(0x10000000), 0.72f to Color(0xCC000000), 1f to p.fundo)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x40000000), 0.3f to Color(0x00000000), 0.55f to Color(0x66000000), 0.8f to Color(0xEE000000), 1f to p.fundo)))
             DropdownMenu(menuCapa, { menuCapa = false }) {
                 DropdownMenuItem(text = { Text("Ver capa") }, onClick = { menuCapa = false; verCapa = true })
                 if (!o.trancada) DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })

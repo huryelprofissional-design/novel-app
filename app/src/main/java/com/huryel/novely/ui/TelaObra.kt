@@ -376,6 +376,34 @@ private fun LinhaCapitulo(c: Capitulo, o: Obra, nav: NavHostController, abrir: (
                 if (livre) DropdownMenuItem(text = { Text("Renomear") }, onClick = { menu = false; abrir(Dialogo.RenomearCap(c)) })
                 if (o.minha && livre) DropdownMenuItem(text = { Text(if (c.rascunho) "Marcar como concluído" else "Voltar para rascunho") },
                     onClick = { menu = false; escopo.launch { repo.salvarCapitulo(c.copy(rascunho = !c.rascunho)) } })
+                if (o.minha && livre) {
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val app = NovelyApp.instancia
+                    fun aviso(t: String) = android.widget.Toast.makeText(ctx, t, android.widget.Toast.LENGTH_LONG).show()
+                    if (!o.publicada) DropdownMenuItem(text = { Text("Publicar…", color = p.destaque) }, onClick = { menu = false; nav.navigate("publicar/${o.id}") })
+                    else if (c.publicadoEm == 0L || c.publicadoEm > System.currentTimeMillis()) DropdownMenuItem(text = { Text("Publicar agora", color = p.destaque) }, onClick = {
+                        menu = false; aviso("Publicando…")
+                        app.escopo.launch {
+                            val e = app.pub.publicarCapitulos(repo.dao.obraAgora(o.id) ?: o, listOf(repo.dao.capituloAgora(c.id) ?: c))
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { aviso(e ?: "“${c.titulo.ifEmpty { "Capítulo" }}” publicado!") }
+                        }
+                    }) else {
+                        DropdownMenuItem(text = { Text("Republicar (enviar mudanças)") }, onClick = {
+                            menu = false; aviso("Republicando…")
+                            app.escopo.launch {
+                                val e = app.pub.publicarCapitulos(repo.dao.obraAgora(o.id) ?: o, listOf(repo.dao.capituloAgora(c.id) ?: c))
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { aviso(e ?: "Capítulo atualizado para os leitores.") }
+                            }
+                        })
+                        DropdownMenuItem(text = { Text("Tirar do ar") }, onClick = {
+                            menu = false
+                            app.escopo.launch {
+                                val e = app.pub.despublicarCapitulo(repo.dao.obraAgora(o.id) ?: o, c)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { aviso(e ?: "Capítulo tirado do ar.") }
+                            }
+                        })
+                    }
+                }
                 DropdownMenuItem(text = { Text(if (lido) "Marcar como não lido" else "Marcar como lido") },
                     onClick = { menu = false; escopo.launch { repo.salvarCapitulo(c.copy(progresso = if (lido) 0f else 1f)) } })
                 if (livre) {
