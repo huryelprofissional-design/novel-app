@@ -608,8 +608,9 @@ fun TelaPerfilAba(nav: NavHostController) {
     val meuPerfil by produceState<com.huryel.novely.data.PerfilPublico?>(null) { value = CachePoster.perfil(app.pub.meuUid) }
     val estSinc by app.sinc.estado.collectAsState()
     val ultSinc by app.prefs.ultimaSinc.estado.collectAsState()
+    val bannerArq by prefs.bannerPerfil.estado.collectAsState()
     PerfilPoster(
-        img,
+        img, rememberImagem(bannerArq.ifEmpty { null }, 1400),
         topo = {
             Text("Perfil", fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color.White, modifier = Modifier.weight(1f).padding(start = 4.dp))
             CirculoTopo(Icones.lupa, "Buscar") { nav.navigate("buscar") }
@@ -671,9 +672,26 @@ private fun DialogoPerfil(fechar: () -> Unit) {
             app.repo.imagens.importar(uri, 600)?.let { prefs.fotoPerfil.definir(it); prefs.perfilAlteradoEm.definir(System.currentTimeMillis()); if (antigo.isNotEmpty()) java.io.File(antigo).delete() }
         }
     }
+    val seletorBanner = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) app.escopo.launch {
+            val antigo = prefs.bannerPerfil.valor
+            app.repo.imagens.importar(uri, 1600)?.let { prefs.bannerPerfil.definir(it); prefs.perfilAlteradoEm.definir(System.currentTimeMillis()); if (antigo.isNotEmpty()) java.io.File(antigo).delete() }
+        }
+    }
+    val bannerArq by prefs.bannerPerfil.estado.collectAsState()
+    val bannerImg = rememberImagem(bannerArq.ifEmpty { null }, 900)
     AlertDialog(onDismissRequest = fechar, title = { Text("Editar perfil") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.fillMaxWidth().height(96.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF222222))
+                    .clickable { seletorBanner.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, contentAlignment = Alignment.Center) {
+                    if (bannerImg != null) Image(bannerImg, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    Text(if (bannerImg != null) "Trocar banner" else "+ Banner do perfil", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0x88000000)).padding(horizontal = 12.dp, vertical = 6.dp))
+                }
+                if (bannerImg != null) Text("Tirar banner", fontSize = 12.sp, color = Color(0xFFE57373), modifier = Modifier.clickable {
+                    java.io.File(prefs.bannerPerfil.valor).delete(); prefs.bannerPerfil.definir(""); prefs.perfilAlteradoEm.definir(System.currentTimeMillis())
+                })
                 Avatar(76.dp, Modifier.clickable { seletor.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
                 Text("Toque na foto para trocar", fontSize = 12.sp, color = LocalPaleta.current.textoSuave)
                 OutlinedTextField(nome, { nome = it }, label = { Text("Nome de autor") }, singleLine = true, modifier = Modifier.fillMaxWidth())

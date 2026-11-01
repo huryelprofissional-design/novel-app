@@ -24,7 +24,7 @@ data class ObraPublica(
 data class CapPublico(val id: String, val titulo: String, val ordem: Double, val palavras: Long, val publicadoEm: Long,
                       val atualizadoEm: Long, val partes: Int, val curtidas: Long, val comentarios: Long, val leituras: Long = 0)
 
-data class PerfilPublico(val uid: String, val nome: String, val bio: String, val foto: ByteArray?, val seguidores: Long)
+data class PerfilPublico(val uid: String, val nome: String, val bio: String, val foto: ByteArray?, val seguidores: Long, val banner: ByteArray? = null)
 
 data class Comentario(val id: String, val uid: String, val nome: String, val texto: String, val em: Long)
 
@@ -367,15 +367,16 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         if (prefs.perfilPublicadoEm.valor >= alt) return@withContext
         try {
             val foto = prefs.fotoPerfil.valor.takeIf { it.isNotEmpty() }?.let { repo.imagens.comprimir(it, 200, 70) }
+            val banner = prefs.bannerPerfil.valor.takeIf { it.isNotEmpty() }?.let { repo.imagens.comprimir(it, 900, 65) }
             perfis.document(uid).set(mapOf("nome" to prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "Autor" },
-                "bio" to prefs.bio.valor, "foto" to foto?.let { Blob.fromBytes(it) }, "alteradoEm" to alt), com.google.firebase.firestore.SetOptions.merge()).await()
+                "bio" to prefs.bio.valor, "foto" to foto?.let { Blob.fromBytes(it) }, "banner" to banner?.let { Blob.fromBytes(it) }, "alteradoEm" to alt), com.google.firebase.firestore.SetOptions.merge()).await()
             prefs.perfilPublicadoEm.definir(alt)
         } catch (_: Exception) {}
     }
 
     suspend fun perfil(autor: String): PerfilPublico? = withContext(Dispatchers.IO) {
         val d = perfis.document(autor).get().await()
-        if (!d.exists()) null else PerfilPublico(autor, d.getString("nome") ?: "", d.getString("bio") ?: "", d.getBlob("foto")?.toBytes(), d.getLong("seguidores") ?: 0)
+        if (!d.exists()) null else PerfilPublico(autor, d.getString("nome") ?: "", d.getString("bio") ?: "", d.getBlob("foto")?.toBytes(), d.getLong("seguidores") ?: 0, d.getBlob("banner")?.toBytes())
     }
 
     suspend fun obrasDoAutor(autor: String): List<ObraPublica> = withContext(Dispatchers.IO) {

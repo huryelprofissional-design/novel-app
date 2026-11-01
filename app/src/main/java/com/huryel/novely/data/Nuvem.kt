@@ -513,6 +513,13 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                 prefs.fotoPerfil.definir(nova); prefs.fotoHash.definir(fh)
                 if (antigo.isNotEmpty() && antigo != nova) File(antigo).delete()
             }
+            val bh = remoto.getString("bannerHash") ?: ""
+            if (bh != prefs.bannerHash.valor) {
+                val antigo = prefs.bannerPerfil.valor
+                val nova = if (bh.isEmpty()) "" else baixarImagem(eu, "perfilBanner") ?: ""
+                prefs.bannerPerfil.definir(nova); prefs.bannerHash.definir(bh)
+                if (antigo.isNotEmpty() && antigo != nova) File(antigo).delete()
+            }
             prefs.perfilAlteradoEm.definir(altRemoto)
         } else if (altLocal > altRemoto || !remoto.exists()) {
             val nome = prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "" }
@@ -523,8 +530,14 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                 repo.imagens.comprimir(foto, 400)?.let { eu.collection("imagens").document("perfil").set(mapOf("dados" to Blob.fromBytes(it))).await() }
                 prefs.fotoHash.definir(fh)
             }
+            val banner = prefs.bannerPerfil.valor.takeIf { it.isNotEmpty() }
+            val bh = hash(banner?.let { File(it) })
+            if (bh != prefs.bannerHash.valor && banner != null) {
+                repo.imagens.comprimir(banner, 1400)?.let { eu.collection("imagens").document("perfilBanner").set(mapOf("dados" to Blob.fromBytes(it))).await() }
+                prefs.bannerHash.definir(bh)
+            }
             val alt = altLocal.coerceAtLeast(1)
-            eu.set(mapOf("nome" to nome, "bio" to prefs.bio.valor, "fotoHash" to fh, "alteradoEm" to alt, "email" to (conta.usuario.value?.email ?: ""))).await()
+            eu.set(mapOf("nome" to nome, "bio" to prefs.bio.valor, "fotoHash" to fh, "bannerHash" to bh, "alteradoEm" to alt, "email" to (conta.usuario.value?.email ?: ""))).await()
             prefs.perfilAlteradoEm.definir(alt)
         }
     }

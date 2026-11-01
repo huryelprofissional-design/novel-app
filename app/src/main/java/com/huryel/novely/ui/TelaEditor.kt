@@ -94,6 +94,13 @@ private enum class PainelEd { NENHUM, BUSCA }
 @OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TelaEditor(capId: Long, nav: NavHostController) {
+    // no texto, cores calmas (azul e verde-água) em vez do laranja/roxo do resto do app
+    CoresDeLeitura { TelaEditorCorpo(capId, nav) }
+}
+
+@OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
     val app = NovelyApp.instancia
     val repo = app.repo
     val prefs = app.prefs

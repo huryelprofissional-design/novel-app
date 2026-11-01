@@ -644,7 +644,7 @@ fun TelaAutor(autor: String, nav: NavHostController) {
     val nome = pf?.nome ?: obras?.firstOrNull()?.autorNome ?: ""
     val l = obras
     PerfilPoster(
-        imagemDeBytes(pf?.foto),
+        imagemDeBytes(pf?.foto), imagemDeBytes(pf?.banner),
         topo = { CirculoTopo(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") { nav.popBackStack() } },
         nome = nome.ifBlank { "Autor" },
         papel = "Autor",

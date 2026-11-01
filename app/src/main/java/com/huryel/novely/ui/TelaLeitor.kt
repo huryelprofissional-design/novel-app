@@ -235,6 +235,13 @@ private enum class Painel { NENHUM, VOZ, BUSCA }
 @OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = "", ocorrenciaInicial: Int = 0, blocoInicial: Int = -1) {
+    // no texto, cores calmas (azul e verde-água) em vez do laranja/roxo do resto do app
+    CoresDeLeitura { TelaLeitorCorpo(capId, nav, consultaInicial, ocorrenciaInicial, blocoInicial) }
+}
+
+@OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial: String, ocorrenciaInicial: Int, blocoInicial: Int) {
     val app = NovelyApp.instancia
     val repo = app.repo
     val prefs = app.prefs

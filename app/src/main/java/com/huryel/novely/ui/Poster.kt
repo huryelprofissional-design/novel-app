@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -36,6 +37,7 @@ import com.huryel.novely.ui.theme.Brilho
 @Composable
 fun PerfilPoster(
     foto: ImageBitmap?,
+    banner: ImageBitmap?,
     topo: @Composable RowScope.() -> Unit,
     nome: String,
     papel: String,
@@ -43,9 +45,10 @@ fun PerfilPoster(
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
     Box(Modifier.fillMaxSize().background(Color.Black).verticalScroll(rememberScrollState())) {
-        // topo: a foto ocupa a largura toda e some no preto; sem foto, um brilho laranja→roxo
+        // topo: o banner (ou a foto) ocupa a largura toda e some no preto; sem nada, um degradê
         Box(Modifier.fillMaxWidth().height(320.dp)) {
-            if (foto != null) Image(foto, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            val fundo = banner ?: foto
+            if (fundo != null) Image(fundo, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF5A2A12), Color(0xFF3A1458), Color(0xFF0A0A0A)))))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x88000000), 0.35f to Color(0x22000000), 1f to Color.Black)))
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, content = topo)
@@ -56,9 +59,7 @@ fun PerfilPoster(
                 .padding(horizontal = 20.dp, vertical = 20.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(80.dp).clip(CircleShape).background(Brush.sweepGradient(Brilho + Brilho.first())).padding(3.dp)
-                    .clip(CircleShape).background(Color(0xFF141414)).padding(3.dp).clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(Color(0xFFFF6A2B), Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(80.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(0xFFFF6A2B), Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
                     if (foto != null) Image(foto, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     else Text(nome.trim().take(1).uppercase().ifEmpty { "?" }, fontWeight = FontWeight.Black, fontSize = 30.sp, color = Color.White)
                 }
@@ -119,4 +120,12 @@ fun PilulaContorno(t: String, aoTocar: (() -> Unit)? = null) {
     Text(t, fontSize = 12.5.sp, color = Color(0xFFCCCCCC), maxLines = 1,
         modifier = Modifier.clip(RoundedCornerShape(14.dp)).border(1.dp, Color(0xFF444444), RoundedCornerShape(14.dp))
             .then(if (aoTocar != null) Modifier.clickable(onClick = aoTocar) else Modifier).padding(horizontal = 12.dp, vertical = 6.dp))
+}
+
+/** Paleta das telas de texto (leitor e editor): falas e enfeites em azul suave, nomes em verde-água. */
+@Composable
+fun CoresDeLeitura(conteudo: @Composable () -> Unit) {
+    val p = com.huryel.novely.ui.theme.LocalPaleta.current
+    val calma = remember(p) { p.copy(destaque = Color(0xFF8FB0E0), sobreDestaque = Color(0xFF0B1220), destaque2 = Color(0xFF7FD1C2), destaque3 = Color(0xFF8FB0E0)) }
+    androidx.compose.runtime.CompositionLocalProvider(com.huryel.novely.ui.theme.LocalPaleta provides calma) { conteudo() }
 }

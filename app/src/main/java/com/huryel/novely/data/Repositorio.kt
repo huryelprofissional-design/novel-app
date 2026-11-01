@@ -330,7 +330,7 @@ class Repositorio(ctx: Context) {
         val sql = banco.openHelper.writableDatabase
         sql.execSQL("DELETE FROM exclusoes"); sql.execSQL("DELETE FROM sincronia")
         for (pasta in listOf("textos", "imagens", "versoes", "lixeira")) java.io.File(ctxApp.filesDir, pasta).listFiles()?.forEach { it.deleteRecursively() }
-        listOf(prefs.ultimoPull, prefs.autorNome, prefs.bio, prefs.fotoPerfil, prefs.fotoHash, prefs.novidades, prefs.conflitos,
+        listOf(prefs.ultimoPull, prefs.autorNome, prefs.bio, prefs.fotoPerfil, prefs.fotoHash, prefs.bannerPerfil, prefs.bannerHash, prefs.novidades, prefs.conflitos,
             prefs.autoresSeguidos, prefs.colabs).forEach { it.definir("") }
         listOf(prefs.perfilAlteradoEm, prefs.perfilPublicadoEm, prefs.ultimaSinc).forEach { it.definir(0L) }
     }
@@ -449,6 +449,8 @@ class Preferencias(ctx: Context) {
     @Synchronized fun marcarContado(k: String) = contados.definir((contados.valor.split('\n').filter { it.isNotBlank() } + k).takeLast(3000).joinToString("\n"))
     val bio = texto("bio", "")
     val fotoPerfil = texto("fotoPerfil", "")
+    val bannerPerfil = texto("bannerPerfil", "")
+    val bannerHash = texto("bannerHash", "")
     /** Seções visíveis no Início, separadas por vírgula. */
     val secoesInicio = texto("secoesInicio", "CONT,ATALHO,LENDO,QUERO,RECEBIDAS,LIDAS")
 
