@@ -591,7 +591,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                     item { Spacer(Modifier.height(240.dp)) }
                 }
                 AnimatedVisibility(!modoFoco) {
-                    Column(Modifier.fillMaxWidth().background(p.superficie)) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp).vidro(RoundedCornerShape(26.dp))) {
                         if (textoSelecionado.isNotEmpty()) {
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

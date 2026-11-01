@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -128,4 +129,20 @@ fun CoresDeLeitura(conteudo: @Composable () -> Unit) {
     val p = com.huryel.novely.ui.theme.LocalPaleta.current
     val calma = remember(p) { p.copy(destaque = Color(0xFF8FB0E0), sobreDestaque = Color(0xFF0B1220), destaque2 = Color(0xFF7FD1C2), destaque3 = Color(0xFF8FB0E0)) }
     androidx.compose.runtime.CompositionLocalProvider(com.huryel.novely.ui.theme.LocalPaleta provides calma) { conteudo() }
+}
+
+/** Efeito de vidro: fundo escuro translúcido, brilho de cima para baixo e borda clara fininha (como vidro fosco). */
+fun Modifier.vidro(forma: androidx.compose.ui.graphics.Shape, base: Color = Color(0xE6181B21)): Modifier = this
+    .shadow(22.dp, forma, ambientColor = Color.Black, spotColor = Color.Black)
+    .clip(forma)
+    .background(base)
+    .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.11f), Color.White.copy(alpha = 0.02f))))
+    .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.38f), Color.White.copy(alpha = 0.07f))), forma)
+
+/** Pílula de vidro pequena (etiquetas como "Personagem"). */
+@Composable
+fun EtiquetaVidro(t: String, cor: Color = Color.White) {
+    Text(t, fontSize = 12.sp, color = cor, maxLines = 1,
+        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.06f))
+            .border(1.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(12.dp)).padding(horizontal = 11.dp, vertical = 4.dp))
 }

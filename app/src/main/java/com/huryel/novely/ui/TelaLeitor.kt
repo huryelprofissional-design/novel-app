@@ -698,8 +698,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             }
             AnimatedVisibility(controles, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp)
-                    .shadow(16.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(p.superficie.copy(alpha = 0.98f))
-                    .border(1.dp, p.borda, RoundedCornerShape(26.dp))) {
+                    .vidro(RoundedCornerShape(30.dp))) {
                     Row(Modifier.fillMaxWidth().height(66.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                         BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, { Icon(Icons.Filled.PlayArrow, null) }) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
                         BotaoBarra("Buscar", painel == Painel.BUSCA, { Icon(Icons.Filled.Search, null) }) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
@@ -723,7 +722,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         FolhaParagrafo(b[blocoSel].plano, marcasPorBloco[blocoSel], c.obraId, c.id, blocoSel, obra?.titulo ?: "", c.titulo, fichas,
             fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it })
     }
-    fichaVer?.let { f -> ModalBottomSheet(onDismissRequest = { fichaVer = null }, containerColor = p.superficie) { VerFicha(f, c.ordem) } }
+    fichaVer?.let { f -> ModalBottomSheet(onDismissRequest = { fichaVer = null }, containerColor = Color(0xF214171C),
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), dragHandle = { Box(Modifier.padding(top = 12.dp).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f))) }) { VerFicha(f, c.ordem) } }
     if (mostrarAjustes) ModalBottomSheet(onDismissRequest = { mostrarAjustes = false }, containerColor = p.superficie) { AjustesLeitura() }
     if (mostrarCapitulos) ModalBottomSheet(onDismissRequest = { mostrarCapitulos = false }, containerColor = p.superficie) {
         val estadoLista = rememberLazyListState((idx - 3).coerceAtLeast(0))
