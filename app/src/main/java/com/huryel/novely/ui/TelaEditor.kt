@@ -592,7 +592,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                     }
                     item { Spacer(Modifier.height(240.dp)) }
                 }
-                AnimatedVisibility(!modoFoco, Modifier.align(Alignment.BottomCenter)) {
+                androidx.compose.animation.AnimatedVisibility(visible = !modoFoco, modifier = Modifier.align(Alignment.BottomCenter)) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).vidroLiquido(vidroEd, 26.dp)) {
                         if (textoSelecionado.isNotEmpty()) {
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
