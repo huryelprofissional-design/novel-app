@@ -42,28 +42,33 @@ fun PerfilPoster(
     botoes: @Composable RowScope.() -> Unit,
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFB4B4B4), Color(0xFF5A5A5A), Color(0xFF1E1E1E))))) {
-        if (foto != null) Image(
-            foto, null, contentScale = ContentScale.Crop,
-            colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }),
-            modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp).fillMaxWidth(1.05f).fillMaxHeight(0.75f).blur(3.dp),
-        )
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x22000000), 1f to Color(0x99000000))))
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Box(Modifier.fillMaxSize().background(Color.Black).verticalScroll(rememberScrollState())) {
+        // topo: a foto ocupa a largura toda e some no preto; sem foto, um brilho laranja→roxo
+        Box(Modifier.fillMaxWidth().height(320.dp)) {
+            if (foto != null) Image(foto, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF5A2A12), Color(0xFF3A1458), Color(0xFF0A0A0A)))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x88000000), 0.35f to Color(0x22000000), 1f to Color.Black)))
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, content = topo)
-            Column(
-                Modifier.padding(start = 14.dp, end = 14.dp, top = 22.dp, bottom = 16.dp).fillMaxWidth()
-                    .clip(RoundedCornerShape(30.dp)).background(Color(0xD9141414)).border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(30.dp))
-                    .padding(horizontal = 22.dp, vertical = 14.dp),
-            ) {
-                Box(Modifier.align(Alignment.CenterHorizontally).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF555555)))
-                Row(Modifier.padding(top = 14.dp).fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    Text(nome.ifBlank { "Sem nome" } + "\n" + papel, fontWeight = FontWeight.Black, fontSize = 42.sp, lineHeight = 41.sp, letterSpacing = (-1).sp,
-                        color = Color.White, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Row(Modifier.padding(start = 8.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), content = botoes)
+        }
+        Column(
+            Modifier.padding(start = 12.dp, end = 12.dp, top = 210.dp, bottom = 16.dp).fillMaxWidth()
+                .clip(RoundedCornerShape(30.dp)).background(Color(0xFF141414)).border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(30.dp))
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(80.dp).clip(CircleShape).background(Brush.sweepGradient(Brilho + Brilho.first())).padding(3.dp)
+                    .clip(CircleShape).background(Color(0xFF141414)).padding(3.dp).clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(Color(0xFFFF6A2B), Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
+                    if (foto != null) Image(foto, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    else Text(nome.trim().take(1).uppercase().ifEmpty { "?" }, fontWeight = FontWeight.Black, fontSize = 30.sp, color = Color.White)
                 }
-                conteudo()
+                Spacer(Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = botoes)
             }
+            Text(papel.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp, color = Color(0xFFFF6A2B), modifier = Modifier.padding(top = 16.dp))
+            Text(nome.ifBlank { "Sem nome" }, fontWeight = FontWeight.Black, fontSize = 36.sp, lineHeight = 38.sp, letterSpacing = (-0.8).sp,
+                color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            conteudo()
         }
     }
 }
@@ -94,14 +99,15 @@ fun PilulaPreta(t: String, aoTocar: () -> Unit) {
         modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFF111111)).clickable(onClick = aoTocar).padding(horizontal = 14.dp, vertical = 10.dp))
 }
 
-/** Números do perfil (seguidores, obras…). */
+/** Números do perfil (seguidores, obras…) em caixinhas lado a lado. */
 @Composable
 fun NumerosPerfil(itens: List<Pair<String, String>>) {
-    Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(26.dp)) {
+    Row(Modifier.padding(top = 18.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         itens.forEach { (n, r) ->
-            Column {
-                Text(n, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = Color.White)
-                Text(r, fontSize = 12.sp, color = Color(0xFFAAAAAA))
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Color(0xFF1F1F1F)).padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(n, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White, maxLines = 1)
+                Text(r, fontSize = 11.sp, color = Color(0xFFAAAAAA), maxLines = 1)
             }
         }
     }

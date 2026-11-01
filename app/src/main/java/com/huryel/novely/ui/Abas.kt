@@ -611,28 +611,24 @@ fun TelaPerfilAba(nav: NavHostController) {
     PerfilPoster(
         img,
         topo = {
-            CirculoTopo(Icons.Filled.Settings, "Ajustes") { nav.navigate("ajustes") }
-            Spacer(Modifier.width(8.dp))
+            Text("Perfil", fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color.White, modifier = Modifier.weight(1f).padding(start = 4.dp))
             CirculoTopo(Icones.lupa, "Buscar") { nav.navigate("buscar") }
-            Spacer(Modifier.weight(1f))
-            PilulaPreta("Editar perfil") { editando = true }
+            Spacer(Modifier.width(8.dp))
+            CirculoTopo(Icons.Filled.Settings, "Ajustes") { nav.navigate("ajustes") }
         },
         nome = nome.ifBlank { "Seu nome" },
-        papel = if (minhas.isNotEmpty()) "Autor" else "Leitor",
-        botoes = {
-            BotaoRedondo(Icones.estrela, "Estatísticas", true) { nav.navigate("estatisticas") }
-            BotaoRedondo(Icones.perfil, "Perfil público", false) { nav.navigate("autor/${app.pub.meuUid}") }
-        },
+        papel = if (minhas.isNotEmpty()) "Autor · ${minhas.size} ${if (minhas.size == 1) "obra" else "obras"}" else "Leitor",
+        botoes = { BotaoBranco("Editar perfil", Modifier.height(44.dp)) { editando = true } },
     ) {
         Text("☁ " + textoSinc(estSinc, ultSinc), fontSize = 12.sp, color = Color(0xFFAAAAAA), modifier = Modifier.padding(top = 6.dp).clickable { nav.navigate("ajustes/conta") })
         Text(bio.ifBlank { "Toque em Editar perfil para escrever sua bio." }, fontSize = 14.sp, lineHeight = 20.sp,
             color = if (bio.isBlank()) Color(0xFF888888) else Color.White, modifier = Modifier.padding(top = 10.dp))
         NumerosPerfil(listOf(
-            milharCurto(meuPerfil?.seguidores ?: 0) to "Seguidores", "${minhas.size}" to "Obras",
-            formatarPalavras(minhas.sumOf { it.totalPalavras }) to "Palavras", "$seq🔥" to "Dias",
+            milharCurto(meuPerfil?.seguidores ?: 0) to "seguidores", formatarPalavras(minhas.sumOf { it.totalPalavras }) to "palavras",
+            "%.0f h".format(horasLidas) to "lendo", "$seq🔥" to "dias",
         ))
         Row(Modifier.padding(top = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PilulaContorno("%.1f h lendo".format(horasLidas).replace('.', ',')) { nav.navigate("estatisticas") }
+            PilulaContorno("📊 Estatísticas") { nav.navigate("estatisticas") }
             PilulaContorno("Meu perfil público") { nav.navigate("autor/${app.pub.meuUid}") }
             PilulaContorno("Conta e nuvem") { nav.navigate("ajustes/conta") }
         }
