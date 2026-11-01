@@ -350,7 +350,7 @@ fun TelaBibliotecaAba(nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
     TopoAba("Biblioteca", nav)
     LazyVerticalGrid(GridCells.Fixed(if (grade) 3 else 1), Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 30.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 120.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(if (grade) 18.dp else 6.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
@@ -441,7 +441,7 @@ fun TelaEscreverAba(nav: NavHostController) {
     var escolherFichas by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 200.dp)) {
             item { TopoAba("Escrever", nav) }
             item {
                 val f = (hoje.toFloat() / meta.coerceAtLeast(1f)).coerceIn(0f, 1f)
@@ -501,7 +501,7 @@ fun TelaEscreverAba(nav: NavHostController) {
                 }
             }
         }
-        Box(Modifier.align(Alignment.BottomEnd).padding(18.dp)) {
+        Box(Modifier.align(Alignment.BottomEnd).padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 112.dp)) {
             Box(Modifier.size(58.dp).shadow(14.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(p.destaque).clickable { menuNovo = true },
                 contentAlignment = Alignment.Center) { Icon(Icones.mais, "Nova", tint = p.sobreDestaque, modifier = Modifier.size(28.dp)) }
             DropdownMenu(menuNovo, { menuNovo = false }) {

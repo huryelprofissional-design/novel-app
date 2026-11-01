@@ -97,7 +97,7 @@ fun TelaDescobrirCatalogo(nav: NavHostController) {
     val filtrada = lista?.filter { q.isEmpty() || it.titulo.lowercase().contains(q) || it.autorNome.lowercase().contains(q) || it.tags.any { t -> t.contains(q) } }
 
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(lista == null && recarregar > 0, onRefresh = { recarregar++ }, modifier = Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 120.dp)) {
         item { TopoAba("Descobrir", nav) }
         item {
             OutlinedTextField(busca, { busca = it }, placeholder = { Text("Obras, autores, tags…") }, singleLine = true, shape = RoundedCornerShape(14.dp),

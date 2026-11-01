@@ -55,7 +55,7 @@ fun PerfilPoster(
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, content = topo)
         }
         Column(
-            Modifier.padding(start = 12.dp, end = 12.dp, top = 210.dp, bottom = 16.dp).fillMaxWidth()
+            Modifier.padding(start = 12.dp, end = 12.dp, top = 210.dp, bottom = 110.dp).fillMaxWidth()
                 .clip(RoundedCornerShape(30.dp)).background(Color(0xFF141414)).border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(30.dp))
                 .padding(horizontal = 20.dp, vertical = 20.dp),
         ) {

@@ -393,7 +393,7 @@ fun TelaInicioNova(nav: NavHostController) {
             atualizando = false
         }
     }, modifier = Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 120.dp)) {
         item { TopoAba(null, nav) }
         item {
             Text("$saudacao${if (nome.isNotBlank()) ", ${nome.substringBefore(' ')}" else ""}", fontSize = 13.sp, color = p.textoSuave,

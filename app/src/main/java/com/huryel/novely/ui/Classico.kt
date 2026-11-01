@@ -97,26 +97,26 @@ private fun Barra(f: Float, modifier: Modifier, altura: Int = 4) {
 
 /** Barra de navegação inferior. */
 @Composable
-fun BarraTema(abas: List<Triple<String, String, ImageVector>>, atual: String?, ir: (String) -> Unit) {
-    // estilo Pôster: pílula flutuante, só ícones; o selecionado ganha um círculo com brilho laranja→roxo
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 22.dp, end = 22.dp, bottom = 12.dp, top = 4.dp)) {
-        Row(
-            Modifier.fillMaxWidth().height(64.dp).shadow(18.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp))
-                .background(Color(0xF0221F1C)).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
-            horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically,
-        ) {
-            abas.forEach { (r, rot, ic) ->
-                val sel = r == atual
-                Box(
-                    Modifier.size(48.dp).clip(CircleShape).clickable { ir(r) }
-                        .then(if (sel) Modifier.drawBehind {
-                            drawCircle(Brush.radialGradient(listOf(Color(0x99C13DFF), Color.Transparent), radius = size.minDimension * 0.75f), radius = size.minDimension * 0.75f)
-                        } else Modifier),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (sel) Box(Modifier.size(44.dp).clip(CircleShape).background(Brush.radialGradient(com.huryel.novely.ui.theme.Brilho)), contentAlignment = Alignment.Center) {
-                        Icon(ic, rot, tint = Color.White, modifier = Modifier.size(23.dp))
-                    } else Icon(ic, rot, tint = Color(0xFFA8A8A8), modifier = Modifier.size(24.dp))
+fun BarraTema(abas: List<Triple<String, String, ImageVector>>, atual: String?, vidro: EstadoVidro? = null, ir: (String) -> Unit) {
+    // vidro líquido com uma "lente" que desliza (com um pulinho) até a aba escolhida
+    val idx = abas.indexOfFirst { it.first == atual }.coerceAtLeast(0)
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp)) {
+        val larg = (maxWidth - 16.dp) / abas.size
+        val x by androidx.compose.animation.core.animateDpAsState(larg * idx,
+            androidx.compose.animation.core.spring(dampingRatio = 0.62f, stiffness = 320f), label = "lente")
+        Box(Modifier.fillMaxWidth().height(78.dp).vidroLiquido(vidro, 39.dp, borda = 24.dp, forca = 48.dp).padding(8.dp)) {
+            Box(Modifier.offset(x = x).width(larg).fillMaxHeight().clip(RoundedCornerShape(31.dp))
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.08f))))
+                .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.05f))), RoundedCornerShape(31.dp)))
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                abas.forEach { (r, rot, ic) ->
+                    val sel = r == atual
+                    val cor = if (sel) Color.White else Color.White.copy(alpha = 0.72f)
+                    Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(31.dp)).clickable { ir(r) },
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Icon(ic, rot, tint = cor, modifier = Modifier.size(24.dp))
+                        Text(rot, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = cor, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+                    }
                 }
             }
         }

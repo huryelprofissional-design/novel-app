@@ -128,17 +128,11 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         containerColor = p.fundo,
         contentColor = p.texto,
         contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
-        bottomBar = {
-            androidx.compose.animation.AnimatedVisibility(mostrarBarra && barraVisivel,
-                enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()) {
-                BarraTema(abas.map { Triple(it.rota, it.rotulo, it.icone) }, rota) { r -> irAba(nav, r) }
-            }
-        },
     ) { margem ->
         val idArg = listOf(navArgument("id") { type = NavType.LongType })
+        val vidroApp = rememberVidro()
         Box(Modifier.fillMaxSize().padding(margem).consumeWindowInsets(margem).nestedScroll(rolagem)) {
-        NavHost(nav, startDestination = "inicio", modifier = Modifier.fillMaxSize(),
+        NavHost(nav, startDestination = "inicio", modifier = Modifier.fillMaxSize().background(p.fundo).fonteVidro(vidroApp),
             enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 10 } },
             exitTransition = { fadeOut(tween(160)) },
             popEnterTransition = { fadeIn(tween(220)) },
@@ -194,6 +188,12 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("importar/{id}", idArg) { e -> TelaImportar(nav, e.arguments!!.getLong("id")) }
             composable("backup") { TelaBackup(nav) }
             composable("atualizar") { TelaAtualizar(nav) }
+        }
+        // barra de abas de vidro líquido, flutuando por cima do conteúdo (some ao rolar para baixo)
+        androidx.compose.animation.AnimatedVisibility(mostrarBarra && barraVisivel, Modifier.align(Alignment.BottomCenter),
+            enter = androidx.compose.animation.slideInVertically { it } + fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically { it } + fadeOut()) {
+            BarraTema(abas.map { Triple(it.rota, it.rotulo, it.icone) }, rota, vidroApp) { r -> irAba(nav, r) }
         }
         AvisosGlobais(nav, rota)
         // notificação tocada → avisos; e pedir permissão de notificação uma vez (Android 13+)
