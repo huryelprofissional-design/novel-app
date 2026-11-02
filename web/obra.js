@@ -94,6 +94,7 @@ function menuCap(id, o, caps, c, ancora, pode) {
   const i = caps.indexOf(c);
   const itens = [];
   if (pode) {
+    itens.push(["✨ Estúdio de IA", () => ir(`/ia/${id}/${c.id}`)]);
     itens.push(["Renomear", async () => { const t = await perguntar("Título do capítulo", c.titulo); if (t === null) return; await salvarCapitulo(id, c.id, { titulo: t.trim() }); window.redesenhar(); }]);
     if (o.publicada) {
       if (!c.publicadoEm || c.publicadoEm > agora()) itens.push(["Publicar agora", async () => { toast("Publicando…"); await publicarCapitulos(id, [c]); toast("Capítulo publicado!"); window.redesenhar(); }]);
@@ -132,6 +133,7 @@ function menuObra(id, ancora) {
   const o = E.obras.get(id); const pode = o.minha && !o.trancada;
   const itens = [];
   if (pode) {
+    itens.push(["✨ Estúdio de IA", () => ir(`/ia/${id}`)]);
     itens.push(["Editar título, sinopse e status", () => editarDetalhes(id)]);
     itens.push(["Trocar capa", () => trocarImagem(id, "capa")], ["Trocar banner", () => trocarImagem(id, "banner")]);
     itens.push([o.publicada ? "Publicação" : "Publicar no catálogo", () => ir(`/publicar/${id}`)]);

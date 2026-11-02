@@ -9,6 +9,7 @@ import {
 import "./obra.js";
 import "./leitor.js";
 import "./catalogo.js";
+import "./ia.js";
 
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); E.instalar = e; });
 
@@ -140,6 +141,7 @@ rota("/escrever", async () => {
     ${minhas.length ? `<div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : STATUS_NOME[o.status] || "")).join("")}</div>` : `<div class="card vazio"><b>Crie sua primeira obra.</b><span class="suave">Ela aparece no celular também.</span></div>`}
     <div class="sec"><h2>Ferramentas</h2></div>
     <div class="ferramentas">
+      ${minhas.length ? `<a class="card ferr ferr-ia" href="#/ia/${minhas[0].id}"><b>✨ Estúdio de IA</b><span class="suave peq">Prompts com todo o contexto da obra</span></a>` : ""}
       <a class="card ferr" href="#/nomes"><b>Gerador de nomes</b><span class="suave peq">Coreano, japonês, chinês, fantasia…</span></a>
       <a class="card ferr" href="#/colaborar"><b>Colaboração</b><span class="suave peq">Coautores e revisores por código</span></a>
       <a class="card ferr" href="#/generos"><b>Gêneros</b><span class="suave peq">Veja o que está em alta em cada um</span></a>

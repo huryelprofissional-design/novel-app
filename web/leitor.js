@@ -235,7 +235,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
       <button data-ins="@" class="cor-nome" title="Personagem">@</button><button data-ins="&" class="cor-lugar" title="Lugar">&amp;</button><span class="div"></span>
       <button data-fala title="Nova fala">—</button><button data-env="**" title="Negrito (Ctrl+B)"><b>B</b></button><button data-env="*" title="Itálico (Ctrl+I)"><i>I</i></button><button data-ins="“" title="Aspas">“ ”</button>
       <button data-ins="\n\n* * *\n\n" title="Separador de cena">◆</button><button data-ins="\n# " title="Subtítulo">H</button><span class="div"></span>
-      <button id="bbusca" title="Buscar e substituir (Ctrl+F)">⌕ Buscar</button><button id="bfichas" title="Personagens">☺ Fichas</button><button id="bfoco" title="Modo foco">⛶ Foco</button>
+      <button id="bbusca" title="Buscar e substituir (Ctrl+F)">⌕ Buscar</button><button id="bfichas" title="Personagens">☺ Fichas</button><button id="bfoco" title="Modo foco">⛶ Foco</button><button id="bia" class="ia-btn" title="Estúdio de IA">✨ IA</button>
     </div>
     <div class="busca-ed vidro" id="busca" hidden><input class="campo" id="q" placeholder="Buscar…"><input class="campo" id="r" placeholder="Substituir por…"><span class="suave peq" id="qn"></span>
       <button class="btn2 peq" id="qant">‹</button><button class="btn2 peq" id="qprox">›</button><button class="btn2 peq" id="rum">Substituir</button><button class="btn2 peq" id="rtodos">Todos</button><button class="btn2 peq" id="qx">✕</button></div>
@@ -256,6 +256,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     gravando = false;
     if (ta.value !== salvo || ti.value !== tituloSalvo) agendar();
   };
+  $("#bia").onclick = async () => { clearTimeout(tempo); await salvar(); ir(`/ia/${obraId}/${capId}`); };
   const agendar = () => { clearTimeout(tempo); est.textContent = "Editando…"; est.style.color = "var(--suave)"; tempo = setTimeout(salvar, 1500); };
   const inserir = (s, envolver = false) => {
     ta.focus(); const a = ta.selectionStart, b = ta.selectionEnd; const sel = ta.value.slice(a, b);
