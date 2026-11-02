@@ -196,6 +196,8 @@ private object Nomes {
     val silabasOriente = listOf("ka", "ri", "shin", "yun", "hae", "jin", "mu", "ryu", "seo", "han", "ten", "lin", "xiao", "mei", "wei", "zhen", "kai", "sora", "en", "ga", "yeon", "hwa", "jun", "tae", "ming")
     val silabasOcidente = listOf("al", "ric", "el", "dor", "an", "thar", "is", "mar", "ven", "lor", "ae", "wyn", "ca", "rin", "dra", "kel", "os", "the", "ra", "vel", "ion", "bran", "syl", "mor", "eth")
     val silabasBr = listOf("ra", "fa", "el", "lu", "ca", "jo", "ão", "ma", "ri", "ta", "be", "ni", "ce", "lo", "di", "go", "vi", "na", "ru", "be", "ga", "te")
+    val nomesBr = listOf("Ana", "Beatriz", "Camila", "Clara", "Helena", "Isabela", "Júlia", "Larissa", "Letícia", "Luana", "Manuela", "Mariana", "Marina", "Natália", "Rafaela", "Sofia", "Valentina", "Yasmin", "Lívia", "Cecília", "Alice", "Lorena", "Bianca", "Giovana", "Heloísa", "Elisa", "Aurora", "Iara", "Maitê", "Jade", "Arthur", "Bernardo", "Caio", "Daniel", "Davi", "Eduardo", "Enzo", "Felipe", "Gabriel", "Gustavo", "Heitor", "Henrique", "Igor", "João", "Leonardo", "Lucas", "Matheus", "Miguel", "Murilo", "Otávio", "Pedro", "Rafael", "Renan", "Samuel", "Thiago", "Vicente", "Vinícius", "Benício", "Caetano", "Joaquim")
+    val sobrenomesBr = listOf("Albuquerque", "Almeida", "Andrade", "Barbosa", "Barros", "Bezerra", "Braga", "Cardoso", "Carvalho", "Castro", "Cavalcanti", "Correia", "Costa", "Duarte", "Farias", "Fernandes", "Ferraz", "Freitas", "Galvão", "Gomes", "Lacerda", "Lima", "Macedo", "Medeiros", "Monteiro", "Moraes", "Nascimento", "Nogueira", "Pacheco", "Peixoto", "Pereira", "Queiroz", "Ramos", "Rezende", "Ribeiro", "Rocha", "Sampaio", "Siqueira", "Souza", "Tavares", "Teixeira", "Vasconcelos", "Vieira", "Xavier")
     val lugarPre = listOf("Pico", "Vale", "Cidade", "Torre", "Floresta", "Abismo", "Ilha", "Templo", "Portão", "Mar", "Planície", "Fortaleza", "Seita", "Reino", "Lago")
     val lugarPos = listOf("das Cinzas", "do Lótus Negro", "Celestial", "dos Mil Ventos", "Esquecido", "da Lua Partida", "de Jade", "do Dragão Adormecido", "Carmesim",
         "das Nove Névoas", "Sem Nome", "do Sol Poente", "de Ferro", "das Almas", "Eterno")
@@ -210,7 +212,8 @@ private object Nomes {
     fun gerar(tipo: String, r: Random): String = when (tipo) {
         "ORIENTE" -> palavra(silabasOriente, r, 1, 1) + " " + palavra(silabasOriente, r, 2, 2).let { it.substring(0, 1).uppercase() + it.substring(1) }
         "OCIDENTE" -> palavra(silabasOcidente, r) + if (r.nextInt(3) == 0) " " + palavra(silabasOcidente, r, 2, 3) else ""
-        "BR" -> palavra(silabasBr, r, 2, 3)
+        "BR" -> nomesBr[r.nextInt(nomesBr.size)] + " " + sobrenomesBr[r.nextInt(sobrenomesBr.size)] +
+            if (r.nextInt(3) == 0) " " + sobrenomesBr[r.nextInt(sobrenomesBr.size)] else ""
         "LUGAR" -> lugarPre[r.nextInt(lugarPre.size)] + " " + lugarPos[r.nextInt(lugarPos.size)]
         "TECNICA" -> tecA[r.nextInt(tecA.size)] + " " + tecB[r.nextInt(tecB.size)]
         else -> palavra(if (r.nextBoolean()) silabasOriente else silabasOcidente, r) + ", " + titulos[r.nextInt(titulos.size)]

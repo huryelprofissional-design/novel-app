@@ -179,6 +179,8 @@ const N = {
   ori: ["ka", "ri", "shin", "yun", "hae", "jin", "mu", "ryu", "seo", "han", "ten", "lin", "xiao", "mei", "wei", "zhen", "kai", "sora", "en", "ga", "yeon", "hwa", "jun", "tae", "ming"],
   oci: ["al", "ric", "el", "dor", "an", "thar", "is", "mar", "ven", "lor", "ae", "wyn", "ca", "rin", "dra", "kel", "os", "the", "ra", "vel", "ion", "bran", "syl", "mor", "eth"],
   br: ["ra", "fa", "el", "lu", "ca", "jo", "ão", "ma", "ri", "ta", "be", "ni", "ce", "lo", "di", "go", "vi", "na", "ru", "be", "ga", "te"],
+  nb: ["Ana", "Beatriz", "Camila", "Clara", "Helena", "Isabela", "Júlia", "Larissa", "Letícia", "Luana", "Manuela", "Mariana", "Marina", "Natália", "Rafaela", "Sofia", "Valentina", "Yasmin", "Lívia", "Cecília", "Alice", "Lorena", "Bianca", "Giovana", "Heloísa", "Elisa", "Aurora", "Iara", "Maitê", "Jade", "Arthur", "Bernardo", "Caio", "Daniel", "Davi", "Eduardo", "Enzo", "Felipe", "Gabriel", "Gustavo", "Heitor", "Henrique", "Igor", "João", "Leonardo", "Lucas", "Matheus", "Miguel", "Murilo", "Otávio", "Pedro", "Rafael", "Renan", "Samuel", "Thiago", "Vicente", "Vinícius", "Benício", "Caetano", "Joaquim"],
+  sb: ["Albuquerque", "Almeida", "Andrade", "Barbosa", "Barros", "Bezerra", "Braga", "Cardoso", "Carvalho", "Castro", "Cavalcanti", "Correia", "Costa", "Duarte", "Farias", "Fernandes", "Ferraz", "Freitas", "Galvão", "Gomes", "Lacerda", "Lima", "Macedo", "Medeiros", "Monteiro", "Moraes", "Nascimento", "Nogueira", "Pacheco", "Peixoto", "Pereira", "Queiroz", "Ramos", "Rezende", "Ribeiro", "Rocha", "Sampaio", "Siqueira", "Souza", "Tavares", "Teixeira", "Vasconcelos", "Vieira", "Xavier"],
   lp: ["Pico", "Vale", "Cidade", "Torre", "Floresta", "Abismo", "Ilha", "Templo", "Portão", "Mar", "Planície", "Fortaleza", "Seita", "Reino", "Lago"],
   ls: ["das Cinzas", "do Lótus Negro", "Celestial", "dos Mil Ventos", "Esquecido", "da Lua Partida", "de Jade", "do Dragão Adormecido", "Carmesim", "das Nove Névoas", "Sem Nome", "do Sol Poente", "de Ferro", "das Almas", "Eterno"],
   ta: ["Lâmina", "Punho", "Palma", "Passo", "Espada", "Chama", "Selo", "Olho", "Canção", "Corte", "Escudo", "Garra", "Lança"],
@@ -190,7 +192,7 @@ const palavra = (s, a = 2, b = 3) => { const n = a + Math.floor(Math.random() * 
 function gerarNome(t) {
   if (t === "ORIENTE") return palavra(N.ori, 1, 1) + " " + palavra(N.ori, 2, 2);
   if (t === "OCIDENTE") return palavra(N.oci) + (Math.random() < .33 ? " " + palavra(N.oci, 2, 3) : "");
-  if (t === "BR") return palavra(N.br);
+  if (t === "BR") { const a = sorte(N.sb); let b = sorte(N.sb); if (b === a) b = sorte(N.sb); return sorte(N.nb) + " " + a + (Math.random() < .33 && b !== a ? " " + b : ""); }
   if (t === "LUGAR") return sorte(N.lp) + " " + sorte(N.ls);
   if (t === "TECNICA") return sorte(N.ta) + " " + sorte(N.tb);
   return palavra(Math.random() < .5 ? N.ori : N.oci) + ", " + sorte(N.ti);
