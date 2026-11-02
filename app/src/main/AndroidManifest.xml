@@ -16,11 +16,6 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
             <!-- Abrir com Novely: obras publicadas (.novely), EPUB e TXT -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -43,6 +38,72 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <!-- Ícones do app (Ajustes › Aparência): só um fica ligado por vez -->
+        <activity-alias
+            android:name=".IconePadrao"
+            android:targetActivity=".MainActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
+        </activity-alias>
+        <activity-alias
+            android:name=".IconeLaranja"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_laranja"
+            android:roundIcon="@mipmap/ic_launcher_laranja">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
+        </activity-alias>
+        <activity-alias
+            android:name=".IconeRoxo"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_roxo"
+            android:roundIcon="@mipmap/ic_launcher_roxo">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
+        </activity-alias>
+        <activity-alias
+            android:name=".IconeBrilho"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_brilho"
+            android:roundIcon="@mipmap/ic_launcher_brilho">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
+        </activity-alias>
+        <activity-alias
+            android:name=".IconeBranco"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_branco"
+            android:roundIcon="@mipmap/ic_launcher_branco">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
+        </activity-alias>
         <receiver android:name=".data.WidgetNovely" android:exported="true" android:label="Novely">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_novely_info" />

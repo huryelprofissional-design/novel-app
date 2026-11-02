@@ -29,6 +29,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -497,7 +498,7 @@ fun TelaEscreverAba(nav: NavHostController) {
                         if (minhas.size == 1) nav.navigate("fichas/${minhas[0].id}") else escolherFichas = true
                     }
                     Ferramenta("Colaborar", "entrar com código de convite") { nav.navigate("colaborar") }
-                    Ferramenta("Estatísticas", "leitura e escrita") { nav.navigate("estatisticas") }
+                    Ferramenta("Painel do escritor", "palavras, sequência, melhor horário") { nav.navigate("painel") }
                 }
             }
         }
@@ -629,7 +630,7 @@ fun TelaPerfilAba(nav: NavHostController) {
             "%.0f h".format(horasLidas) to "lendo", "$seq🔥" to "dias",
         ))
         Row(Modifier.padding(top = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PilulaContorno("📊 Estatísticas") { nav.navigate("estatisticas") }
+            PilulaContorno("📊 Painel do escritor") { nav.navigate("painel") }
             PilulaContorno("Meu perfil público") { nav.navigate("autor/${app.pub.meuUid}") }
             PilulaContorno("Conta e nuvem") { nav.navigate("ajustes/conta") }
         }
@@ -645,6 +646,8 @@ fun TelaPerfilAba(nav: NavHostController) {
                 items(lendo, key = { it.id }) { o -> CapaPerfil(o) { nav.navigate("obra/${o.id}") } }
             }
         }
+        SecaoConquistas()
+        SecaoCitacoes()
         Spacer(Modifier.height(10.dp))
     }
     if (editando) DialogoPerfil { editando = false }
@@ -713,7 +716,7 @@ fun TelaAjustesNova(nav: NavHostController) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Topo("Ajustes", nav)
         Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ItemAjuste("Aparência", "Efeito de vidro nas barras") { nav.navigate("ajustes/aparencia") }
+            ItemAjuste("Aparência", "Vidro das barras e ícone do app") { nav.navigate("ajustes/aparencia") }
             ItemAjuste("Escrita", "Meta diária de palavras") { nav.navigate("ajustes/escrita") }
             ItemAjuste("Conta", "Entrar com Google ou e-mail (em breve)") { nav.navigate("ajustes/conta") }
             ItemAjuste("Privacidade", "Pedir digital ou senha ao abrir") { nav.navigate("ajustes/privacidade") }
@@ -765,6 +768,20 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
                             }
                         }
                     }
+                    Text("ÍCONE DO APP", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
+                    val icone by app.prefs.iconeApp.estado.collectAsState()
+                    val ctxIcone = androidx.compose.ui.platform.LocalContext.current
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IconesApp.opcoes.forEach { (k, cores) ->
+                            Box(Modifier.size(58.dp).clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(cores))
+                                .border(if (icone == k) 3.dp else 0.dp, if (icone == k) Color.White else Color.Transparent, RoundedCornerShape(16.dp))
+                                .clickable { IconesApp.trocar(ctxIcone, k) }, contentAlignment = Alignment.Center) {
+                                Image(painterResource(if (k == "BRANCO") com.huryel.novely.R.mipmap.ic_launcher_foreground_preto else com.huryel.novely.R.mipmap.ic_launcher_foreground_claro),
+                                    null, modifier = Modifier.fillMaxSize())
+                            }
+                        }
+                    }
+                    Text("Ao trocar, o ícone some da tela inicial por um instante e volta com a cor nova (pode ser preciso pôr de novo na tela inicial).", fontSize = 12.sp, color = p.textoSuave)
                 }
             }
             "escrita" -> {

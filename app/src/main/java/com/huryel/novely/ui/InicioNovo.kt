@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -148,21 +149,59 @@ fun CabSecao(titulo: String, sub: String? = null, link: String? = null, aoTocar:
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun Apertavel(modifier: Modifier = Modifier, aoTocar: () -> Unit, conteudo: @Composable () -> Unit) {
+private fun Apertavel(modifier: Modifier = Modifier, aoTocar: () -> Unit, segurar: (() -> Unit)? = null, conteudo: @Composable () -> Unit) {
     val i = remember { MutableInteractionSource() }
     val apertado by i.collectIsPressedAsState()
     val e by animateFloatAsState(if (apertado) 0.95f else 1f, label = "e")
-    Box(modifier.graphicsLayer { scaleX = e; scaleY = e }.clickable(i, null, onClick = aoTocar)) { conteudo() }
+    val vibrar = androidx.compose.ui.platform.LocalHapticFeedback.current
+    Box(modifier.graphicsLayer { scaleX = e; scaleY = e }.combinedClickable(i, null, onClick = aoTocar,
+        onLongClick = segurar?.let { s -> { vibrar.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); s() } })) { conteudo() }
+}
+
+/** Prévia ao segurar um pôster/capa: sinopse e primeira frase sem abrir a obra. */
+@Composable
+fun PreviaObra(o: ObraPublica, nav: NavHostController, fechar: () -> Unit) {
+    val bytes by produceState(o.capaMini, o.id) { value = CachePoster.capa(o.id) ?: o.capaMini }
+    val inicio by produceState("", o.id) { value = NovelyApp.instancia.pub.inicioDaObra(o.id) }
+    val img = imagemDeBytes(bytes)
+    val cor = rememberCorBytes(o.capaMini) ?: com.huryel.novely.ui.theme.Laranja
+    androidx.compose.ui.window.Dialog(onDismissRequest = fechar, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(Modifier.padding(horizontal = 26.dp).fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(Color(0xF01A1A1C))
+            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(30.dp))) {
+            Box(Modifier.fillMaxWidth().height(210.dp)) {
+                if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 1f to Color(0xF01A1A1C))))
+                Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 28.sp, lineHeight = 28.sp, color = Color.White, maxLines = 3,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(16.dp))
+            }
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SeloPoster(if (System.currentTimeMillis() - o.atualizadaEm < 3 * 86_400_000L) "NOVO CAP" else if (o.status == StatusObra.CONCLUIDA) "CONCLUÍDA" else "EM ANDAMENTO", cor)
+                    Text("  ${o.generos.take(2).joinToString(" · ")} · ${o.numCaps} caps", fontSize = 11.5.sp, color = Color(0xFFBBBBBB), maxLines = 1)
+                }
+                if (o.sinopse.isNotBlank()) Text(o.sinopse, fontSize = 13.5.sp, lineHeight = 19.sp, color = Color(0xFFDDDDDD), maxLines = 5, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
+                if (inicio.isNotBlank()) Text("“$inicio…”", fontFamily = com.huryel.novely.ui.theme.Newsreader, fontSize = 14.sp, lineHeight = 20.sp, color = Color(0xFF9A9A9A),
+                    maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
+                Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BotaoBranco("Ver obra", Modifier.weight(1f)) { fechar(); nav.navigate("pub/${o.id}") }
+                    Box(Modifier.weight(1f).height(58.dp).clip(RoundedCornerShape(29.dp)).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = fechar), contentAlignment = Alignment.Center) {
+                        Text("Fechar", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
 }
 
 private fun notaTxt(o: ObraPublica) = if (o.numEstrelas > 0) "★ %.1f".format(o.nota).replace('.', ',') else "novo"
 private fun mil(n: Long) = when { n >= 1_000_000 -> "%.1f mi".format(n / 1e6).replace('.', ','); n >= 1000 -> "%.1f mil".format(n / 1e3).replace('.', ','); else -> "$n" }
 
 @Composable
-fun CartaoPublico(o: ObraPublica, largura: Dp?, posicao: Int? = null, aoTocar: () -> Unit) {
+fun CartaoPublico(o: ObraPublica, largura: Dp?, posicao: Int? = null, segurar: (() -> Unit)? = null, aoTocar: () -> Unit) {
     val p = LocalPaleta.current
-    Apertavel(if (largura != null) Modifier.width(largura) else Modifier.fillMaxWidth(), aoTocar) {
+    Apertavel(if (largura != null) Modifier.width(largura) else Modifier.fillMaxWidth(), aoTocar, segurar) {
         Column {
             Box {
                 CapaPublica(o, Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(20.dp)))
@@ -184,7 +223,11 @@ fun CartaoPublico(o: ObraPublica, largura: Dp?, posicao: Int? = null, aoTocar: (
 private fun FileiraPublica(lista: List<ObraPublica>?, nav: NavHostController, largura: Dp = 116.dp, ranking: Boolean = false) {
     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(if (ranking) 16.dp else 12.dp)) {
         if (lista == null) items(4) { Esqueleto(largura, largura / 0.7f) }
-        else itemsIndexed(lista, key = { _, o -> o.id }) { i, o -> CartaoPublico(o, largura, if (ranking) i + 1 else null) { nav.navigate("pub/${o.id}") } }
+        else itemsIndexed(lista, key = { _, o -> o.id }) { i, o ->
+            var previa by remember { mutableStateOf(false) }
+            if (previa) PreviaObra(o, nav) { previa = false }
+            CartaoPublico(o, largura, if (ranking) i + 1 else null, segurar = { previa = true }) { nav.navigate("pub/${o.id}") }
+        }
     }
 }
 
@@ -197,7 +240,9 @@ fun PosterObra(o: ObraPublica, nav: NavHostController, selo: String?, largura: D
     val bytes by produceState(o.capaMini, o.id) { value = CachePoster.capa(o.id) ?: o.capaMini }
     val img = imagemDeBytes(bytes)
     var segue by remember(o.autorUid) { mutableStateOf(pub.segueAutor(o.autorUid)) }
-    Apertavel(Modifier.width(largura).height(largura * 1.3f), { nav.navigate("pub/${o.id}") }) {
+    var previa by remember { mutableStateOf(false) }
+    if (previa) PreviaObra(o, nav) { previa = false }
+    Apertavel(Modifier.width(largura).height(largura * 1.3f), { nav.navigate("pub/${o.id}") }, { previa = true }) {
         Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp))) {
             if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             else CapaObra(o.titulo, null, .5f, .5f, 1f, 0xFF3B2A4A, Modifier.fillMaxSize(), 12.sp, semCantos = true, mostrarTitulo = false)

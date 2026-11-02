@@ -171,6 +171,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             ) { e -> TelaLeitor(e.arguments!!.getLong("id"), nav, e.arguments!!.getString("q") ?: "", e.arguments!!.getInt("n"), e.arguments!!.getInt("b")) }
             composable("marcadores/{id}", idArg) { e -> TelaMarcadores(e.arguments!!.getLong("id"), nav) }
             composable("estatisticas") { TelaEstatisticas(nav) }
+            composable("painel") { TelaPainel(nav) }
             composable("editor/{id}", idArg) { e -> TelaEditor(e.arguments!!.getLong("id"), nav) }
             composable(
                 "imagem/{id}/{tipo}",

@@ -495,7 +495,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                 dismissButton = { TextButton(onClick = { sessaoResultado = null }) { Text("Fechar") } })
         }
         when (dialogo) {
-            "resumo" -> DialogoTexto("Resumo do capítulo", "O que acontece neste capítulo (2–4 frases)", c.resumo, multilinha = true,
+            "resumo" -> DialogoTexto("Resumo do capítulo", "O que acontece (2–4 frases). Aparece como “Anteriormente…” no começo do próximo capítulo", c.resumo, multilinha = true,
                 aoFechar = { dialogo = "" }) { r -> dialogo = ""; val n = c.copy(resumo = r.trim()); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } }
             "notas" -> DialogoTexto("Notas do autor", "Ideias, lembretes, pendências (só você vê)", c.notas, multilinha = true,
                 aoFechar = { dialogo = "" }) { r -> dialogo = ""; val n = c.copy(notas = r.trim()); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } }

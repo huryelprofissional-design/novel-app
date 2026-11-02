@@ -235,8 +235,14 @@ private enum class Painel { NENHUM, VOZ, BUSCA }
 @OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TelaLeitor(capId: Long, nav: NavHostController, consultaInicial: String = "", ocorrenciaInicial: Int = 0, blocoInicial: Int = -1) {
-    // no texto, cores calmas (azul e verde-água) em vez do laranja/roxo do resto do app
-    CoresDeLeitura { TelaLeitorCorpo(capId, nav, consultaInicial, ocorrenciaInicial, blocoInicial) }
+    // no texto, a cor da obra (ou cores calmas); de madrugada, âmbar fraco
+    val app = NovelyApp.instancia
+    val obraDoCap by produceState<com.huryel.novely.data.Obra?>(null, capId) {
+        value = withContext(Dispatchers.IO) { app.repo.dao.capituloAgora(capId)?.let { app.repo.dao.obraAgora(it.obraId) } }
+    }
+    val cor = obraDoCap?.let { rememberCorObra(it.capa, it.corBase) }
+    val noite by app.prefs.noiteProfunda.estado.collectAsState()
+    CoresDeLeitura(cor, noite) { TelaLeitorCorpo(capId, nav, consultaInicial, ocorrenciaInicial, blocoInicial) }
 }
 
 @OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
@@ -469,7 +475,24 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             }
         }
     }
-    val primeiroParagrafo = remember(b) { b.indexOfFirst { it is Bloco.Paragrafo && !(it as Bloco.Paragrafo).fala && it.plano.length > 40 } }
+    val capitularLigado by prefs.capitular.estado.collectAsState()
+    val primeiroParagrafo = remember(b, capitularLigado) { if (!capitularLigado) -1 else b.indexOfFirst { it is Bloco.Paragrafo && !(it as Bloco.Paragrafo).fala && it.plano.length > 40 } }
+    val enfeite = obra?.enfeite ?: ""
+    // comentários por trecho (obras do catálogo)
+    var comentariosCap by remember { mutableStateOf<List<com.huryel.novely.data.Comentario>>(emptyList()) }
+    var recarregarComs by remember { mutableIntStateOf(0) }
+    LaunchedEffect(social, recarregarComs) { social?.let { (pid, cid) -> comentariosCap = try { app.pub.comentarios(pid, cid) } catch (_: Exception) { emptyList() } } }
+    val comsPorBloco = remember(comentariosCap) { comentariosCap.filter { it.bloco >= 0 }.groupingBy { it.bloco }.eachCount() }
+    var trechoComentar by remember { mutableIntStateOf(-1) }
+    // maratona: no fim do capítulo, o próximo começa sozinho
+    val maratona by prefs.maratona.estado.collectAsState()
+    var contagem by remember(c.id) { mutableIntStateOf(-1) }
+    val noFim = progresso >= 0.995f
+    LaunchedEffect(noFim, maratona, c.id) {
+        if (!maratona || !noFim || proximo == null || contagem != -1) return@LaunchedEffect
+        for (sgs in 5 downTo 1) { contagem = sgs; kotlinx.coroutines.delay(1000); if (contagem < 0) return@LaunchedEffect }
+        contagem = -2; irPara(proximo)
+    }
 
     // aviso "continuando de onde parou"
     var avisoRetomar by remember { mutableStateOf(c.posicaoBloco > 2 && blocoInicial < 0 && consultaInicial.isEmpty() && c.progresso < 0.98f) }
@@ -572,7 +595,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                                         .then(if (mk != null && mk.cor.isNotEmpty()) Modifier.clip(forma(6.dp)).background((coresGrifo[mk.cor] ?: p.destaque).copy(alpha = 0.22f)) else Modifier)
                                     when (bl) {
                                         is Bloco.Titulo -> Box(Modifier.height(alturaDp).then(fundo)) { TituloNoTexto(bl.plano, p, Modifier) }
-                                        is Bloco.Separador -> Box(Modifier.fillMaxWidth().height(alturaDp), contentAlignment = Alignment.Center) { Text("◆", color = p.destaque, fontSize = 11.sp) }
+                                        is Bloco.Separador -> Box(Modifier.fillMaxWidth().height(alturaDp), contentAlignment = Alignment.Center) { SeparadorCena(enfeite, p.destaque) }
                                         is Bloco.Paragrafo -> {
                                             val inteiro = remember(item.bi, regraNomes, destacarNomes, tamanho) { decorado(item.bi) }
                                             val comBusca = if (q.length >= 2) destacarBusca(inteiro, normalizados.value[item.bi], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == item.bi }?.second) else inteiro
@@ -614,6 +637,10 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             item(key = "cab") {
                 CabecalhoCapitulo(c, obra, anterior, lista.take(idx + 1).count { Texto.tipoEspecial(it.titulo) == null }, idx + 1, lista.size, margem, p) { mostrarSobre = true }
             }
+            // "Anteriormente…": resumo do capítulo anterior ao começar um capítulo
+            if (anterior != null && anterior.resumo.isNotBlank() && c.progresso < 0.05f) item(key = "anterior") {
+                CartaoAnteriormente(anterior, p)
+            }
             itemsIndexed(b, contentType = { _, x -> x::class }) { i, bloco ->
                 val ativo = i == falando
                 val mk = marcasPorBloco[i]
@@ -625,19 +652,21 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     } else Modifier)
                 when (bloco) {
                     is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, fundoAtivo)
-                    is Bloco.Separador -> Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        Box(Modifier.width(56.dp).height(1.dp).background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, p.destaque.copy(alpha = 0.7f)))))
-                        Text("  ◆  ", color = p.destaque, fontSize = 11.sp)
-                        Box(Modifier.width(56.dp).height(1.dp).background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.7f), Color.Transparent))))
-                    }
+                    is Bloco.Separador -> Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) { SeparadorCena(enfeite, p.destaque) }
                     is Bloco.Paragrafo -> {
                         val base = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
                         val texto = remember(base, regraNomes, destacarNomes, i == primeiroParagrafo, tamanho) {
                             val t = comNomes(base)
                             if (i == primeiroParagrafo) capitular(t, p, tamanho) else t
                         }
-                        if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
-                        else Text(texto, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo.then(if (i == primeiroParagrafo) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
+                        Column {
+                            if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
+                            else Text(texto, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo.then(if (i == primeiroParagrafo) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
+                            val n = comsPorBloco[i] ?: 0
+                            if (n > 0) Text("💬 $n", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.sobreDestaque,
+                                modifier = Modifier.align(Alignment.End).padding(top = 4.dp).clip(RoundedCornerShape(10.dp)).background(p.destaque)
+                                    .clickable { trechoComentar = i }.padding(horizontal = 8.dp, vertical = 2.dp))
+                        }
                     }
                 }
             }
@@ -723,6 +752,11 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                 }
             }
         }
+        if (contagem > 0) Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 110.dp).vidroLiquido(vidro, 26.dp, tinta = Color(0xCC10131A))
+            .padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Próximo capítulo em $contagem…", fontWeight = FontWeight.Bold, color = Color.White)
+            TextButton(onClick = { contagem = -3 }) { Text("Cancelar", color = p.destaque) }
+        }
         if (!controles) {
             Text("${(progresso * 100).toInt()}%", fontSize = 11.sp, color = p.textoSuave.copy(alpha = 0.6f),
                 modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(12.dp))
@@ -734,7 +768,11 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     }
     if (blocoSel >= 0 && blocoSel in b.indices) ModalBottomSheet(onDismissRequest = { blocoSel = -1 }, containerColor = p.superficie) {
         FolhaParagrafo(b[blocoSel].plano, marcasPorBloco[blocoSel], c.obraId, c.id, blocoSel, obra?.titulo ?: "", c.titulo, fichas,
-            fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it })
+            fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it },
+            comentar = if (social != null) ({ val bi = blocoSel; blocoSel = -1; trechoComentar = bi }) else null)
+    }
+    if (trechoComentar >= 0 && social != null && trechoComentar in b.indices) ModalBottomSheet(onDismissRequest = { trechoComentar = -1; recarregarComs++ }, containerColor = p.superficie) {
+        FolhaComentarios(social.first, social.second, trechoComentar, b[trechoComentar].plano) { }
     }
     // (ficha agora abre como vidro dentro da tela, acima)
     if (mostrarAjustes) ModalBottomSheet(onDismissRequest = { mostrarAjustes = false }, containerColor = p.superficie) { AjustesLeitura() }
@@ -1151,6 +1189,14 @@ fun AjustesLeitura() {
         val nomes by prefs.destacarNomes.estado.collectAsState()
         LinhaInterruptor("Destacar nomes das fichas (toque abre)", nomes) { prefs.destacarNomes.definir(it) }
         LinhaInterruptor("Manter tela ligada lendo", ligada) { prefs.telaLigada.definir(it) }
+        val noite by prefs.noiteProfunda.estado.collectAsState()
+        val capit by prefs.capitular.estado.collectAsState()
+        val marat by prefs.maratona.estado.collectAsState()
+        val corObra by prefs.corDaObra.estado.collectAsState()
+        LinhaInterruptor("Noite profunda (âmbar fraco, sem luz azul)", noite) { prefs.noiteProfunda.definir(it) }
+        LinhaInterruptor("Cores da capa da obra", corObra) { prefs.corDaObra.definir(it) }
+        LinhaInterruptor("Primeira letra grande (capitular)", capit) { prefs.capitular.definir(it) }
+        LinhaInterruptor("Maratona: próximo capítulo começa sozinho", marat) { prefs.maratona.definir(it) }
         val esc by prefs.escurecer.estado.collectAsState()
         val quente by prefs.luzQuente.estado.collectAsState()
         val vel by prefs.velocidadeRolagem.estado.collectAsState()

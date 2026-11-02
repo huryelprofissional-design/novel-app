@@ -58,6 +58,8 @@ data class Obra(
     @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
     /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
     @ColumnInfo(defaultValue = "0") val alteradoEm: Long = 0,
+    /** Enfeite das trocas de cena no leitor: LOSANGO | ESTRELAS | LOTUS | ESPADAS | ONDA (vazio = losango). */
+    @ColumnInfo(defaultValue = "") val enfeite: String = "",
 )
 
 @Entity(
@@ -389,7 +391,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 10, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 11, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -430,6 +432,10 @@ abstract class BancoNovely : RoomDatabase() {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE obras ADD COLUMN trancada INTEGER NOT NULL DEFAULT 0")
                         db.execSQL("ALTER TABLE obras ADD COLUMN autor TEXT NOT NULL DEFAULT ''")
+                    }
+                }, object : androidx.room.migration.Migration(10, 11) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE obras ADD COLUMN enfeite TEXT NOT NULL DEFAULT ''")
                     }
                 }, object : androidx.room.migration.Migration(9, 10) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {

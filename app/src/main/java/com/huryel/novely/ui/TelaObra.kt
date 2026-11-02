@@ -116,6 +116,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
         capitulos.associate { c -> c.id to (if (com.huryel.novely.data.Texto.tipoEspecial(c.titulo) == null) ++n else 0) }
     }
 
+    ComCorDaObra(rememberCorObra(o.capa, o.corBase)) {
     Box(Modifier.fillMaxSize()) {
         val listaEstado = androidx.compose.foundation.lazy.rememberLazyListState()
         LazyColumn(Modifier.fillMaxSize(), state = listaEstado, contentPadding = PaddingValues(bottom = if (emSelecao) 110.dp else 40.dp)) {
@@ -184,6 +185,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
             }
         }
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter))
+    }
     }
 
     when (val d = dialogo) {
@@ -490,6 +492,11 @@ private fun PainelOpcoesObra(
                     Triple(Icons.Filled.Face, "Capa", e { trocarImagem("capa") }),
                     Triple(Icons.Filled.Refresh, "Banner", e { trocarImagem("banner") }),
                 ))
+                Text("Enfeite das trocas de cena", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ENFEITES.forEach { (k, n) -> Chip(n, o.enfeite.ifEmpty { "LOSANGO" } == k) { salvar(o.copy(enfeite = k)) } }
+                }
+                Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) { SeparadorCena(o.enfeite, p.destaque) }
             }
             SecaoOpcoes("Situação") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

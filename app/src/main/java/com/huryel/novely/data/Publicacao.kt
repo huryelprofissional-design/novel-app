@@ -17,16 +17,17 @@ data class ObraPublica(
     val generos: List<String>, val tags: List<String>, val classificacao: String, val idioma: String, val status: String,
     val capaMini: ByteArray?, val leituras: Long, val leiturasSemana: Long, val semanaId: String, val seguidores: Long,
     val somaEstrelas: Long, val numEstrelas: Long, val numCaps: Long, val palavras: Long, val atualizadaEm: Long, val publicadaEm: Long,
+    val enfeite: String = "",
 ) {
     val nota: Float get() = if (numEstrelas > 0) somaEstrelas.toFloat() / numEstrelas else 0f
 }
 
 data class CapPublico(val id: String, val titulo: String, val ordem: Double, val palavras: Long, val publicadoEm: Long,
-                      val atualizadoEm: Long, val partes: Int, val curtidas: Long, val comentarios: Long, val leituras: Long = 0)
+                      val atualizadoEm: Long, val partes: Int, val curtidas: Long, val comentarios: Long, val leituras: Long = 0, val resumo: String = "")
 
 data class PerfilPublico(val uid: String, val nome: String, val bio: String, val foto: ByteArray?, val seguidores: Long, val banner: ByteArray? = null)
 
-data class Comentario(val id: String, val uid: String, val nome: String, val texto: String, val em: Long)
+data class Comentario(val id: String, val uid: String, val nome: String, val texto: String, val em: Long, val bloco: Int = -1, val trecho: String = "")
 
 /** Gêneros do catálogo, agrupados por família (a ordem vira a ordem dos cartões). */
 val GENEROS_GRUPOS = linkedMapOf(
@@ -84,7 +85,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
                 "tags" to o.tagsPub.split(',').map { it.trim().removePrefix("#").lowercase() }.filter { it.isNotEmpty() },
                 "classificacao" to o.classificacao, "idioma" to o.idioma, "status" to o.status, "exportavel" to o.exportavel,
                 "capaMini" to mini?.let { Blob.fromBytes(it) }, "numCaps" to caps.size, "palavras" to caps.sumOf { it.palavras.toLong() },
-                "atualizadaEm" to System.currentTimeMillis(),
+                "atualizadaEm" to System.currentTimeMillis(), "enfeite" to o.enfeite,
             )
             val existe = ref.get().await().exists()
             if (!existe) dados += mapOf("publicadaEm" to System.currentTimeMillis(), "leituras" to 0L, "leiturasSemana" to 0L, "semanaId" to semanaAtual(),
@@ -121,7 +122,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
                 val em = if (jaPublicado && c.publicadoEm <= System.currentTimeMillis()) c.publicadoEm else quando
                 ref.collection("caps").document(c.nuvemId).set(mapOf(
                     "titulo" to c.titulo, "ordem" to c.ordem, "palavras" to c.palavras.toLong(), "publicadoEm" to em,
-                    "atualizadoEm" to System.currentTimeMillis(), "partes" to pedacos.size,
+                    "atualizadoEm" to System.currentTimeMillis(), "partes" to pedacos.size, "resumo" to c.resumo,
                 ), com.google.firebase.firestore.SetOptions.merge()).await()
                 repo.salvarCapitulo(c.copy(publicadoEm = em, publicadoHash = sinc.hash(repo.textos.arquivo(c.id)), rascunho = false))
             }
@@ -163,6 +164,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         leituras = d.getLong("leituras") ?: 0, leiturasSemana = d.getLong("leiturasSemana") ?: 0, semanaId = d.getString("semanaId") ?: "",
         seguidores = d.getLong("seguidores") ?: 0, somaEstrelas = d.getLong("somaEstrelas") ?: 0, numEstrelas = d.getLong("numEstrelas") ?: 0,
         numCaps = d.getLong("numCaps") ?: 0, palavras = d.getLong("palavras") ?: 0, atualizadaEm = d.getLong("atualizadaEm") ?: 0, publicadaEm = d.getLong("publicadaEm") ?: 0,
+        enfeite = d.getString("enfeite") ?: "",
     )
 
     /** modo: ALTA (mais lidas) | SEMANA (ranking da semana) | NOVIDADES | CONCLUIDAS | genero:X */
@@ -191,7 +193,8 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         val agora = System.currentTimeMillis()
         col.document(pid).collection("caps").get().await().documents.map { d ->
             CapPublico(d.id, d.getString("titulo") ?: "", d.getDouble("ordem") ?: 0.0, d.getLong("palavras") ?: 0, d.getLong("publicadoEm") ?: 0,
-                d.getLong("atualizadoEm") ?: 0, (d.getLong("partes") ?: 1).toInt(), d.getLong("curtidas") ?: 0, d.getLong("comentarios") ?: 0, d.getLong("leituras") ?: 0)
+                d.getLong("atualizadoEm") ?: 0, (d.getLong("partes") ?: 1).toInt(), d.getLong("curtidas") ?: 0, d.getLong("comentarios") ?: 0, d.getLong("leituras") ?: 0,
+                d.getString("resumo") ?: "")
         }.filter { autor || it.publicadoEm <= agora }.sortedBy { it.ordem }
     }
 
@@ -207,10 +210,10 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             capa = imagem(pid, "capa")?.let { repo.imagens.salvarBytes(it) }
             banner = imagem(pid, "banner")?.let { repo.imagens.salvarBytes(it) }
         }
-        val base = Obra(titulo = p.titulo, descricao = p.sinopse, status = StatusObra.LENDO, minha = false, trancada = true, autor = p.autorNome,
+        val base = Obra(titulo = p.titulo, descricao = p.sinopse, status = StatusObra.LENDO, minha = false, trancada = true, autor = p.autorNome, enfeite = p.enfeite,
             publicaId = pid, capa = capa, banner = banner, exportavel = exportavelRemoto(pid), generos = p.generos.joinToString(","), tagsPub = p.tags.joinToString(","), classificacao = p.classificacao, idioma = p.idioma)
         val obraId = if (local == null) dao.inserirObra(base) else {
-            repo.salvarObra(local.copy(titulo = p.titulo, descricao = p.sinopse, autor = p.autorNome, exportavel = base.exportavel, generos = base.generos, tagsPub = base.tagsPub, classificacao = p.classificacao))
+            repo.salvarObra(local.copy(titulo = p.titulo, descricao = p.sinopse, autor = p.autorNome, exportavel = base.exportavel, enfeite = p.enfeite, generos = base.generos, tagsPub = base.tagsPub, classificacao = p.classificacao))
             local.id
         }
         val caps = capitulos(pid)
@@ -222,7 +225,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
                 for (k in 0 until c.partes) sb.append(col.document(pid).collection("textos").document(if (k == 0) c.id else "${c.id}~$k").get().await().getString("texto") ?: "")
                 val texto = sb.toString()
                 val novo = (lc ?: Capitulo(obraId = obraId, titulo = c.titulo, ordem = c.ordem)).copy(
-                    titulo = c.titulo, ordem = c.ordem, palavras = ArquivosTexto.contarPalavras(texto), rascunho = false, publicaId = c.id, publicadoEm = c.atualizadoEm)
+                    titulo = c.titulo, ordem = c.ordem, palavras = ArquivosTexto.contarPalavras(texto), rascunho = false, publicaId = c.id, publicadoEm = c.atualizadoEm, resumo = c.resumo)
                 val id = if (lc == null) dao.inserirCapitulo(novo) else { dao.atualizarCapitulo(novo); lc.id }
                 repo.textos.gravar(id, texto)
                 dao.capituloAgora(id)?.let { try { repo.indexarFichas(it, texto) } catch (_: Exception) {} }
@@ -262,6 +265,15 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         }
         if (saida.isNotEmpty()) prefs.adicionarNovidades(saida.map { (o, n) -> Triple(o.id, o.titulo, n) })
         saida
+    }
+
+    /** Começo do primeiro capítulo (para a prévia ao segurar o pôster). */
+    suspend fun inicioDaObra(pid: String): String = withContext(Dispatchers.IO) {
+        try {
+            val primeiro = capitulos(pid).firstOrNull() ?: return@withContext ""
+            val t = col.document(pid).collection("textos").document(primeiro.id).get().await().getString("texto") ?: ""
+            Marcas.limpar(t).lineSequence().map { it.trim() }.filter { it.length > 30 && !it.startsWith("#") }.firstOrNull()?.take(320) ?: ""
+        } catch (_: Exception) { "" }
     }
 
     suspend fun seguindo(pid: String): Boolean = try { col.document(pid).collection("seguidores").document(uid).get().await().exists() } catch (_: Exception) { false }
@@ -317,14 +329,16 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
 
     suspend fun comentarios(pid: String, cid: String): List<Comentario> = withContext(Dispatchers.IO) {
         col.document(pid).collection("caps").document(cid).collection("comentarios").orderBy("em", Query.Direction.DESCENDING).limit(200).get().await()
-            .documents.map { Comentario(it.id, it.getString("uid") ?: "", it.getString("nome") ?: "", it.getString("texto") ?: "", it.getLong("em") ?: 0) }
+            .documents.map { Comentario(it.id, it.getString("uid") ?: "", it.getString("nome") ?: "", it.getString("texto") ?: "", it.getLong("em") ?: 0,
+                (it.getLong("bloco") ?: -1).toInt(), it.getString("trecho") ?: "") }
     }
 
-    suspend fun comentar(pid: String, cid: String, texto: String) = withContext(Dispatchers.IO) {
+    suspend fun comentar(pid: String, cid: String, texto: String, bloco: Int = -1, trecho: String = "") = withContext(Dispatchers.IO) {
         val cap = col.document(pid).collection("caps").document(cid)
         cap.collection("comentarios").add(mapOf("uid" to uid, "nome" to prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "Leitor" },
-            "texto" to texto.trim().take(2000), "em" to System.currentTimeMillis())).await()
+            "texto" to texto.trim().take(2000), "em" to System.currentTimeMillis(), "bloco" to bloco, "trecho" to trecho.take(300))).await()
         cap.update("comentarios", FieldValue.increment(1)).await()
+        prefs.comentou.definir(true)
     }
 
     suspend fun apagarComentario(pid: String, cid: String, c: Comentario) = withContext(Dispatchers.IO) {

@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -262,6 +263,7 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
         }
     }
 
+    val corObra = rememberCorBytes(capa ?: o.capaMini)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
             item {
@@ -282,7 +284,7 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
                     Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             val recente = System.currentTimeMillis() - o.atualizadaEm < 3 * 86_400_000L
-                            SeloPoster(when { recente -> "NOVO CAP"; o.status == StatusObra.CONCLUIDA -> "CONCLUÍDA"; else -> "EM ANDAMENTO" })
+                            SeloPoster(when { recente -> "NOVO CAP"; o.status == StatusObra.CONCLUIDA -> "CONCLUÍDA"; else -> "EM ANDAMENTO" }, corObra ?: com.huryel.novely.ui.theme.Laranja)
                             Text(o.generos.take(2).joinToString(" · ") + if (o.classificacao != "LIVRE") " · +${o.classificacao}" else "",
                                 fontSize = 12.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp))
                         }
@@ -351,7 +353,7 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
         // barra fixa embaixo: coração (seguir a obra) + "Ler agora" branco
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, p.fundo.copy(alpha = 0.92f), p.fundo)))
             .navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(58.dp).clip(CircleShape).background(if (seguindo) com.huryel.novely.ui.theme.Laranja else Color.White.copy(alpha = 0.1f)).clickable(enabled = trabalhando == null) {
+            Box(Modifier.size(58.dp).clip(CircleShape).background(if (seguindo) (corObra ?: com.huryel.novely.ui.theme.Laranja) else Color.White.copy(alpha = 0.1f)).clickable(enabled = trabalhando == null) {
                 if (souAutor) app.escopo.launch { app.repo.dao.obraNuvem(pid)?.let { withContext(Dispatchers.Main) { nav.navigate("obra/${it.id}") } } }
                 else escopo.launch {
                     try {
@@ -575,12 +577,12 @@ fun SocialCapitulo(pid: String, cid: String) {
         }
     }
     if (abrir) ModalBottomSheet(onDismissRequest = { abrir = false }, containerColor = p.superficie) {
-        FolhaComentarios(pid, cid) { comentariosN = it.toLong() }
+        FolhaComentarios(pid, cid, -1, "") { comentariosN = it.toLong() }
     }
 }
 
 @Composable
-private fun FolhaComentarios(pid: String, cid: String, aoMudar: (Int) -> Unit) {
+fun FolhaComentarios(pid: String, cid: String, bloco: Int, trechoBloco: String, aoMudar: (Int) -> Unit) {
     val app = NovelyApp.instancia
     val pub = app.pub
     val p = LocalPaleta.current
@@ -589,10 +591,18 @@ private fun FolhaComentarios(pid: String, cid: String, aoMudar: (Int) -> Unit) {
     var texto by remember { mutableStateOf("") }
     var enviando by remember { mutableStateOf(false) }
     var autorObra by remember { mutableStateOf("") }
-    suspend fun carregar() { lista = try { pub.comentarios(pid, cid) } catch (_: Exception) { emptyList() }; aoMudar(lista?.size ?: 0) }
+    suspend fun carregar() {
+        val todos = try { pub.comentarios(pid, cid) } catch (_: Exception) { emptyList() }
+        lista = if (bloco >= 0) todos.filter { it.bloco == bloco } else todos
+        aoMudar(todos.size)
+    }
     LaunchedEffect(Unit) { autorObra = pub.obra(pid)?.autorUid ?: ""; carregar() }
     Column(Modifier.fillMaxWidth().fillMaxHeight(0.8f).imePadding()) {
-        Text("Comentários", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 20.dp))
+        Text(if (bloco >= 0) "${lista?.size ?: 0} comentários neste trecho" else "Comentários", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 20.dp))
+        if (bloco >= 0) Text("“${trechoBloco.take(220)}”", fontSize = 13.sp, lineHeight = 18.sp, color = p.textoSuave, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp).drawBehind {
+                drawRect(p.destaque, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height), topLeft = androidx.compose.ui.geometry.Offset(-10.dp.toPx(), 0f))
+            })
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             val l = lista
             if (l == null) item { CircularProgressIndicator(color = p.destaque) }
@@ -608,6 +618,7 @@ private fun FolhaComentarios(pid: String, cid: String, aoMudar: (Int) -> Unit) {
                             if (c.uid == autorObra) Text("  AUTOR", fontSize = 9.sp, fontWeight = FontWeight.Black, color = p.destaque)
                             Text("  ${quando(c.em)}", fontSize = 11.sp, color = p.textoSuave)
                         }
+                        if (bloco < 0 && c.trecho.isNotBlank()) Text("sobre: “${c.trecho.take(80)}…”", fontSize = 11.sp, color = p.textoSuave, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                         Text(c.texto, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 2.dp))
                         if (c.uid == pub.meuUid || autorObra == pub.meuUid) Text("apagar", fontSize = 11.sp, color = p.textoSuave,
                             modifier = Modifier.padding(top = 4.dp).clickable { escopo.launch { try { pub.apagarComentario(pid, cid, c); carregar() } catch (_: Exception) {} } })
@@ -616,10 +627,10 @@ private fun FolhaComentarios(pid: String, cid: String, aoMudar: (Int) -> Unit) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(texto, { texto = it.take(2000) }, placeholder = { Text("Escreva um comentário…") }, maxLines = 4, modifier = Modifier.weight(1f))
+            OutlinedTextField(texto, { texto = it.take(2000) }, placeholder = { Text(if (bloco >= 0) "Comentar neste trecho…" else "Escreva um comentário…") }, maxLines = 4, modifier = Modifier.weight(1f))
             TextButton(onClick = {
                 enviando = true
-                escopo.launch { try { pub.comentar(pid, cid, texto); texto = ""; carregar() } catch (_: Exception) {}; enviando = false }
+                escopo.launch { try { pub.comentar(pid, cid, texto, bloco, if (bloco >= 0) trechoBloco else ""); texto = ""; carregar() } catch (_: Exception) {}; enviando = false }
             }, enabled = texto.isNotBlank() && !enviando) { Text("Enviar", color = p.destaque, fontWeight = FontWeight.Bold) }
         }
     }

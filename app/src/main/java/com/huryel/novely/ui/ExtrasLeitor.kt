@@ -61,7 +61,7 @@ val coresGrifo = linkedMapOf(
 @Composable
 fun FolhaParagrafo(
     trecho: String, marcador: Marcador?, obraId: Long, capId: Long, bloco: Int, obraTitulo: String, capTitulo: String,
-    fichas: List<Ficha>, fechar: () -> Unit, abrirFicha: (Ficha) -> Unit,
+    fichas: List<Ficha>, fechar: () -> Unit, abrirFicha: (Ficha) -> Unit, comentar: (() -> Unit)? = null,
 ) {
     val app = NovelyApp.instancia
     val repo = app.repo
@@ -93,6 +93,7 @@ fun FolhaParagrafo(
                 (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("trecho", trecho)); fechar()
             }) { Text("Copiar") }
             OutlinedButton(onClick = { compartilharTrecho(ctx, trecho, obraTitulo, capTitulo, p); fechar() }) { Text("Compartilhar imagem") }
+            if (comentar != null) OutlinedButton(onClick = comentar) { Text("💬 Comentar o trecho") }
         }
         val citados = fichas.filter { it.nome.length >= 2 && trecho.contains(it.nome, ignoreCase = true) }
         if (citados.isNotEmpty()) {

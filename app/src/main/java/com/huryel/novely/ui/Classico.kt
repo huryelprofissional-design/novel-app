@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -302,7 +303,7 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
             }
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    SeloPoster(nomeStatus(o.status).uppercase())
+                    SeloPoster(nomeStatus(o.status).uppercase(), p.destaque)
                     val extra = if (o.trancada) "Publicada" else if (!o.minha) "Só leitura" else if (o.publicada) "No catálogo" else null
                     if (extra != null) Text(extra, fontSize = 12.sp, color = Color(0xFFDDDDDD), modifier = Modifier.padding(start = 10.dp))
                 }
@@ -316,6 +317,10 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
                 PilulaInfo("${caps.size} caps")
                 PilulaInfo("${formatarPalavras(palavras)} palavras")
                 if (caps.isNotEmpty() && !o.minha) PilulaInfo("${lidos * 100 / caps.size}% lido")
+                if (caps.isNotEmpty() && !o.minha) {
+                    val min = (caps.sumOf { (it.palavras * (1f - it.progresso.coerceIn(0f, 1f))).toDouble() } / 230).toInt()
+                    if (min > 0) PilulaInfo(if (min >= 60) "faltam ${min / 60} h ${min % 60} min" else "faltam $min min")
+                }
             }
             if (o.descricao.isNotBlank()) Text(o.descricao, fontSize = 14.sp, lineHeight = 21.sp, color = Color(0xFFCCCCCC),
                 maxLines = if (sinopseAberta) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
@@ -349,7 +354,7 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
 /** Selo laranja tipo "NOVO CAP", "EM ALTA #1". */
 @Composable
 fun SeloPoster(t: String, cor: Color = com.huryel.novely.ui.theme.Laranja) {
-    Text(t, fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White, maxLines = 1,
+    Text(t, fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (cor.luminance() > 0.5f) Color(0xFF0B0B0B) else Color.White, maxLines = 1,
         modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(cor).padding(horizontal = 9.dp, vertical = 3.dp))
 }
 

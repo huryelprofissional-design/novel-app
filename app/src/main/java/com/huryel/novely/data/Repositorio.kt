@@ -475,10 +475,37 @@ class Preferencias(ctx: Context) {
         conferirDia()
         val antes = palavrasHoje.valor
         palavrasHoje.definir(antes + n)
+        if (n > 0) {
+            // histórico para o painel do escritor: palavras por dia e por hora do dia
+            val dias = escritaDias().toMutableMap(); dias[hoje()] = (dias[hoje()] ?: 0) + n
+            escritaDiasP.definir(dias.entries.sortedByDescending { it.key }.take(120).joinToString("|") { "${it.key}:${it.value}" })
+            val horas = escritaHoras().toMutableList(); val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY); horas[h] += n
+            escritaHorasP.definir(horas.joinToString(","))
+            totalEscrito.definir(totalEscrito.valor + n)
+        }
         if (antes < metaDiaria.valor && antes + n >= metaDiaria.valor && ultimoDiaBatido.valor != hoje()) {
             ultimoDiaBatido.definir(hoje()); sequencia.definir(sequencia.valor + 1)
+            if (sequencia.valor > maiorSequencia.valor) maiorSequencia.definir(sequencia.valor)
         }
     }
+    private val escritaDiasP = texto("escritaDias", "")
+    private val escritaHorasP = texto("escritaHoras", "")
+    val totalEscrito = longo("totalEscrito", 0L)
+    val maiorSequencia = longo("maiorSequencia", 0L)
+    fun escritaDias(): Map<String, Int> = escritaDiasP.valor.split('|').mapNotNull { e ->
+        val k = e.substringBefore(':', ""); val v = e.substringAfter(':', "").toIntOrNull(); if (k.isEmpty() || v == null) null else k to v
+    }.toMap()
+    fun escritaHoras(): List<Int> = escritaHorasP.valor.split(',').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 24 } ?: List(24) { 0 }
+
+    // ── Visual novo ──
+    val noiteProfunda = bool("noiteProfunda", false)
+    val capitular = bool("capitular", true)
+    val maratona = bool("maratona", false)
+    val corDaObra = bool("corDaObra", true)
+    val iconeApp = texto("iconeApp", "PADRAO")
+    val comentou = bool("comentou", false)
+    /** Conquistas já desbloqueadas (ids separados por vírgula) — sobe para a nuvem para o PC mostrar. */
+    val conquistas = texto("conquistas", "")
 
     // ── Leitor: rolagem automática, luz ──
     val velocidadeRolagem = real("velRolagem", 1.0f)
