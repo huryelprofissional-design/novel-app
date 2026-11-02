@@ -493,6 +493,7 @@ fun TelaEscreverAba(nav: NavHostController) {
             item { CabecalhoSecao("Ferramentas") }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (minhas.isNotEmpty()) Ferramenta("✨ Estúdio de IA", "continuar, revisar, criar personagens") { nav.navigate("ia/${minhas[0].id}") }
                     Ferramenta("Gerador de nomes", "pessoas, lugares, técnicas") { nav.navigate("nomes") }
                     Ferramenta("Personagens", "@ e & no texto") {
                         if (minhas.size == 1) nav.navigate("fichas/${minhas[0].id}") else escolherFichas = true

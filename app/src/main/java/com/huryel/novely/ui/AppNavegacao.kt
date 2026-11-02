@@ -172,6 +172,9 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             composable("marcadores/{id}", idArg) { e -> TelaMarcadores(e.arguments!!.getLong("id"), nav) }
             composable("estatisticas") { TelaEstatisticas(nav) }
             composable("painel") { TelaPainel(nav) }
+            composable("ia/{id}?cap={cap}", listOf(navArgument("id") { type = NavType.LongType }, navArgument("cap") { type = NavType.LongType; defaultValue = -1L })) { e ->
+                TelaIA(e.arguments!!.getLong("id"), e.arguments!!.getLong("cap"), nav)
+            }
             composable("editor/{id}", idArg) { e -> TelaEditor(e.arguments!!.getLong("id"), nav) }
             composable(
                 "imagem/{id}/{tipo}",

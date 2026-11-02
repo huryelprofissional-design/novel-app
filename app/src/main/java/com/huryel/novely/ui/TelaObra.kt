@@ -466,6 +466,16 @@ private fun PainelOpcoesObra(
                     Text(if (o.publicada) "Capítulos, agendamento, dados da obra" else "No catálogo do Novely: outras pessoas leem, seguem e comentam", fontSize = 12.sp, color = p.sobreDestaque.copy(alpha = 0.75f))
                 }
             }
+            if (o.minha && livre) Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(listOf(Color(0xFF5A2A86), Color(0xFF2A1440))))
+                    .clickable(onClick = e { navegar("ia/${o.id}") }).padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("✨", fontSize = 22.sp)
+                Column(Modifier.padding(start = 14.dp)) {
+                    Text("Estúdio de IA", fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text("Próximo capítulo, revisão, reviravoltas, personagens — com todo o contexto da obra", fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
+                }
+            }
             GradeOpcoes(listOfNotNull(
                 Triple(Icons.Filled.Person, "Personagens", e { navegar("fichas/${o.id}") }),
                 Triple(Icons.Filled.DateRange, "Linha do tempo", e { navegar("tempo/${o.id}") }),

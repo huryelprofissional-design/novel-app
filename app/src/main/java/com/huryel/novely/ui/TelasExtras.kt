@@ -198,6 +198,9 @@ private object Nomes {
     val silabasBr = listOf("ra", "fa", "el", "lu", "ca", "jo", "ão", "ma", "ri", "ta", "be", "ni", "ce", "lo", "di", "go", "vi", "na", "ru", "be", "ga", "te")
     val nomesBr = listOf("Ana", "Beatriz", "Camila", "Clara", "Helena", "Isabela", "Júlia", "Larissa", "Letícia", "Luana", "Manuela", "Mariana", "Marina", "Natália", "Rafaela", "Sofia", "Valentina", "Yasmin", "Lívia", "Cecília", "Alice", "Lorena", "Bianca", "Giovana", "Heloísa", "Elisa", "Aurora", "Iara", "Maitê", "Jade", "Arthur", "Bernardo", "Caio", "Daniel", "Davi", "Eduardo", "Enzo", "Felipe", "Gabriel", "Gustavo", "Heitor", "Henrique", "Igor", "João", "Leonardo", "Lucas", "Matheus", "Miguel", "Murilo", "Otávio", "Pedro", "Rafael", "Renan", "Samuel", "Thiago", "Vicente", "Vinícius", "Benício", "Caetano", "Joaquim")
     val sobrenomesBr = listOf("Albuquerque", "Almeida", "Andrade", "Barbosa", "Barros", "Bezerra", "Braga", "Cardoso", "Carvalho", "Castro", "Cavalcanti", "Correia", "Costa", "Duarte", "Farias", "Fernandes", "Ferraz", "Freitas", "Galvão", "Gomes", "Lacerda", "Lima", "Macedo", "Medeiros", "Monteiro", "Moraes", "Nascimento", "Nogueira", "Pacheco", "Peixoto", "Pereira", "Queiroz", "Ramos", "Rezende", "Ribeiro", "Rocha", "Sampaio", "Siqueira", "Souza", "Tavares", "Teixeira", "Vasconcelos", "Vieira", "Xavier")
+    val ideiaQuem = listOf("uma ferreira cega", "o filho mais fraco de um clã de espadachins", "uma vilã que acorda dentro do próprio livro", "um entregador que vê a contagem regressiva da vida das pessoas", "o último discípulo de uma seita destruída", "uma princesa prometida ao inimigo", "um boxeador amador de 17 anos", "um mago que perdeu a memória", "uma detetive que fala com objetos", "um soldado que voltou dez anos no tempo", "uma cozinheira do palácio", "um herdeiro rejeitado pelo próprio sistema")
+    val ideiaDescobre = listOf("o mestre dele foi quem destruiu sua família", "pode reviver o mesmo dia sete vezes", "o sistema que a ajuda tem vontade própria", "o rival é seu irmão perdido", "a profecia fala dela, mas está errada", "a cidade inteira esquece quem ele é a cada lua cheia", "o dragão que todos temem está do lado dele", "o próprio corpo é a chave de um selo antigo", "o melhor amigo é um espião da seita rival", "ela já morreu uma vez nessa história")
+    val ideiaMas = listOf("só tem até o fim do inverno", "ninguém pode descobrir o segredo", "precisa vencer um torneio para sobreviver", "cada vez que usa o poder perde uma lembrança", "o único que pode ajudá-lo quer matá-lo", "a pessoa que ama está do outro lado da guerra", "o tempo está acabando para a irmã doente", "precisa fingir ser outra pessoa")
     val lugarPre = listOf("Pico", "Vale", "Cidade", "Torre", "Floresta", "Abismo", "Ilha", "Templo", "Portão", "Mar", "Planície", "Fortaleza", "Seita", "Reino", "Lago")
     val lugarPos = listOf("das Cinzas", "do Lótus Negro", "Celestial", "dos Mil Ventos", "Esquecido", "da Lua Partida", "de Jade", "do Dragão Adormecido", "Carmesim",
         "das Nove Névoas", "Sem Nome", "do Sol Poente", "de Ferro", "das Almas", "Eterno")
@@ -223,6 +226,7 @@ private object Nomes {
         "OCIDENTE" -> palavra(silabasOcidente, r) + if (r.nextInt(3) == 0) " " + palavra(silabasOcidente, r, 2, 3) else ""
         "BR" -> nomesBr[r.nextInt(nomesBr.size)] + " " + sobrenomesBr[r.nextInt(sobrenomesBr.size)] +
             if (r.nextInt(3) == 0) " " + sobrenomesBr[r.nextInt(sobrenomesBr.size)] else ""
+        "IDEIA" -> ideiaQuem[r.nextInt(ideiaQuem.size)].replaceFirstChar { it.uppercase() } + " descobre que " + ideiaDescobre[r.nextInt(ideiaDescobre.size)] + " — mas " + ideiaMas[r.nextInt(ideiaMas.size)] + "."
         "LUGAR" -> lugarPre[r.nextInt(lugarPre.size)] + " " + lugarPos[r.nextInt(lugarPos.size)]
         "TECNICA" -> {
             // cada tipo de golpe só combina com o que faz sentido para ele (espada com lua/nuvem, punho com tigre/montanha…)
@@ -245,7 +249,7 @@ fun TelaGeradorNomes(nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
         Topo("Gerador de nomes", nav)
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("ORIENTE" to "Oriental", "OCIDENTE" to "Fantasia", "BR" to "Brasileiro", "LUGAR" to "Lugares", "TECNICA" to "Técnicas", "TITULO" to "Com título")
+            listOf("ORIENTE" to "Oriental", "OCIDENTE" to "Fantasia", "BR" to "Brasileiro", "LUGAR" to "Lugares", "TECNICA" to "Técnicas", "TITULO" to "Com título", "IDEIA" to "Ideias de história")
                 .forEach { (k, n) -> Chip(n, tipo == k) { tipo = k } }
         }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
