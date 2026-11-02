@@ -4,7 +4,7 @@ import {
   auth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   eu, colObras, getDoc, onSnapshot, doc, db, catalogo, urlBlob, notaTxt, imagemPub, imagemMinha, nomeAutor, novaObra, perguntar, dialogo,
   salvarPerfil, escolherArquivo, comprimirArquivo, enviarImagemMinha, publicarPerfil, STATUS_NOME, salvarObra, confirmar, apagarObra, perfilPub,
-  segueAutor,
+  segueAutor, CONQUISTAS, colItens, getDocs, query, where, obraPub, esc as escapar,
 } from "./nucleo.js";
 import "./obra.js";
 import "./leitor.js";
@@ -168,8 +168,20 @@ rota("/perfil", async () => {
       <div class="numeros"><div><b>${milhar(pub?.seguidores || 0)}</b><span>seguidores</span></div><div><b>${minhas.length}</b><span>obras</span></div><div><b>${lendo.length}</b><span>lendo</span></div><div><b>${local.ler("autoresSeguidos", []).length}</b><span>autores seguidos</span></div></div>
     </div>
     ${minhas.length ? `<div class="sec"><h2>Minhas obras</h2></div><div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : "escrevendo")).join("")}</div>` : ""}
-    ${lendo.length ? `<div class="sec"><h2>Lendo agora</h2></div><div class="grade">${lendo.map((o) => cartao(o, o.autor ? "por " + o.autor : "")).join("")}</div>` : ""}`);
+    ${lendo.length ? `<div class="sec"><h2>Lendo agora</h2></div><div class="grade">${lendo.map((o) => cartao(o, o.autor ? "por " + o.autor : "")).join("")}</div>` : ""}
+    <div id="conquistas"></div><div id="citacoes"></div>`);
   preencherCapas();
+  // conquistas (calculadas pelo app do celular)
+  const ganhas = new Set((E.perfil.conquistas || "").split(",").filter(Boolean));
+  $("#conquistas").innerHTML = `<div class="sec"><h2>Conquistas<span class="sub">${ganhas.size} de ${CONQUISTAS.length}${ganhas.size ? "" : " · abra o app no celular para atualizar"}</span></h2></div>
+    <div class="conquistas">${[...CONQUISTAS].sort((a, b) => ganhas.has(b[0]) - ganhas.has(a[0])).map(([id, ic, t, cor]) => `<div class="conquista ${ganhas.has(id) ? "" : "apagada"}"><span style="--c:${cor}">${ic}</span><small>${t}</small></div>`).join("")}</div>`;
+  // citações favoritas (grifos)
+  try {
+    const gs = (await getDocs(query(colItens(), where("tipo", "==", "marcadores")))).docs.map((d) => ({ ...d.data().dados, obra: d.data().obra, apagado: d.data().apagado })).filter((m) => !m.apagado && (m.trecho || "").length > 20).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0)).slice(0, 12);
+    const CG = { AMBAR: "#E9A65A", VERDE: "#6FC2B4", AZUL: "#7FA7E6", ROSA: "#E88AA8" };
+    if (gs.length) $("#citacoes").innerHTML = `<div class="sec"><h2>Citações favoritas</h2></div><div class="fileira">${gs.map((m) => `<div class="citacao" style="--c:${CG[m.cor] || "#E9A65A"}"><p>“${esc(m.trecho.slice(0, 240))}”</p><small>${esc(E.obras.get(m.obra)?.titulo || "")}</small><button class="btn peq" data-copiar="${esc(m.trecho)}">Copiar</button></div>`).join("")}</div>`;
+    raiz.querySelectorAll("[data-copiar]").forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.dataset.copiar); toast("Copiado"); }));
+  } catch (e) { console.warn(e); }
   $("#editar").onclick = () => editarPerfil(foto, banner);
 });
 
@@ -208,6 +220,37 @@ rota("/ajustes", async () => {
   $("#sair").onclick = async () => { if (await confirmar("Sair da conta?", "Suas obras continuam salvas na nuvem.", "Sair")) signOut(auth); };
   $("#m18").onchange = (e) => local.gravar("maior18", e.target.checked);
 });
+
+// prévia: parar o mouse em cima de um pôster ou capa do catálogo mostra sinopse e primeira frase
+let tempoPrevia = null, previaAberta = null;
+document.addEventListener("mouseover", (e) => {
+  const a = e.target.closest?.('[data-poster], a.obra-c[href^="#/pub/"]');
+  if (!a || a === previaAberta?.alvo) return;
+  clearTimeout(tempoPrevia);
+  tempoPrevia = setTimeout(async () => {
+    const pid = a.dataset.poster || a.getAttribute("href").slice(6);
+    const o = await obraPub(pid).catch(() => null); if (!o || !a.matches(":hover")) return;
+    document.querySelectorAll(".previa").forEach((x) => x.remove());
+    const el = document.createElement("div"); el.className = "previa vidro";
+    el.innerHTML = `<b>${esc(o.titulo)}</b><div class="suave peq">${esc((o.generos || []).slice(0, 2).join(" · "))} · ${o.numCaps || 0} caps · ${esc(o.autorNome)}</div><p>${esc((o.sinopse || "Sem sinopse.").slice(0, 320))}</p><div class="suave peq" id="pv-inicio"></div>`;
+    document.body.appendChild(el);
+    const r = a.getBoundingClientRect(); const w = 320;
+    el.style.left = Math.min(innerWidth - w - 12, r.right + 12 > innerWidth - w ? Math.max(12, r.left - w - 12) : r.right + 12) + "px";
+    el.style.top = Math.max(12, Math.min(innerHeight - el.offsetHeight - 12, r.top)) + "px";
+    previaAberta = { alvo: a, el };
+    try {
+      const { capsPub, lerTexto, collection, db, limparMarcas } = await import("./nucleo.js");
+      const c = (await capsPub(pid))[0];
+      if (c) { const t = await lerTexto(collection(db, "publicas", pid, "textos"), c.id, 1); const l = limparMarcas(t).split("\n").map((x) => x.trim()).find((x) => x.length > 30 && !x.startsWith("#")); if (l && el.isConnected) el.querySelector("#pv-inicio").textContent = "“" + l.slice(0, 260) + "…”"; }
+    } catch (_) {}
+  }, 650);
+});
+document.addEventListener("mouseout", (e) => {
+  const a = e.target.closest?.('[data-poster], a.obra-c[href^="#/pub/"]'); if (!a || a.contains(e.relatedTarget)) return;
+  clearTimeout(tempoPrevia);
+  if (previaAberta?.alvo === a) { previaAberta.el.remove(); previaAberta = null; }
+});
+window.addEventListener("hashchange", () => { document.querySelectorAll(".previa").forEach((x) => x.remove()); previaAberta = null; });
 
 // brilho do vidro acompanha o mouse
 document.addEventListener("pointermove", (e) => {

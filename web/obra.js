@@ -5,7 +5,15 @@ import {
   imagemMinha, escolherArquivo, comprimirArquivo, enviarImagemMinha, dialogo, confirmar, perguntar, pendencias, publicarObra, publicarCapitulos,
   despublicarCapitulo, despublicarObra, obraPub, GENEROS_GRUPOS, CLASSIFICACOES, STATUS_NOME, lerTexto, colTextos, novoId, limparMarcas, partir,
   convidar, membros, removerMembro, enviarRevisao, tirarRevisao, capsRevisao, notas, sugestoes, aceitarSugestao, descartarSugestao, local, mapaNomes,
+  corDaImagem, corDaBase, usarCorDaObra, ENFEITES, enfeiteHTML,
 } from "./nucleo.js";
+
+/** Pinta a tela com a cor da capa (selo, botões, capítulo atual…). */
+export async function aplicarCor(url, corBase) {
+  if (!usarCorDaObra()) return;
+  const cor = (url && await corDaImagem(url)) || corDaBase(corBase || 0xFF3B2A4A);
+  const el = document.querySelector(".conteudo"); if (el && cor) { el.style.setProperty("--acento", cor); el.style.setProperty("--sobre-acento", "#0b0b0b"); }
+}
 
 const TIPO_NOME = { PERSONAGEM: "Personagem", LUGAR: "Lugar", OUTRO: "Outro" };
 
@@ -30,7 +38,7 @@ rota("/obra/(\\w+)(?:/(\\w+))?", async (id, aba = "caps") => {
       <div class="frente"><div class="capa clicavel" id="capa" style="--cor:${corHex(o.corBase)}">${capa ? `<img src="${capa}">` : `<div class="sol"></div><div class="t">${esc(o.titulo)}</div>`}</div><div style="flex:1;min-width:0">
         <span class="selo">${esc(selo)}</span>${o.autor ? `<span class="suave peq" style="margin-left:10px">por ${esc(o.autor)}</span>` : ""}
         <h1>${esc(o.titulo)}</h1>
-        <div class="chips"><span class="pilula">${caps.length} caps</span><span class="pilula">${palavrasFmt(palavras)} palavras</span>${caps.length && !o.minha ? `<span class="pilula">${Math.round(lidos * 100 / caps.length)}% lido</span>` : ""}${(o.generos || "").split(",").filter(Boolean).slice(0, 3).map((g) => `<span class="pilula">${esc(g)}</span>`).join("")}</div>
+        <div class="chips"><span class="pilula">${caps.length} caps</span><span class="pilula">${palavrasFmt(palavras)} palavras</span>${caps.length && !o.minha ? `<span class="pilula">${Math.round(lidos * 100 / caps.length)}% lido</span>` : ""}${(() => { if (o.minha || !caps.length) return ""; const m = Math.round(caps.reduce((s, c) => s + (c.palavras || 0) * (1 - Math.min(1, c.progresso || 0)), 0) / 230); return m > 0 ? `<span class="pilula">faltam ${m >= 60 ? Math.floor(m / 60) + " h " + (m % 60) + " min" : m + " min"}</span>` : ""; })()}${(o.generos || "").split(",").filter(Boolean).slice(0, 3).map((g) => `<span class="pilula">${esc(g)}</span>`).join("")}</div>
         <div class="acoes">${alvo ? `<a class="btn" href="#/ler/${id}/${alvo.id}">▶ ${continuar ? "Continuar" : "Ler agora"}</a>` : ""}
           ${pode ? `<button class="btn2" id="maiscap">+ Capítulo</button>${o.publicada || caps.length ? `<a class="btn2" href="#/publicar/${id}">${o.publicada ? "Publicação" : "Publicar"}</a>` : ""}` : ""}
           ${o.trancada && o.publicaId ? `<a class="btn2" href="#/pub/${o.publicaId}">Ver no catálogo</a>` : ""}</div>
@@ -38,6 +46,7 @@ rota("/obra/(\\w+)(?:/(\\w+))?", async (id, aba = "caps") => {
     ${o.descricao ? `<p class="sinopse">${esc(o.descricao)}</p>` : ""}
     <div class="abas">${abas.map(([k, n]) => `<a href="#/obra/${id}/${k}" class="${k === aba ? "on" : ""}">${n}</a>`).join("")}</div>
     <div id="corpo"></div>`);
+  aplicarCor(capa, o.corBase);
   const corpo = $("#corpo");
   if (aba === "fichas" && pode) await telaFichas(id, corpo, pode);
   else if (aba === "tempo" && pode) await telaTempo(id, corpo, caps);
@@ -97,6 +106,12 @@ function menuCap(id, o, caps, c, ancora, pode) {
   }
   itens.push([lido ? "Marcar como não lido" : "Marcar como lido", async () => { await salvarCapitulo(id, c.id, { progresso: lido ? 0 : 1 }); window.redesenhar(); }]);
   if (pode) {
+    itens.push(["Resumo (“Anteriormente…”)", async () => {
+      const d = dialogo(`<h3 style="margin-top:0">Resumo do capítulo</h3><p class="suave peq">2 a 4 frases. Aparece como “Anteriormente…” no começo do próximo capítulo (no app e no PC, também para leitores do catálogo).</p>
+        <textarea class="campo" id="r" rows="5">${esc(c.resumo || "")}</textarea><div class="linha-botoes"><button class="btn2 peq" data-n>Cancelar</button><button class="btn peq" id="ok">Salvar</button></div>`);
+      $("[data-n]", d).onclick = () => d.close();
+      $("#ok", d).onclick = async () => { await salvarCapitulo(id, c.id, { resumo: $("#r", d).value.trim() }); d.close(); toast("Resumo salvo"); };
+    }]);
     itens.push(["Etiquetas", async () => { const t = await perguntar("Etiquetas (separe por vírgula)", c.tags || "", "flashback, luta"); if (t === null) return; await salvarCapitulo(id, c.id, { tags: t.split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean).join(",") }); window.redesenhar(); }]);
     if (i > 0) itens.push(["Subir", () => trocarOrdem(id, c, caps[i - 1])]);
     if (i < caps.length - 1) itens.push(["Descer", () => trocarOrdem(id, c, caps[i + 1])]);
@@ -121,6 +136,11 @@ function menuObra(id, ancora) {
     itens.push(["Trocar capa", () => trocarImagem(id, "capa")], ["Trocar banner", () => trocarImagem(id, "banner")]);
     itens.push([o.publicada ? "Publicação" : "Publicar no catálogo", () => ir(`/publicar/${id}`)]);
     itens.push(["Coautores e revisores", () => ir(`/colaboracao/${id}`)]);
+    itens.push(["Enfeite das cenas…", () => {
+      const d = dialogo(`<h3 style="margin-top:0">Enfeite das trocas de cena</h3><p class="suave peq">Aparece entre as cenas (* * *) no leitor, para você e para quem lê.</p>
+        <div class="enfeites">${Object.entries(ENFEITES).map(([k, n]) => `<button class="enfeite-op ${(o.enfeite || "LOSANGO") === k ? "on" : ""}" data-enf="${k}"><div class="sep">${enfeiteHTML(k)}</div><span>${n}</span></button>`).join("")}</div>`);
+      $$("[data-enf]", d).forEach((b) => (b.onclick = async () => { await salvarObra(id, { enfeite: b.dataset.enf }); d.close(); toast("Enfeite trocado"); if (o.publicada) publicarObra(id); }));
+    }]);
     itens.push(["Baixar como TXT", () => exportarTXT(id)]);
   } else {
     for (const s of ["LENDO", "QUERO", "CONCLUIDA"]) if (o.status !== s) itens.push([`Mover para “${STATUS_NOME[s]}”`, async () => { await salvarObra(id, { status: s }); window.redesenhar(); }]);

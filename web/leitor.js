@@ -3,19 +3,23 @@ import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras,
   capitulos, fichas, marcadores, salvarCapitulo, salvarObra, salvarItem, apagarItem, lerTexto, colTextos, salvarTexto, novoId, dialogo, confirmar,
   obraPub, capsPub, fichasPub, imagemPub, seguindo, seguir, minhaNota, avaliar, contarLeitura, curtiu, curtir, comentarios, comentar, apagarComentario,
-  collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar,
+  collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
 
 // ───────── preferências de leitura ─────────
-const PADRAO = { tam: 20, fonte: "serif", altura: 1.75, largura: 760, tema: "escuro", justificar: false };
+const PADRAO = { tam: 20, fonte: "serif", altura: 1.75, largura: 760, tema: "escuro", justificar: false, capitular: true, maratona: false };
 const pref = () => ({ ...PADRAO, ...local.ler("leitura", {}) });
 const FONTES = { serif: 'Newsreader, Georgia, serif', sans: 'Inter, system-ui, sans-serif', livro: '"Literata", Georgia, serif', mono: '"JetBrains Mono", ui-monospace, monospace' };
-const TEMAS = { escuro: ["#000", "#E8E8E8"], sepia: ["#1E1813", "#E9DCC6"], claro: ["#F6F3EE", "#1C1C1C"], cinza: ["#151719", "#D7DADF"] };
+const TEMAS = { escuro: ["#000", "#E8E8E8"], sepia: ["#1E1813", "#E9DCC6"], claro: ["#F6F3EE", "#1C1C1C"], cinza: ["#151719", "#D7DADF"], noite: ["#000", "#A9824F"] };
+let acentoLeitura = null; // cor da capa da obra aberta
 function estiloLeitura() {
   const p = pref(); const [f, t] = TEMAS[p.tema] || TEMAS.escuro;
-  return `--tam:${p.tam}px;--fonte-leitura:${FONTES[p.fonte]};--altura:${p.altura};--largura:${p.largura}px;--fundo-leitura:${f};--texto-leitura:${t};--alinhar:${p.justificar ? "justify" : "left"}`;
+  const ac = p.tema === "noite" ? "#D39A55" : acentoLeitura;
+  return `--tam:${p.tam}px;--fonte-leitura:${FONTES[p.fonte]};--altura:${p.altura};--largura:${p.largura}px;--fundo-leitura:${f};--texto-leitura:${t};--alinhar:${p.justificar ? "justify" : "left"}${ac ? `;--fala:${ac};--verde:${ac};--acento:${ac}` : ""}`;
 }
+async function corDoLeitor(url, base) { acentoLeitura = usarCorDaObra() ? ((url && await corDaImagem(url)) || (base ? corDaBase(base) : null)) : null; }
+const cartaoAnterior = (c) => c?.resumo ? `<div class="anteriormente"><div class="rotulo">Anteriormente…</div><p>${esc(c.resumo)}</p><span class="suave peq">${esc(c.titulo || "")}</span></div>` : "";
 function painelAjustes(aoMudar) {
   const p = pref();
   const d = dialogo(`<h3 style="margin-top:0">Leitura</h3>
@@ -23,14 +27,20 @@ function painelAjustes(aoMudar) {
     <label class="rot">Espaço entre linhas</label><input type="range" min="1.3" max="2.3" step=".05" value="${p.altura}" id="alt" class="faixa">
     <label class="rot">Largura da coluna</label><input type="range" min="520" max="1000" step="20" value="${p.largura}" id="larg" class="faixa">
     <label class="rot">Fonte</label><div class="chips">${[["serif", "Serifa"], ["sans", "Sem serifa"], ["livro", "Livro"], ["mono", "Máquina"]].map(([k, n]) => `<span class="chip ${p.fonte === k ? "on" : ""}" data-fonte="${k}">${n}</span>`).join("")}</div>
-    <label class="rot">Fundo</label><div class="chips">${[["escuro", "Preto"], ["cinza", "Grafite"], ["sepia", "Sépia"], ["claro", "Claro"]].map(([k, n]) => `<span class="chip ${p.tema === k ? "on" : ""}" data-tema="${k}">${n}</span>`).join("")}</div>
+    <label class="rot">Fundo</label><div class="chips">${[["escuro", "Preto"], ["cinza", "Grafite"], ["sepia", "Sépia"], ["claro", "Claro"], ["noite", "Noite profunda"]].map(([k, n]) => `<span class="chip ${p.tema === k ? "on" : ""}" data-tema="${k}">${n}</span>`).join("")}</div>
     <label class="troca" style="margin-top:14px"><input type="checkbox" id="just" ${p.justificar ? "checked" : ""}> Justificar o texto</label>
+    <label class="troca" style="margin-top:10px"><input type="checkbox" id="capi" ${p.capitular ? "checked" : ""}> Primeira letra grande (capitular)</label>
+    <label class="troca" style="margin-top:10px"><input type="checkbox" id="mara" ${p.maratona ? "checked" : ""}> Maratona: próximo capítulo começa sozinho</label>
+    <label class="troca" style="margin-top:10px"><input type="checkbox" id="cobra" ${usarCorDaObra() ? "checked" : ""}> Cores da capa da obra</label>
     <div class="linha-botoes"><button class="btn2 peq" id="pad">Voltar ao padrão</button><button class="btn peq" data-n>Pronto</button></div>`);
   const grava = (k, v) => { local.gravar("leitura", { ...pref(), [k]: v }); aoMudar(); };
   $("#tam", d).oninput = (e) => { $("#vt", d).textContent = e.target.value + "px"; grava("tam", +e.target.value); };
   $("#alt", d).oninput = (e) => grava("altura", +e.target.value);
   $("#larg", d).oninput = (e) => grava("largura", +e.target.value);
   $("#just", d).onchange = (e) => grava("justificar", e.target.checked);
+  $("#capi", d).onchange = (e) => { grava("capitular", e.target.checked); window.redesenhar(); };
+  $("#mara", d).onchange = (e) => grava("maratona", e.target.checked);
+  $("#cobra", d).onchange = (e) => { local.gravar("corDaObra", e.target.checked); window.redesenhar(); };
   $$("[data-fonte]", d).forEach((c) => (c.onclick = () => { grava("fonte", c.dataset.fonte); $$("[data-fonte]", d).forEach((x) => x.classList.toggle("on", x === c)); }));
   $$("[data-tema]", d).forEach((c) => (c.onclick = () => { grava("tema", c.dataset.tema); $$("[data-tema]", d).forEach((x) => x.classList.toggle("on", x === c)); }));
   $("#pad", d).onclick = () => { local.gravar("leitura", {}); aoMudar(); d.close(); };
@@ -39,22 +49,53 @@ function painelAjustes(aoMudar) {
 
 // ───────── texto → html ─────────
 const CORES_GRIFO = { AMBAR: "#E9A65A", VERDE: "#6FC2B4", AZUL: "#7FA7E6", ROSA: "#E88AA8" };
-export function htmlTexto(t, nomes = new Map(), grifos = new Map()) {
+export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
+  let capitularFeita = !pref().capitular;
   const linhas = limparMarcas(t).split("\n").map((l) => l.trim()).filter(Boolean);
   const lista = [...nomes.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const rxNomes = lista.length ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(${lista.join("|")})(?![\\p{L}\\p{N}]|[-'’]\\p{L})`, "gu") : null;
   return linhas.map((l, i) => {
     const g = grifos.get(i);
-    if (/^(\* \* \*|\*\*\*|---|◆)$/.test(l)) return `<div class="sep" data-b="${i}">◆ ◆ ◆</div>`;
+    if (/^(\* \* \*|\*\*\*|---|◆)$/.test(l)) return `<div class="sep enfeite" data-b="${i}">${enfeiteHTML(op.enfeite)}</div>`;
     if (/^#/.test(l)) return `<h3 data-b="${i}">${esc(l.replace(/^#+\s*/, ""))}</h3>`;
     let h = esc(l).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
     if (rxNomes) h = h.replace(rxNomes, (m) => `<span class="nome" data-ficha="${esc(nomes.get(m))}">${m}</span>`);
     const fala = /^[—–―\-“"«]/.test(l) && l.length > 1 && !l.startsWith("---");
     if (fala) h = h.replace(/^([—–―\-“"«]\s?)/, '<b class="trav">$1</b>');
     const nota = g?.nota ? `<span class="nota-grifo" title="${esc(g.nota)}">✎</span>` : "";
-    const cls = [fala ? "fala" : "", g ? "grifo" : ""].filter(Boolean).join(" ");
-    return `<p data-b="${i}"${cls ? ` class="${cls}"` : ""}${g ? ` style="--grifo:${CORES_GRIFO[g.cor] || "#E9A65A"}"` : ""}>${h}${nota}</p>`;
+    const capit = !capitularFeita && !fala && l.length > 40 && !/^(cap[ií]tulo|pr[oó]logo|ep[ií]logo)/i.test(l); if (capit) capitularFeita = true;
+    const cls = [fala ? "fala" : "", g ? "grifo" : "", capit ? "capitular" : ""].filter(Boolean).join(" ");
+    const nc = op.coms?.get(i) || 0;
+    const balao = op.coms ? `<button class="balao-trecho ${nc ? "" : "vazio"}" data-trecho="${i}" title="Comentar este trecho">💬${nc ? " " + nc : ""}</button>` : "";
+    return `<p data-b="${i}"${cls ? ` class="${cls}"` : ""}${g ? ` style="--grifo:${CORES_GRIFO[g.cor] || "#E9A65A"}"` : ""}>${h}${nota}${balao}</p>`;
   }).join("");
+}
+
+// ───────── maratona: no fim do capítulo, o próximo começa sozinho ─────────
+let contagem = null;
+function maratona(proxima) {
+  if (!proxima || !pref().maratona || contagem || $(".contagem")) return;
+  const alt = document.documentElement.scrollHeight - innerHeight;
+  if (alt > 0 && scrollY / alt < .995) return;
+  let n = 5;
+  const el = document.createElement("div"); el.className = "contagem vidro";
+  el.innerHTML = `<span>Próximo capítulo em <b>${n}</b>…</span><button class="btn2 peq">Cancelar</button>`;
+  document.body.appendChild(el);
+  const parar = () => { clearInterval(contagem); contagem = "cancelado"; el.remove(); };
+  el.querySelector("button").onclick = parar;
+  contagem = setInterval(() => { n--; if (n <= 0) { clearInterval(contagem); contagem = null; el.remove(); ir(proxima); } else el.querySelector("b").textContent = n; }, 1000);
+  const antes = E.saindo; E.saindo = async () => { clearInterval(contagem); contagem = null; el.remove(); if (antes) await antes(); };
+}
+window.addEventListener("hashchange", () => { if (contagem === "cancelado") contagem = null; });
+
+// ───────── comentários de um trecho ─────────
+function comentariosTrecho(pid, cid, bloco, trecho, todos) {
+  const l = todos.filter((m) => m.bloco === bloco);
+  const d = dialogo(`<h3 style="margin-top:0">${l.length} comentário${l.length === 1 ? "" : "s"} neste trecho</h3><blockquote class="trecho-citado">“${esc(trecho.slice(0, 260))}”</blockquote>
+    <div class="lista-coms">${l.map((m) => `<div class="comentario"><span class="av" style="width:34px;height:34px">${esc((m.nome || "?").slice(0, 1))}</span><div style="flex:1"><b>${esc(m.nome)}</b> <span class="suave peq">${haQuanto(m.em)}</span><div>${esc(m.texto)}</div></div></div>`).join("") || `<p class="suave">Ninguém comentou este trecho ainda.</p>`}</div>
+    <div style="display:flex;gap:10px;margin-top:14px"><textarea class="campo" id="ct" rows="2" placeholder="Comentar neste trecho…"></textarea><button class="btn peq" id="ce">Enviar</button></div>`, true);
+  $("#ct", d).focus();
+  $("#ce", d).onclick = async () => { const t = $("#ct", d).value.trim(); if (!t) return; await comentar(pid, cid, t, bloco, trecho); d.close(); toast("Comentário enviado"); window.redesenhar(); };
 }
 
 // ───────── ouvir (voz do navegador) ─────────
@@ -104,12 +145,15 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   const grifos = new Map(mks.filter((m) => m.cap === capId).map((m) => [m.bloco, m]));
   const ant = caps[i - 1], prox = caps[i + 1];
   const pode = o.minha && !o.trancada;
+  const { imagemMinha } = await import("./nucleo.js");
+  await corDoLeitor(o.capaHash ? await imagemMinha(obraId + "-capa") : null, o.corBase);
   const desenhar = () => {
     casca(aba, `<div class="prog" id="prog"></div><div class="leitor tema-leitura" style="${estiloLeitura()}">
       <div class="controles vidro"><a class="voltar" href="#/obra/${obraId}" title="Voltar">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span>
         <button class="btn2 peq" id="ouvir">▶ Ouvir</button><button class="btn2 peq" id="lcaps" title="Capítulos">☰</button><button class="btn2 peq" id="aj" title="Leitura">Aa</button>${pode ? `<a class="btn2 peq" href="#/editar/${obraId}/${capId}">✎ Editar</a>` : ""}</div>
       <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo || "Sem título")}</h1><div class="suave peq">${palavrasFmt(c.palavras || 0)} palavras · ◷ ${Math.max(1, Math.round((c.palavras || 0) / 230))} min</div></div>
-      <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fs), grifos) || '<p class="suave">Capítulo vazio.</p>'}</div>
+      ${(c.progresso || 0) < .05 ? cartaoAnterior(ant) : ""}
+      <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fs), grifos, { enfeite: o.enfeite }) || '<p class="suave">Capítulo vazio.</p>'}</div>
       <div class="fim"><div class="losango" style="width:14px;height:14px"></div><div class="rotulo" style="color:var(--suave)">Fim do capítulo</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${ant ? `<a class="btn2" href="#/ler/${obraId}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/ler/${obraId}/${prox.id}">Próximo: ${esc(prox.titulo)} ›</a>` : `<span class="suave">Último capítulo.</span>`}</div>
         ${!prox && o.status === "LENDO" && !o.minha ? `<button class="btn2 peq" id="concluir">Marcar obra como lida</button>` : ""}</div>
@@ -147,7 +191,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
       await salvarObra(obraId, { lidaEm: agora(), ultimoCap: capId });
     }, 1200);
   };
-  window.onscroll = aoRolar; aoRolar();
+  window.onscroll = () => { aoRolar(); maratona(prox && `/ler/${obraId}/${prox.id}`); }; aoRolar();
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/ler/${obraId}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/ler/${obraId}/${ant.id}`); };
   E.saindo = async () => { pararVoz(); };
 });
@@ -278,13 +322,16 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   if (!o) { casca("descobrir", `<p class="suave">Obra não encontrada.</p>`); return; }
   const i = caps.findIndex((c) => c.id === cid); const c = caps[i]; if (!c) { ir(`/pub/${pid}`); return; }
   const texto = await lerTexto(collection(db, "publicas", pid, "textos"), cid, c.partes);
+  await corDoLeitor(await imagemPub(pid, "capa"), null);
   const prox = caps[i + 1], ant = caps[i - 1];
   const [gostei, coms] = await Promise.all([curtiu(pid, cid), comentarios(pid, cid).catch(() => [])]);
   const fichasLista = fs.map((f) => ({ ...f, id: f.id }));
+  const porTrecho = new Map(); for (const m of coms) if ((m.bloco ?? -1) >= 0) porTrecho.set(m.bloco, (porTrecho.get(m.bloco) || 0) + 1);
   casca("descobrir", `<div class="prog" id="prog"></div><div class="leitor tema-leitura" style="${estiloLeitura()}"><div class="controles vidro"><a class="voltar" href="#/pub/${pid}">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span>
       <button class="btn2 peq" id="ouvir">▶ Ouvir</button><button class="btn2 peq" id="lcaps">☰</button><button class="btn2 peq" id="aj">Aa</button></div>
     <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo)}</h1><div class="suave peq">por <a href="#/autor/${esc(o.autorUid)}" style="text-decoration:underline">${esc(o.autorNome)}</a> · ${palavrasFmt(c.palavras)} palavras</div></div>
-    <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fichasLista))}</div>
+    ${cartaoAnterior(ant)}
+    <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fichasLista), new Map(), { enfeite: o.enfeite, coms: porTrecho })}</div>
     <div class="fim"><div class="losango" style="width:14px;height:14px"></div>
       <div class="social"><button class="btn2 ${gostei ? "on" : ""}" id="curtir">${gostei ? "♥" : "♡"} <span id="nc">${c.curtidas || 0}</span></button><span class="suave">💬 ${coms.length}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${ant ? `<a class="btn2" href="#/publer/${pid}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/publer/${pid}/${prox.id}">Próximo ›</a>` : `<span class="suave">Último capítulo publicado.</span>`}</div></div>
@@ -300,10 +347,11 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   $$("[data-ac]").forEach((b) => (b.onclick = async () => { if (await confirmar("Apagar comentário?", "", "Apagar", true)) { await apagarComentario(pid, cid, b.dataset.ac); window.redesenhar(); } }));
   scrollTo(0, 0);
   contarLeitura(pid, cid);
+  $$("[data-trecho]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); comentariosTrecho(pid, cid, +b.dataset.trecho, b.closest("p").textContent.replace(/💬.*$/, "").trim(), coms); }));
   // progresso de quem segue: guarda o último capítulo lido nesta obra
   const naBib = [...E.obras.entries()].find(([, x]) => x.publicaId === pid && !x.apagado);
   if (naBib) salvarObra(naBib[0], { lidaEm: agora() });
-  const aoRolar = () => { const alt = document.documentElement.scrollHeight - innerHeight; const b = $("#prog"); if (b) b.style.width = (alt > 0 ? Math.min(1, scrollY / alt) : 1) * 100 + "%"; };
+  const aoRolar = () => { const alt = document.documentElement.scrollHeight - innerHeight; const b = $("#prog"); if (b) b.style.width = (alt > 0 ? Math.min(1, scrollY / alt) : 1) * 100 + "%"; maratona(prox && `/publer/${pid}/${prox.id}`); };
   window.onscroll = aoRolar;
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/publer/${pid}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/publer/${pid}/${ant.id}`); };
   E.saindo = async () => pararVoz();

@@ -317,7 +317,7 @@ export async function publicarObra(id) {
     autorUid: E.usuario.uid, autorNome: nomeAutor(), titulo: o.titulo, sinopse: o.descricao || "",
     generos: (o.generos || "").split(",").map((s) => s.trim()).filter(Boolean),
     tags: (o.tagsPub || "").split(",").map((s) => s.trim().replace(/^#/, "").toLowerCase()).filter(Boolean),
-    classificacao: o.classificacao || "LIVRE", idioma: o.idioma || "pt", status: o.status, exportavel: o.exportavel !== false,
+    classificacao: o.classificacao || "LIVRE", idioma: o.idioma || "pt", status: o.status, exportavel: o.exportavel !== false, enfeite: o.enfeite || "",
     capaMini: capaBytes ? Bytes.fromUint8Array(await reduzirBytes(capaBytes, 260, .7)) : null,
     numCaps: caps.length, palavras: caps.reduce((s, c) => s + (c.palavras || 0), 0), atualizadaEm: agora(),
   };
@@ -344,7 +344,7 @@ export async function publicarCapitulos(id, caps, quando = agora()) {
     for (let i = 0; i < pedacos.length; i++) await setDoc(doc(db, "publicas", id, "textos", i === 0 ? c.id : `${c.id}~${i}`), { texto: pedacos[i] });
     const ja = (c.publicadoEm || 0) > 0;
     const em = ja && c.publicadoEm <= agora() ? c.publicadoEm : quando;
-    await setDoc(doc(db, "publicas", id, "caps", c.id), { titulo: c.titulo, ordem: c.ordem, palavras: c.palavras || 0, publicadoEm: em, atualizadoEm: agora(), partes: pedacos.length }, { merge: true });
+    await setDoc(doc(db, "publicas", id, "caps", c.id), { titulo: c.titulo, ordem: c.ordem, palavras: c.palavras || 0, publicadoEm: em, atualizadoEm: agora(), partes: pedacos.length, resumo: c.resumo || "" }, { merge: true });
     await salvarCapitulo(id, c.id, { publicadoEm: em, publicadoHash: c.textoHash || hashTexto(texto), rascunho: false });
   }
   await publicarObra(id);
@@ -413,8 +413,8 @@ export async function curtir(pid, cid, sim) {
 export async function comentarios(pid, cid) {
   return (await getDocs(query(collection(db, "publicas", pid, "caps", cid, "comentarios"), orderBy("em", "desc"), limit(200)))).docs.map(pubDe);
 }
-export async function comentar(pid, cid, texto) {
-  await addDoc(collection(db, "publicas", pid, "caps", cid, "comentarios"), { uid: E.usuario.uid, nome: nomeAutor(), texto: texto.trim().slice(0, 2000), em: agora() });
+export async function comentar(pid, cid, texto, bloco = -1, trecho = "") {
+  await addDoc(collection(db, "publicas", pid, "caps", cid, "comentarios"), { uid: E.usuario.uid, nome: nomeAutor(), texto: texto.trim().slice(0, 2000), em: agora(), bloco, trecho: trecho.slice(0, 300) });
   await updateDoc(doc(db, "publicas", pid, "caps", cid), { comentarios: increment(1) });
 }
 export async function apagarComentario(pid, cid, id) {
@@ -503,6 +503,56 @@ export const CLASSIFICACOES = ["LIVRE", "12", "14", "16", "18"];
 const CORES_G = [["#5B2A86", "#1A0E2B"], ["#8A2C2C", "#2A0D0D"], ["#1F5E6B", "#0A2126"], ["#8A5A1C", "#2B1A07"], ["#2D4F8A", "#0C1729"], ["#6B2A5E", "#240C1F"], ["#2F6B3A", "#0C2410"], ["#7A3B1F", "#2A130A"], ["#4A3D8F", "#14102E"], ["#8A2C5A", "#2B0C1C"], ["#3D6B6B", "#0F2222"], ["#6B5A1F", "#241D08"]];
 export function corGenero(g) { let h = 0; for (const c of g) h = (h * 31 + c.charCodeAt(0)) | 0; return CORES_G[Math.abs(h) % CORES_G.length]; }
 export const STATUS_NOME = { ESCREVENDO: "Escrevendo", LENDO: "Lendo", CONCLUIDA: "Concluída", QUERO: "Quero ler" };
+
+// ───────── cor da capa ─────────
+const coresCapa = new Map();
+/** Cor viva que mais aparece na imagem, clareada para ler bem sobre o preto (igual ao app). */
+export async function corDaImagem(url) {
+  if (!url) return null;
+  if (coresCapa.has(url)) return coresCapa.get(url);
+  let cor = null;
+  try {
+    const img = new Image(); img.src = url; await img.decode();
+    const c = document.createElement("canvas"); c.width = 48; c.height = Math.max(1, Math.round(48 * img.height / img.width));
+    const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, c.width, c.height);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    const pesos = new Array(24).fill(0), sr = new Array(24).fill(0), sg = new Array(24).fill(0), sb = new Array(24).fill(0);
+    for (let i = 0; i < d.length; i += 4) {
+      const [h, s, v] = hsv(d[i], d[i + 1], d[i + 2]);
+      if (s > .22 && v > .18) { const k = Math.min(23, Math.floor(h / 15)); const w = (s * v) ** 2; pesos[k] += w; sr[k] += d[i] * w; sg[k] += d[i + 1] * w; sb[k] += d[i + 2] * w; }
+    }
+    const m = pesos.indexOf(Math.max(...pesos));
+    if (pesos[m] > .5) cor = realcar(sr[m] / pesos[m], sg[m] / pesos[m], sb[m] / pesos[m]);
+  } catch (_) {}
+  coresCapa.set(url, cor);
+  return cor;
+}
+function hsv(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [(h * 60 + 360) % 360, mx ? d / mx : 0, mx]; }
+function realcar(r, g, b) {
+  let [h, s, v] = hsv(r, g, b); s = Math.min(.78, Math.max(.45, s)); v = Math.min(1, Math.max(.88, v));
+  const f = (n) => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return "#" + [f(5), f(3), f(1)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+}
+export const corDaBase = (n) => { const x = Number(n) & 0xFFFFFF; return realcar(x >> 16 & 255, x >> 8 & 255, x & 255); };
+export const usarCorDaObra = () => local.ler("corDaObra", true);
+
+// ───────── enfeites de cena ─────────
+export const ENFEITES = { LOSANGO: "Losango", ESTRELAS: "Estrelas", LOTUS: "Flor de lótus", ESPADAS: "Espadas", ONDA: "Onda" };
+export function enfeiteHTML(k) {
+  if (k === "ESTRELAS") return `<span class="enf-estrelas">✦ ✦ ✦</span>`;
+  if (k === "LOTUS") return `<i class="enf-linha"></i><span class="enf-simb">❀</span><i class="enf-linha inv"></i>`;
+  if (k === "ESPADAS") return `<span class="enf-simb">⚔</span><i class="enf-tracos"></i><span class="enf-simb">⚔</span>`;
+  if (k === "ONDA") return `<svg width="160" height="16" viewBox="0 0 160 16"><path d="M0 8 Q10 0 20 8 T40 8 T60 8 T80 8 T100 8 T120 8 T140 8 T160 8" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+  return `<i class="enf-linha"></i><i class="enf-losango"></i><i class="enf-linha inv"></i>`;
+}
+
+// ───────── conquistas (calculadas no celular, guardadas no perfil) ─────────
+export const CONQUISTAS = [
+  ["p1k", "✎", "Primeiras 1.000 palavras", "#FF9A5A"], ["p10k", "✎", "10 mil palavras", "#FF7A3A"], ["p50k", "✎", "50 mil palavras", "#FF6A2B"], ["p100k", "✒", "100 mil palavras", "#E0452B"],
+  ["s7", "🔥", "7 dias seguidos", "#FF8A2A"], ["s30", "🔥", "30 dias seguidos", "#E85A1F"], ["l10", "👁", "10 capítulos lidos", "#5AB0FF"], ["l100", "👁", "100 capítulos lidos", "#3A8BFF"],
+  ["h10", "☾", "10 horas lendo", "#7A8BFF"], ["fim", "✓", "Leu uma obra inteira", "#6FC2B4"], ["pub", "★", "Primeira obra publicada", "#FFD54A"], ["com", "💬", "Primeiro comentário", "#C13DFF"],
+  ["g10", "❝", "10 trechos grifados", "#E88AA8"], ["c20", "▤", "Obra com 20 capítulos", "#4FD1B8"],
+];
 
 // ───────── roteamento ─────────
 export const rotas = [];
