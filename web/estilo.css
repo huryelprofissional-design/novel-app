@@ -45,7 +45,7 @@ input, textarea, select { font: inherit; color: var(--tx); }
 .lado a.item.on { color: #fff; background: linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.07));
   box-shadow: inset 0 1px 1px rgba(255,255,255,.55), inset 0 0 14px rgba(255,255,255,.1), 0 6px 16px -6px rgba(0,0,0,.6); }
 .lado .rodape { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 0 6px; }
-.conteudo { min-width: 0; padding: 30px 40px 90px; max-width: 1240px; }
+.conteudo { min-width: 0; padding: 30px 40px 90px; max-width: 1240px; width: 100%; margin: 0 auto; }
 .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .topo h1 { font-size: 32px; font-weight: 900; margin: 0; flex: 1; letter-spacing: -.03em; }
 .voltar { width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }

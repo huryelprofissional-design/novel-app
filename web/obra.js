@@ -24,7 +24,7 @@ rota("/obra/(\\w+)(?:/(\\w+))?", async (id, aba = "caps") => {
   const alvo = caps.find((c) => c.id === o.ultimoCap) || caps.find((c) => (c.progresso || 0) < .98) || caps[0];
   const continuar = alvo && (alvo.progresso || 0) > .01 && (alvo.progresso || 0) < .98;
   const selo = pode ? (o.publicada ? "NO CATÁLOGO" : "ESCREVENDO") : o.trancada ? "PUBLICADA" : (STATUS_NOME[o.status] || "LENDO").toUpperCase();
-  const abas = pode ? [["caps", `Capítulos · ${caps.length}`], ["fichas", "Personagens"], ["tempo", "Linha do tempo"]] : [["caps", `Capítulos · ${caps.length}`], ["fichas", "Personagens"]];
+  const abas = pode ? [["caps", `Capítulos · ${caps.length}`], ["fichas", "Personagens"], ["tempo", "Linha do tempo"]] : [["caps", `Capítulos · ${caps.length}`]];
   casca(abaMenu, `<div class="topo"><a class="voltar vidro" href="javascript:history.back()">←</a><div style="flex:1"></div><button class="btn2 peq" id="menu">⋯ Opções</button></div>
     <div class="cab-obra"><div class="fundo" style="background-image:url(${banner || capa || ""});${banner || capa ? "" : `background:${corHex(o.corBase)}`}"></div>
       <div class="frente"><div class="capa clicavel" id="capa" style="--cor:${corHex(o.corBase)}">${capa ? `<img src="${capa}">` : `<div class="sol"></div><div class="t">${esc(o.titulo)}</div>`}</div><div style="flex:1;min-width:0">
@@ -39,7 +39,7 @@ rota("/obra/(\\w+)(?:/(\\w+))?", async (id, aba = "caps") => {
     <div class="abas">${abas.map(([k, n]) => `<a href="#/obra/${id}/${k}" class="${k === aba ? "on" : ""}">${n}</a>`).join("")}</div>
     <div id="corpo"></div>`);
   const corpo = $("#corpo");
-  if (aba === "fichas") await telaFichas(id, corpo, pode);
+  if (aba === "fichas" && pode) await telaFichas(id, corpo, pode);
   else if (aba === "tempo" && pode) await telaTempo(id, corpo, caps);
   else listaCaps(id, o, caps, corpo, pode);
   $("#menu").onclick = (e) => menuObra(id, e.currentTarget);

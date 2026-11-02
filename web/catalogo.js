@@ -83,7 +83,7 @@ rota("/pub/(\\w+)", async (pid) => {
         <div class="acoes">${caps.length ? `<a class="btn" href="#/publer/${pid}/${(naBib?.ultimoCap && caps.find((c) => c.id === naBib.ultimoCap)?.id) || caps[0].id}">▶ Ler agora</a>` : `<span class="suave">Sem capítulos ainda.</span>`}
           ${souAutor ? "" : `<button class="btn2 ${segue ? "on" : ""}" id="seguir">${segue ? "♥ Seguindo" : "♡ Seguir"}</button>`}</div>
       </div></div></div>
-    <div class="duas-colunas obra-pub">
+    <div class="obra-pub">
       <div>
         ${o.sinopse ? `<p class="sinopse">${esc(o.sinopse)}</p>` : ""}
         ${(o.tags || []).length ? `<div class="chips" style="margin-bottom:16px">${o.tags.map((t) => `<span class="etiqueta">#${esc(t)}</span>`).join("")}</div>` : ""}
@@ -91,7 +91,6 @@ rota("/pub/(\\w+)", async (pid) => {
         <div class="sec"><h2>Capítulos</h2><a class="suave peq" href="javascript:void 0" id="ord">⇅ ${desc ? "mais recentes" : "do início"}</a></div>
         <div class="caps">${ordenados.map((c) => `<a class="cap" href="#/publer/${pid}/${c.id}"><span class="n">${caps.indexOf(c) + 1}</span><div style="flex:1;min-width:0"><div class="tt">${esc(c.titulo)}</div><div class="suave peq">${c.publicadoEm > agora() ? "agendado · " + dataFmt(c.publicadoEm) : haQuanto(c.publicadoEm)}${c.atualizadoEm - c.publicadoEm > 3600000 ? " · atualizado " + haQuanto(c.atualizadoEm) : ""}</div></div><span class="suave peq">♥ ${c.curtidas || 0} · 💬 ${c.comentarios || 0}</span></a>`).join("")}</div>
       </div>
-      ${fs.length ? `<aside><div class="sec" style="margin-top:0"><h2>Personagens</h2></div><div class="fichas-pub">${fs.map((f) => `<button class="ficha-mini vidro" data-f="${f.id}"><span class="av">${f.tipo === "LUGAR" ? "⌂" : esc(f.nome.slice(0, 1))}</span><span>${esc(f.nome)}</span></button>`).join("")}</div></aside>` : ""}
     </div>`);
   const sb = $("#seguir"); if (sb) sb.onclick = async () => {
     const sim = !sb.classList.contains("on"); sb.disabled = true;
