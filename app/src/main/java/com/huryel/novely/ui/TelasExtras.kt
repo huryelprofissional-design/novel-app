@@ -201,6 +201,15 @@ private object Nomes {
     val lugarPre = listOf("Pico", "Vale", "Cidade", "Torre", "Floresta", "Abismo", "Ilha", "Templo", "Portão", "Mar", "Planície", "Fortaleza", "Seita", "Reino", "Lago")
     val lugarPos = listOf("das Cinzas", "do Lótus Negro", "Celestial", "dos Mil Ventos", "Esquecido", "da Lua Partida", "de Jade", "do Dragão Adormecido", "Carmesim",
         "das Nove Névoas", "Sem Nome", "do Sol Poente", "de Ferro", "das Almas", "Eterno")
+    val tecGrupos = listOf(
+        listOf("Espada", "Corte", "Lâmina") to listOf("da Lua Crescente", "das Nove Nuvens", "do Vento do Sul", "Celestial", "da Flor de Ameixa", "do Rio Gelado", "Sem Sombra", "do Céu Partido", "das Mil Folhas", "do Horizonte"),
+        listOf("Palma", "Punho") to listOf("do Dragão Furioso", "que Parte Montanhas", "do Tigre Branco", "Trovejante", "dos Dez Mil Budas", "do Vazio", "Escarlate", "do Leão Dourado", "do Trovão Silencioso"),
+        listOf("Passos", "Dança") to listOf("da Sombra Errante", "sobre as Nuvens", "do Vento Fantasma", "das Sete Estrelas", "da Garça Branca", "da Névoa"),
+        listOf("Método", "Sutra", "Técnica") to listOf("do Coração Celeste", "das Nove Yang", "da Lua Gélida", "do Corpo Imortal", "do Yin Profundo", "do Sol Nascente", "da Respiração do Dragão", "das Cinco Fases"),
+        listOf("Lança", "Arco") to listOf("do Dragão Ascendente", "que Perfura o Céu", "da Estrela Cadente", "do Relâmpago Negro", "da Fênix"),
+    )
+    val tecFixos = listOf("Corpo de Ferro", "Sino Dourado", "Pele de Jade", "Olho Celestial", "Selo dos Nove Infernos", "Chama do Lótus Negro", "Rugido do Leão", "Mil Mãos de Buda", "Ventos que Cortam Almas")
+    val tecFormas = listOf("Primeira Forma", "Segunda Forma", "Terceira Forma", "Sétima Forma", "Forma Final", "Estilo Secreto")
     val tecA = listOf("Lâmina", "Punho", "Palma", "Passo", "Espada", "Chama", "Selo", "Olho", "Canção", "Corte", "Escudo", "Garra", "Lança")
     val tecB = listOf("do Trovão Silencioso", "das Mil Sombras", "do Céu Partido", "da Lua Vazia", "do Dragão Ascendente", "Carmesim", "da Neve Eterna",
         "do Vazio", "da Fênix Negra", "dos Nove Infernos", "da Aurora", "do Vento Cortante", "Celestial")
@@ -215,7 +224,12 @@ private object Nomes {
         "BR" -> nomesBr[r.nextInt(nomesBr.size)] + " " + sobrenomesBr[r.nextInt(sobrenomesBr.size)] +
             if (r.nextInt(3) == 0) " " + sobrenomesBr[r.nextInt(sobrenomesBr.size)] else ""
         "LUGAR" -> lugarPre[r.nextInt(lugarPre.size)] + " " + lugarPos[r.nextInt(lugarPos.size)]
-        "TECNICA" -> tecA[r.nextInt(tecA.size)] + " " + tecB[r.nextInt(tecB.size)]
+        "TECNICA" -> {
+            // cada tipo de golpe só combina com o que faz sentido para ele (espada com lua/nuvem, punho com tigre/montanha…)
+            val base = if (r.nextInt(5) == 0) tecFixos[r.nextInt(tecFixos.size)]
+                else tecGrupos[r.nextInt(tecGrupos.size)].let { (a, b) -> a[r.nextInt(a.size)] + " " + b[r.nextInt(b.size)] }
+            if (r.nextInt(3) == 0) base + ": " + tecFormas[r.nextInt(tecFormas.size)] else base
+        }
         else -> palavra(if (r.nextBoolean()) silabasOriente else silabasOcidente, r) + ", " + titulos[r.nextInt(titulos.size)]
     }
 }

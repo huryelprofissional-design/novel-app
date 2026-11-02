@@ -181,6 +181,9 @@ const N = {
   br: ["ra", "fa", "el", "lu", "ca", "jo", "ão", "ma", "ri", "ta", "be", "ni", "ce", "lo", "di", "go", "vi", "na", "ru", "be", "ga", "te"],
   nb: ["Ana", "Beatriz", "Camila", "Clara", "Helena", "Isabela", "Júlia", "Larissa", "Letícia", "Luana", "Manuela", "Mariana", "Marina", "Natália", "Rafaela", "Sofia", "Valentina", "Yasmin", "Lívia", "Cecília", "Alice", "Lorena", "Bianca", "Giovana", "Heloísa", "Elisa", "Aurora", "Iara", "Maitê", "Jade", "Arthur", "Bernardo", "Caio", "Daniel", "Davi", "Eduardo", "Enzo", "Felipe", "Gabriel", "Gustavo", "Heitor", "Henrique", "Igor", "João", "Leonardo", "Lucas", "Matheus", "Miguel", "Murilo", "Otávio", "Pedro", "Rafael", "Renan", "Samuel", "Thiago", "Vicente", "Vinícius", "Benício", "Caetano", "Joaquim"],
   sb: ["Albuquerque", "Almeida", "Andrade", "Barbosa", "Barros", "Bezerra", "Braga", "Cardoso", "Carvalho", "Castro", "Cavalcanti", "Correia", "Costa", "Duarte", "Farias", "Fernandes", "Ferraz", "Freitas", "Galvão", "Gomes", "Lacerda", "Lima", "Macedo", "Medeiros", "Monteiro", "Moraes", "Nascimento", "Nogueira", "Pacheco", "Peixoto", "Pereira", "Queiroz", "Ramos", "Rezende", "Ribeiro", "Rocha", "Sampaio", "Siqueira", "Souza", "Tavares", "Teixeira", "Vasconcelos", "Vieira", "Xavier"],
+  tg: [[["Espada", "Corte", "Lâmina"], ["da Lua Crescente", "das Nove Nuvens", "do Vento do Sul", "Celestial", "da Flor de Ameixa", "do Rio Gelado", "Sem Sombra", "do Céu Partido", "das Mil Folhas", "do Horizonte"]], [["Palma", "Punho"], ["do Dragão Furioso", "que Parte Montanhas", "do Tigre Branco", "Trovejante", "dos Dez Mil Budas", "do Vazio", "Escarlate", "do Leão Dourado", "do Trovão Silencioso"]], [["Passos", "Dança"], ["da Sombra Errante", "sobre as Nuvens", "do Vento Fantasma", "das Sete Estrelas", "da Garça Branca", "da Névoa"]], [["Método", "Sutra", "Técnica"], ["do Coração Celeste", "das Nove Yang", "da Lua Gélida", "do Corpo Imortal", "do Yin Profundo", "do Sol Nascente", "da Respiração do Dragão", "das Cinco Fases"]], [["Lança", "Arco"], ["do Dragão Ascendente", "que Perfura o Céu", "da Estrela Cadente", "do Relâmpago Negro", "da Fênix"]]],
+  tf: ["Corpo de Ferro", "Sino Dourado", "Pele de Jade", "Olho Celestial", "Selo dos Nove Infernos", "Chama do Lótus Negro", "Rugido do Leão", "Mil Mãos de Buda", "Ventos que Cortam Almas"],
+  tfo: ["Primeira Forma", "Segunda Forma", "Terceira Forma", "Sétima Forma", "Forma Final", "Estilo Secreto"],
   lp: ["Pico", "Vale", "Cidade", "Torre", "Floresta", "Abismo", "Ilha", "Templo", "Portão", "Mar", "Planície", "Fortaleza", "Seita", "Reino", "Lago"],
   ls: ["das Cinzas", "do Lótus Negro", "Celestial", "dos Mil Ventos", "Esquecido", "da Lua Partida", "de Jade", "do Dragão Adormecido", "Carmesim", "das Nove Névoas", "Sem Nome", "do Sol Poente", "de Ferro", "das Almas", "Eterno"],
   ta: ["Lâmina", "Punho", "Palma", "Passo", "Espada", "Chama", "Selo", "Olho", "Canção", "Corte", "Escudo", "Garra", "Lança"],
@@ -194,7 +197,7 @@ function gerarNome(t) {
   if (t === "OCIDENTE") return palavra(N.oci) + (Math.random() < .33 ? " " + palavra(N.oci, 2, 3) : "");
   if (t === "BR") { const a = sorte(N.sb); let b = sorte(N.sb); if (b === a) b = sorte(N.sb); return sorte(N.nb) + " " + a + (Math.random() < .33 && b !== a ? " " + b : ""); }
   if (t === "LUGAR") return sorte(N.lp) + " " + sorte(N.ls);
-  if (t === "TECNICA") return sorte(N.ta) + " " + sorte(N.tb);
+  if (t === "TECNICA") { const [a, b] = sorte(N.tg); const base = Math.random() < .2 ? sorte(N.tf) : sorte(a) + " " + sorte(b); return Math.random() < .33 ? base + ": " + sorte(N.tfo) : base; }
   return palavra(Math.random() < .5 ? N.ori : N.oci) + ", " + sorte(N.ti);
 }
 rota("/nomes", async () => {
