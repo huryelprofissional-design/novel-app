@@ -43,8 +43,10 @@ jobs:
           script: |
             adb install -r novely.apk
             adb logcat -c
-            adb shell am start -W -n com.huryel.novely/.MainActivity | tee inicio.txt
-            sleep 8
+            adb shell am start -W -n com.huryel.novely/.MainActivity > /dev/null; sleep 6
+            adb shell cmd package compile -f -m speed-profile com.huryel.novely || true
+            for n in 1 2 3 4 5; do adb shell am force-stop com.huryel.novely; sleep 2; adb shell am start -W -n com.huryel.novely/.MainActivity | grep TotalTime >> inicio.txt; done
+            cat inicio.txt; sleep 4
             adb shell pidof com.huryel.novely > /dev/null && echo "ABRIU" || echo "NAO_ABRIU"
             adb shell monkey -p com.huryel.novely --throttle 120 --pct-syskeys 0 -s 42 600 > monkey.txt 2>&1 || true
             sleep 2
@@ -55,8 +57,8 @@ jobs:
       - name: Resultado
         if: always()
         run: |
-          T=$(grep -oP "TotalTime: \K\d+" inicio.txt 2>/dev/null || echo "?")
-          echo "::notice title=Abertura::$TAG abriu em ${T} ms (emulador sem GPU, no celular é mais rápido)"
+          T=$(grep -oP "TotalTime: \K\d+" inicio.txt 2>/dev/null | sort -n | sed -n 3p); T=${T:-?}
+          echo "::notice title=Abertura::$TAG abre em ${T} ms (mediana de 5 aberturas; emulador sem GPU, no celular é mais rápido)"
           J=$(grep -E "Janky frames:" gfx.txt | head -1 | sed 's/^ *//')
           [ -n "$J" ] && echo "::notice title=Fluidez::$J"
           if grep -qE "FATAL EXCEPTION|ANR in com.huryel.novely|// CRASH: com.huryel.novely" logcat.txt monkey.txt; then
