@@ -228,11 +228,31 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     var mostrarCapitulos by remember { mutableStateOf(false) }
     var mostrarSobre by remember { mutableStateOf(false) }
 
+    // tradução no aparelho: o idioma escolhido vale para os próximos capítulos também
+    var original by remember { mutableStateOf<String?>(null) }
+    val idiomaLeitura by prefs.idiomaLeitura.estado.collectAsState()
+    var traduzindo by remember { mutableStateOf<String?>(null) }
+    var escolherIdioma by remember { mutableStateOf(false) }
+    val ctxT = LocalContext.current
     LaunchedEffect(capId) {
         val c = repo.capitulo(capId).filterNotNull().first()
         cap = c
-        blocos = withContext(Dispatchers.Default) { montarBlocos(repo.lerTexto(capId)) }
+        val t = repo.lerTexto(capId)
+        if (idiomaLeitura.isEmpty()) blocos = withContext(Dispatchers.Default) { montarBlocos(t) }
+        original = t
         lista = repo.dao.capitulosAgora(c.obraId)
+    }
+    LaunchedEffect(original, idiomaLeitura) {
+        val t = original ?: return@LaunchedEffect
+        if (idiomaLeitura.isEmpty()) { blocos = withContext(Dispatchers.Default) { montarBlocos(t) }; return@LaunchedEffect }
+        traduzindo = "Preparando a tradução…"
+        val trad = try {
+            com.huryel.novely.data.Tradutor.traduzir(ctxT, "cap$capId", t, idiomaLeitura) { feitas, total ->
+                traduzindo = if (total < 0) "Baixando o idioma (só na primeira vez)…" else "Traduzindo $feitas de $total…"
+            }
+        } catch (e: Exception) { traduzindo = null; android.widget.Toast.makeText(ctxT, "Não deu para traduzir: ${e.message}", android.widget.Toast.LENGTH_LONG).show(); prefs.idiomaLeitura.definir(""); t }
+        blocos = withContext(Dispatchers.Default) { montarBlocos(trad) }
+        traduzindo = null
     }
 
     val view = LocalView.current
@@ -247,7 +267,10 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         Box(Modifier.fillMaxSize().background(p.fundo), contentAlignment = Alignment.Center) {
             val pulso = androidx.compose.animation.core.rememberInfiniteTransition(label = "abrindo")
             val a by pulso.animateFloat(0.25f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "a")
-            Text("◆", color = p.destaque, fontSize = 30.sp, modifier = Modifier.graphicsLayer { alpha = a })
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("◆", color = p.destaque, fontSize = 30.sp, modifier = Modifier.graphicsLayer { alpha = a })
+                traduzindo?.let { Text(it, color = p.textoSuave, fontSize = 13.sp) }
+            }
         }
         return
     }
@@ -641,6 +664,25 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             if (w > 0f) drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.35f), p.destaque), endX = w), size = androidx.compose.ui.geometry.Size(w, size.height))
         })
 
+        traduzindo?.let { msg ->
+            Row(Modifier.align(Alignment.Center).clip(forma(18.dp)).background(p.superficie).padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CircularProgressIndicator(Modifier.size(20.dp), color = p.destaque, strokeWidth = 2.dp)
+                Text(msg, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        if (escolherIdioma) AlertDialog(onDismissRequest = { escolherIdioma = false }, confirmButton = { TextButton(onClick = { escolherIdioma = false }) { Text("Fechar") } },
+            title = { Text("Ler em outro idioma") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text("Traduz no próprio celular, grátis. Na primeira vez baixa o idioma (~30 MB). Serve também para ler em português uma obra importada em inglês ou coreano.",
+                        fontSize = 12.sp, color = p.textoSuave)
+                    (listOf("" to "Original (sem traduzir)") + com.huryel.novely.data.Tradutor.IDIOMAS).forEach { (cod, nome) ->
+                        Text(nome, fontWeight = if (cod == idiomaLeitura) FontWeight.ExtraBold else FontWeight.Normal, color = if (cod == idiomaLeitura) p.destaque else p.texto,
+                            modifier = Modifier.fillMaxWidth().clickable { escolherIdioma = false; prefs.idiomaLeitura.definir(cod) }.padding(vertical = 11.dp))
+                    }
+                }
+            })
         AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
             Box(Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp).vidroLiquido(vidro, 26.dp)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -651,6 +693,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                         val restam = ((1f - progresso) * c.palavras / 230f).toInt()
                         Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}" + if (restam >= 1 && progresso < 0.99f) " · faltam ~$restam min" else "", fontSize = 12.sp, color = p.textoSuave, maxLines = 1)
                     }
+                    IconButton(onClick = { escolherIdioma = true }) { Text(if (idiomaLeitura.isEmpty()) "🌐" else idiomaLeitura.uppercase(), fontWeight = FontWeight.ExtraBold, fontSize = if (idiomaLeitura.isEmpty()) 18.sp else 13.sp, color = if (idiomaLeitura.isEmpty()) p.texto else p.destaque) }
                     IconButton(onClick = { mostrarSobre = true }) { Icon(Icons.Filled.Info, "Sobre a obra") }
                     if (obra?.minha == true) IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar capítulo") }
                 }

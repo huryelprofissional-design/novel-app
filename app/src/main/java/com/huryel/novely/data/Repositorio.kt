@@ -526,6 +526,8 @@ class Preferencias(ctx: Context) {
     val bibliaIgnorados = texto("bibliaIgnorados", "")
     /** Ouvir: cada personagem com a própria voz. */
     val vozesPersonagens = bool("vozesPersonagens", true)
+    /** Ler traduzido: código do idioma ("" = original). */
+    val idiomaLeitura = texto("idiomaLeitura", "")
     /** Vozes escolhidas para personagens: "obra|ficha|voz|tom" por linha. */
     private val vozesElencoP = texto("vozesElenco", "")
     fun vozesElenco(obraId: Long): Map<Long, VozPersonagem> = vozesElencoP.valor.split('\n').mapNotNull { l ->
