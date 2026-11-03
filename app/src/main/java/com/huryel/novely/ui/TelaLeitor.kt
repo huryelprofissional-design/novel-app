@@ -665,6 +665,27 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         if (escurecer > 0.01f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = escurecer)))
         if (luzQuente > 0.01f) Box(Modifier.fillMaxSize().background(Color(0xFFFF8A2A).copy(alpha = luzQuente * 0.28f)))
 
+        // clima da cena: partículas conforme o trecho na tela (chuva, neve, fogo, vento, noite) e som opcional
+        val climaLigado by prefs.climaCena.estado.collectAsState()
+        val somCena by prefs.somCena.estado.collectAsState()
+        var clima by remember { mutableStateOf<String?>(null) }
+        if (climaLigado) LaunchedEffect(b) {
+            snapshotFlow { blocoAtual() }.collect { bi ->
+                val janela = (bi - 1..bi + 4).mapNotNull { b.getOrNull(it)?.plano }.joinToString(" ")
+                clima = withContext(Dispatchers.Default) { detectarClima(janela) }
+            }
+        } else clima = null
+        DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }
+        LaunchedEffect(clima, somCena) { com.huryel.novely.data.Ambiente.tocar(if (somCena) clima?.let { SOM_CLIMA[it] } else null) }
+        ClimaCena(clima)
+        androidx.compose.animation.AnimatedVisibility(clima != null, Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = if (controles) 64.dp else 10.dp, end = 12.dp),
+            enter = fadeIn() + slideInVertically { -it }, exit = fadeOut()) {
+            var ultimoClima by remember { mutableStateOf("") }
+            clima?.let { ultimoClima = it }
+            Text(ROTULO_CLIMA[ultimoClima].orEmpty() + if (somCena) "  🔊" else "  🔈", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                modifier = Modifier.clip(forma(14.dp)).background(Color.Black.copy(alpha = 0.45f)).clickable { prefs.somCena.definir(!somCena) }.padding(horizontal = 10.dp, vertical = 6.dp))
+        }
+
         // barra de progresso fininha no topo
         // lido só na hora de desenhar: rolar o texto não recompõe a tela do leitor
         Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(3.dp).drawBehind {
@@ -774,7 +795,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     if (blocoSel >= 0 && blocoSel in b.indices) ModalBottomSheet(onDismissRequest = { blocoSel = -1 }, containerColor = p.superficie) {
         FolhaParagrafo(b[blocoSel].plano, marcasPorBloco[blocoSel], c.obraId, c.id, blocoSel, obra?.titulo ?: "", c.titulo, fichas,
             fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it },
-            comentar = if (social != null) ({ val bi = blocoSel; blocoSel = -1; trechoComentar = bi }) else null)
+            comentar = if (social != null) ({ val bi = blocoSel; blocoSel = -1; trechoComentar = bi }) else null,
+            corObra = obra?.corBase ?: 0, capa = obra?.capa)
     }
     if (trechoComentar >= 0 && social != null && trechoComentar in b.indices) ModalBottomSheet(onDismissRequest = { trechoComentar = -1; recarregarComs++ }, containerColor = p.superficie) {
         FolhaComentarios(social.first, social.second, trechoComentar, b[trechoComentar].plano) { }
@@ -1275,6 +1297,10 @@ fun AjustesLeitura() {
         LinhaInterruptor("Cores da capa da obra", corObra) { prefs.corDaObra.definir(it) }
         LinhaInterruptor("Primeira letra grande (capitular)", capit) { prefs.capitular.definir(it) }
         LinhaInterruptor("Maratona: próximo capítulo começa sozinho", marat) { prefs.maratona.definir(it) }
+        val clm by prefs.climaCena.estado.collectAsState()
+        val som by prefs.somCena.estado.collectAsState()
+        LinhaInterruptor("Clima da cena (chuva, neve, fogo…)", clm) { prefs.climaCena.definir(it) }
+        if (clm) LinhaInterruptor("Som ambiente da cena", som) { prefs.somCena.definir(it) }
         val esc by prefs.escurecer.estado.collectAsState()
         val quente by prefs.luzQuente.estado.collectAsState()
         val vel by prefs.velocidadeRolagem.estado.collectAsState()

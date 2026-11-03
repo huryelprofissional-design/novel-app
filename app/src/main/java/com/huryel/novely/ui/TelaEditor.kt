@@ -677,6 +677,9 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         if (carregado && !modoFoco) {
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = if (textoSelecionado.isNotEmpty()) 124.dp else 76.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                var somEd by remember { mutableStateOf(com.huryel.novely.data.Ambiente.atual) }
+                DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }
+                Fogueira(hoje, meta, somEd) { somEd = it; com.huryel.novely.data.Ambiente.tocar(it) }
                 BotaoRedondoPequeno(Icons.Filled.KeyboardArrowUp, "Ir ao início", p) { irPara(0, 0) }
                 BotaoRedondoPequeno(Icons.Filled.KeyboardArrowDown, "Ir ao fim", p) { irAoFimMaximo() }
             }

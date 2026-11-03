@@ -61,7 +61,7 @@ val coresGrifo = linkedMapOf(
 @Composable
 fun FolhaParagrafo(
     trecho: String, marcador: Marcador?, obraId: Long, capId: Long, bloco: Int, obraTitulo: String, capTitulo: String,
-    fichas: List<Ficha>, fechar: () -> Unit, abrirFicha: (Ficha) -> Unit, comentar: (() -> Unit)? = null,
+    fichas: List<Ficha>, fechar: () -> Unit, abrirFicha: (Ficha) -> Unit, comentar: (() -> Unit)? = null, corObra: Long = 0, capa: String? = null,
 ) {
     val app = NovelyApp.instancia
     val repo = app.repo
@@ -92,7 +92,7 @@ fun FolhaParagrafo(
             OutlinedButton(onClick = {
                 (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("trecho", trecho)); fechar()
             }) { Text("Copiar") }
-            OutlinedButton(onClick = { compartilharTrecho(ctx, trecho, obraTitulo, capTitulo, p); fechar() }) { Text("Compartilhar imagem") }
+            OutlinedButton(onClick = { compartilharTrecho(ctx, trecho, obraTitulo, capTitulo, p, corObra, capa); fechar() }) { Text("Compartilhar imagem") }
             if (comentar != null) OutlinedButton(onClick = comentar) { Text("💬 Comentar o trecho") }
         }
         val citados = fichas.filter { it.nome.length >= 2 && trecho.contains(it.nome, ignoreCase = true) }
@@ -162,27 +162,53 @@ fun VerFicha(f: Ficha, ateOrdem: Double? = null) {
 }
 
 /** Gera um cartão (imagem) com o trecho e abre o compartilhar do Android. */
-fun compartilharTrecho(ctx: Context, trecho: String, obra: String, cap: String, p: Paleta) {
+fun compartilharTrecho(ctx: Context, trecho: String, obra: String, cap: String, p: Paleta, corObra: Long = 0, capaCaminho: String? = null) {
     try {
-        val w = 1080; val h = 1350; val m = 110
+        val w = 1080; val h = 1920; val m = 100
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        c.drawColor(p.fundo.toArgb())
-        val ambar = p.destaque.toArgb()
-        val pinta = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ambar }
-        c.drawRect(m.toFloat(), 150f, (m + 90).toFloat(), 158f, pinta)
-        val aspas = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = ambar; textSize = 220f; typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD) }
-        c.drawText("“", m.toFloat() - 10f, 380f, aspas)
-        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = p.texto.toArgb(); textSize = if (trecho.length > 400) 42f else 54f; typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL) }
-        val texto = if (trecho.length > 700) trecho.take(700) + "…" else trecho
-        val layout = StaticLayout.Builder.obtain(texto, 0, texto.length, tp, w - m * 2).setLineSpacing(0f, 1.35f).setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
-        c.save(); c.translate(m.toFloat(), 420f); layout.draw(c); c.restore()
-        val rodape = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = p.textoSuave.toArgb(); textSize = 36f; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
-        c.drawText("— $obra".take(50), m.toFloat(), (h - 210).toFloat(), rodape)
-        rodape.typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); rodape.textSize = 32f
-        c.drawText(cap.take(60), m.toFloat(), (h - 160).toFloat(), rodape)
-        val marca = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = ambar; textSize = 34f; letterSpacing = 0.3f; typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD) }
-        c.drawText("NOVELY", (w - m - marca.measureText("NOVELY")), (h - 160).toFloat(), marca)
+        // fundo: cor da capa escurecida em degradê, com um brilho laranja no canto (cartão estilo story)
+        val base = if (corObra != 0L) corObra.toInt() else p.destaque.toArgb()
+        fun escurecer(cor: Int, f: Float) = android.graphics.Color.rgb((android.graphics.Color.red(cor) * f).toInt(), (android.graphics.Color.green(cor) * f).toInt(), (android.graphics.Color.blue(cor) * f).toInt())
+        val fundo = Paint().apply { shader = android.graphics.LinearGradient(0f, 0f, w.toFloat(), h.toFloat(), intArrayOf(escurecer(base, 0.55f), escurecer(base, 0.22f), 0xFF0B0B10.toInt()), null, android.graphics.Shader.TileMode.CLAMP) }
+        c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), fundo)
+        val halo = Paint().apply { shader = android.graphics.RadialGradient(w * 0.85f, h * 0.12f, 700f, intArrayOf(0x66FF6A2B, 0x00FF6A2B), null, android.graphics.Shader.TileMode.CLAMP) }
+        c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), halo)
+        val laranja = 0xFFFF6A2B.toInt()
+        // capa pequena inclinada no topo
+        val capaBmp = capaCaminho?.let { runCatching { android.graphics.BitmapFactory.decodeFile(it) }.getOrNull() }
+        var topo = 260f
+        if (capaBmp != null) {
+            val cw = 300f; val ch = 435f
+            c.save(); c.translate(m.toFloat(), 200f); c.rotate(-4f)
+            val sombra = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x66000000; maskFilter = android.graphics.BlurMaskFilter(40f, android.graphics.BlurMaskFilter.Blur.NORMAL) }
+            c.drawRoundRect(10f, 20f, cw + 10f, ch + 20f, 24f, 24f, sombra)
+            val caminho = android.graphics.Path().apply { addRoundRect(0f, 0f, cw, ch, 24f, 24f, android.graphics.Path.Direction.CW) }
+            c.clipPath(caminho)
+            val esc = maxOf(cw / capaBmp.width, ch / capaBmp.height)
+            val dw = capaBmp.width * esc; val dh = capaBmp.height * esc
+            c.drawBitmap(capaBmp, null, android.graphics.RectF((cw - dw) / 2, (ch - dh) / 2, (cw + dw) / 2, (ch + dh) / 2), Paint(Paint.FILTER_BITMAP_FLAG))
+            c.restore(); capaBmp.recycle()
+            topo = 760f
+        }
+        val aspas = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = laranja; textSize = 260f; typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD) }
+        c.drawText("“", m.toFloat() - 12f, topo + 170f, aspas)
+        val texto = if (trecho.length > 600) trecho.take(600).trimEnd() + "…" else trecho
+        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF5F2EC.toInt(); textSize = when { texto.length > 400 -> 44f; texto.length > 200 -> 54f; else -> 64f }; typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC) }
+        val layout = StaticLayout.Builder.obtain(texto, 0, texto.length, tp, w - m * 2).setLineSpacing(0f, 1.4f).setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
+        c.save(); c.translate(m.toFloat(), topo + 220f); layout.draw(c); c.restore()
+        val barra = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = laranja }
+        val rodY = (h - 300).toFloat()
+        c.drawRoundRect(m.toFloat(), rodY - 70f, m + 110f, rodY - 60f, 5f, 5f, barra)
+        val rodape = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); textSize = 46f; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
+        c.drawText(obra.take(36), m.toFloat(), rodY, rodape)
+        rodape.apply { typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC); textSize = 34f; color = 0xFFC9C3BA.toInt() }
+        c.drawText(cap.take(56), m.toFloat(), rodY + 56f, rodape)
+        val pilula = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x26FFFFFF }
+        val marca = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); textSize = 34f; letterSpacing = 0.28f; typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD) }
+        val mw = marca.measureText("NOVELY")
+        c.drawRoundRect((w - m - mw - 60), h - 170f, (w - m).toFloat(), h - 90f, 40f, 40f, pilula)
+        c.drawText("NOVELY", (w - m - mw - 30), h - 117f, marca)
         val dir = File(ctx.cacheDir, "compartilhar").apply { mkdirs() }
         val f = File(dir, "trecho.png")
         f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }

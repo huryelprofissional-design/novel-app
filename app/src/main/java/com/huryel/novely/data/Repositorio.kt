@@ -553,6 +553,7 @@ class Preferencias(ctx: Context) {
     val conquistasVistas = texto("conquistasVistas", "")
     /** Leitor: clima da cena (chuva, neve, fogo…) e som ambiente. */
     val climaCena = bool("climaCena", true)
+    val modoBiblioteca = texto("modoBiblioteca", "ESTANTE")
     val somCena = bool("somCena", false)
     // moedas (grátis): saldo, ganhos do dia, presente diário, capítulos liberados cedo
     val moedas = longo("moedas", 0L)

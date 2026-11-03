@@ -256,3 +256,130 @@ fun RankingSemana() {
         }
     }
 }
+
+// ───────── Clima da cena (leitor) ─────────
+
+private val PALAVRAS_CLIMA = listOf(
+    "chuva" to Regex("\\b(chuva|chovia|chover|choveu|garoa|tempestade|trov[aã]o|trovoada|rel[aâ]mpago|aguaceiro|temporal)", RegexOption.IGNORE_CASE),
+    "neve" to Regex("\\b(neve|nevava|nevasca|flocos de neve|nevando|geada)", RegexOption.IGNORE_CASE),
+    "fogo" to Regex("\\b(fogo|chamas?|fogueira|lareira|inc[eê]ndio|brasas?|labaredas?|queimava|ardia)", RegexOption.IGNORE_CASE),
+    "vento" to Regex("\\b(vento|ventania|vendaval|rajadas?|brisa|uivava)", RegexOption.IGNORE_CASE),
+    "noite" to Regex("\\b(noite|luar|madrugada|estrelas|escurid[aã]o|meia-noite)", RegexOption.IGNORE_CASE),
+)
+
+/** Qual clima o trecho sugere (chuva, neve, fogo, vento, noite) ou null. Noite pede duas menções, porque aparece demais. */
+fun detectarClima(texto: String): String? {
+    var melhor: String? = null; var nota = 0
+    for ((tipo, rx) in PALAVRAS_CLIMA) {
+        val n = rx.findAll(texto).take(6).count()
+        val minimo = if (tipo == "noite") 2 else 1
+        if (n >= minimo && n > nota) { melhor = tipo; nota = n }
+    }
+    return melhor
+}
+
+val ROTULO_CLIMA = mapOf("chuva" to "🌧 chuva na cena", "neve" to "❄ neve na cena", "fogo" to "🔥 fogo na cena", "vento" to "🌬 vento na cena", "noite" to "🌙 noite na cena")
+val SOM_CLIMA = mapOf("chuva" to "chuva", "neve" to "vento", "fogo" to "lareira", "vento" to "vento", "noite" to "noite")
+
+private class Particula(var x: Float, var y: Float, val v: Float, val tam: Float, val fase: Float)
+
+/** Partículas por cima do texto (não pegam toque). Somem e aparecem com fade quando o clima muda. */
+@Composable
+fun ClimaCena(tipo: String?, modifier: Modifier = Modifier) {
+    var mostrado by remember { mutableStateOf(tipo) }
+    val alfa = remember { Animatable(0f) }
+    LaunchedEffect(tipo) {
+        if (tipo != mostrado) { alfa.animateTo(0f, tween(500)); mostrado = tipo }
+        if (tipo != null) alfa.animateTo(1f, tween(900))
+    }
+    val m = mostrado ?: return
+    val r = remember(m) { Random(m.hashCode()) }
+    val parts = remember(m) {
+        val n = when (m) { "chuva" -> 90; "neve" -> 70; "fogo" -> 45; "noite" -> 26; else -> 22 }
+        List(n) { Particula(r.nextFloat(), r.nextFloat(), 0.6f + r.nextFloat() * 0.8f, 0.5f + r.nextFloat(), r.nextFloat() * 6.28f) }
+    }
+    var tempo by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(m) { var antes = 0L; while (true) withFrameNanos { if (antes != 0L) tempo += it - antes; antes = it } }
+    Canvas(modifier.fillMaxSize()) {
+        val t = tempo / 1e9f
+        val a = alfa.value
+        val w = size.width; val h = size.height
+        when (m) {
+            "chuva" -> parts.forEach { p ->
+                val y = ((p.y + t * 1.3f * p.v) % 1f) * (h + 80) - 40
+                val x = ((p.x + t * 0.12f * p.v) % 1f) * w
+                drawLine(Color(0xFFBFD8FF).copy(alpha = 0.32f * a * p.tam), Offset(x, y), Offset(x - 6f * p.v, y + 26f * p.v), 1.6f * density / 2, StrokeCap.Round)
+            }
+            "neve" -> parts.forEach { p ->
+                val y = ((p.y + t * 0.07f * p.v) % 1f) * (h + 20) - 10
+                val x = p.x * w + sin(t * 0.9f + p.fase) * 22f * density
+                drawCircle(Color.White.copy(alpha = 0.7f * a * (0.4f + p.tam / 2)), 1.6f * density * p.tam, Offset(x, y))
+            }
+            "fogo" -> parts.forEach { p ->
+                val ciclo = (p.y + t * 0.18f * p.v) % 1f
+                val y = h - ciclo * h * 0.75f
+                val x = p.x * w + sin(t * 2f + p.fase) * 14f * density
+                val brilho = (1 - ciclo) * (0.6f + 0.4f * sin(t * 9f + p.fase))
+                drawCircle(Color(0xFFFF8A2A).copy(alpha = 0.55f * a * brilho), 2.2f * density * p.tam, Offset(x, y))
+                drawCircle(Color(0xFFFFC46B).copy(alpha = 0.25f * a * brilho), 5f * density * p.tam, Offset(x, y))
+            }
+            "noite" -> {
+                drawRect(Brush.verticalGradient(listOf(Color(0xFF0A1030).copy(alpha = 0.22f * a), Color.Transparent, Color(0xFF0A1030).copy(alpha = 0.22f * a))))
+                parts.forEach { p ->
+                    val x = (p.x * w + sin(t * 0.3f * p.v + p.fase) * 40f * density + w) % w
+                    val y = (p.y * h + cos(t * 0.25f * p.v + p.fase) * 30f * density + h) % h
+                    val pulso = ((sin(t * 1.6f * p.v + p.fase) + 1) / 2).let { it * it }
+                    drawCircle(Color(0xFFE8FF8A).copy(alpha = 0.22f * a * pulso), 7f * density, Offset(x, y))
+                    drawCircle(Color(0xFFF4FFC4).copy(alpha = 0.8f * a * pulso), 1.6f * density, Offset(x, y))
+                }
+            }
+            else -> parts.forEach { p ->
+                val x = ((p.x + t * 0.35f * p.v) % 1f) * (w + 200) - 100
+                val y = p.y * h + sin(t * 1.5f + p.fase) * 16f * density
+                drawLine(Color.White.copy(alpha = 0.16f * a * p.tam), Offset(x, y), Offset(x - 60f * p.v * density / 2, y - 3f), 1.2f * density / 2, StrokeCap.Round)
+            }
+        }
+    }
+}
+
+// ───────── Fogueira do escritor (editor) ─────────
+
+/** Anel da meta do dia com uma chama que cresce com as palavras e "+XP" subindo a cada 10 palavras. */
+@Composable
+fun Fogueira(hoje: Long, meta: Float, somAtual: String?, aoSom: (String?) -> Unit) {
+    val p = LocalPaleta.current
+    val frac = (hoje / meta.coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val bolhas = remember { mutableStateListOf<Long>() }
+    var ultimo by remember { mutableLongStateOf(hoje) }
+    LaunchedEffect(hoje) {
+        if (hoje / 10 > ultimo / 10 && hoje > ultimo) bolhas.add(System.nanoTime())
+        ultimo = hoje
+    }
+    val chama = rememberInfiniteTransition(label = "chama")
+    val tremor by chama.animateFloat(0.92f, 1.08f, infiniteRepeatable(tween(380, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "tremor")
+    var menu by remember { mutableStateOf(false) }
+    Box(contentAlignment = Alignment.Center) {
+        bolhas.forEach { id ->
+            key(id) {
+                val sobe = remember { Animatable(0f) }
+                LaunchedEffect(Unit) { sobe.animateTo(1f, tween(1300, easing = LinearOutSlowInEasing)); bolhas.remove(id) }
+                Text("+1 XP", fontSize = 11.sp, fontWeight = FontWeight.Black, color = OURO_FX,
+                    modifier = Modifier.graphicsLayer { translationY = -sobe.value * 70f * density; alpha = 1f - sobe.value; scaleX = 0.8f + sobe.value * 0.4f; scaleY = scaleX })
+            }
+        }
+        Box(Modifier.clip(CircleShape).background(p.superficie.copy(alpha = 0.92f)).clickable { menu = !menu }) {
+            AnelProgresso(frac, 52.dp, if (frac >= 1f) Color(0xFF6FC2B4) else LARANJA_FX, 4.dp, 600) {
+                Text("🔥", fontSize = (13 + 15 * frac).sp, modifier = Modifier.graphicsLayer { scaleX = tremor; scaleY = 2f - tremor; alpha = 0.55f + 0.45f * frac.coerceAtLeast(0.15f) })
+            }
+        }
+        androidx.compose.material3.DropdownMenu(menu, { menu = false }, containerColor = p.superficie) {
+            Text("${hoje}/${meta.toInt()} palavras hoje", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+            Text("SOM AMBIENTE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(horizontal = 14.dp))
+            (com.huryel.novely.data.Ambiente.TIPOS + listOf<Pair<String?, String>>(null to "🔇 Silêncio")).forEach { (k, nome) ->
+                androidx.compose.material3.DropdownMenuItem(text = {
+                    Text(nome, fontWeight = if (k == somAtual) FontWeight.Black else FontWeight.Normal, color = if (k == somAtual) p.destaque else p.texto)
+                }, onClick = { aoSom(k); menu = false })
+            }
+        }
+    }
+}

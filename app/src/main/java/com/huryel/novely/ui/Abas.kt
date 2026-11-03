@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -324,7 +325,11 @@ fun TelaBibliotecaAba(nav: NavHostController) {
     val ord by app.prefs.ordenacao.estado.collectAsState()
     var aba by rememberSaveable { mutableStateOf("LENDO") }
     var colecao by rememberSaveable { mutableStateOf("") }
-    var grade by rememberSaveable { mutableStateOf(true) }
+    // ESTANTE (prateleiras) · GRADE · LISTA
+    var modo by rememberSaveable { mutableStateOf(app.prefs.modoBiblioteca.valor) }
+    val grade = modo != "LISTA"
+    val novidadesTxt by app.prefs.novidades.estado.collectAsState()
+    val comNovos = remember(novidadesTxt) { novidadesTxt.split('\n').mapNotNull { l -> l.split('|').let { c -> c.getOrNull(0)?.toLongOrNull()?.let { it to (c.getOrNull(2)?.toIntOrNull() ?: 1) } } }.toMap() }
     var menuOrd by remember { mutableStateOf(false) }
     var mover by remember { mutableStateOf<ResumoObra?>(null) }
 
@@ -351,8 +356,8 @@ fun TelaBibliotecaAba(nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
     TopoAba("Biblioteca", nav)
     LazyVerticalGrid(GridCells.Fixed(if (grade) 3 else 1), Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 120.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(if (grade) 18.dp else 6.dp)) {
+        contentPadding = PaddingValues(start = if (modo == "ESTANTE") 10.dp else 18.dp, end = if (modo == "ESTANTE") 10.dp else 18.dp, bottom = 120.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (modo == "ESTANTE") 0.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(if (modo == "ESTANTE") 22.dp else if (grade) 18.dp else 6.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -373,7 +378,9 @@ fun TelaBibliotecaAba(nav: NavHostController) {
                         }
                     }
                     if (aba == "ARQUIVOS") TextButton(onClick = { nav.navigate("importar") }) { Text("+ Importar", color = p.destaque, fontWeight = FontWeight.Bold) }
-                    TextButton(onClick = { grade = !grade }) { Text(if (grade) "☰" else "▦", fontSize = 18.sp, color = p.textoSuave) }
+                    TextButton(onClick = {
+                        modo = when (modo) { "ESTANTE" -> "GRADE"; "GRADE" -> "LISTA"; else -> "ESTANTE" }; app.prefs.modoBiblioteca.definir(modo)
+                    }) { Text(when (modo) { "ESTANTE" -> "📚"; "GRADE" -> "▦"; else -> "☰" }, fontSize = 18.sp, color = p.textoSuave) }
                 }
                 if (colecoes.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("Todas", colecao.isEmpty()) { colecao = "" }
@@ -387,8 +394,9 @@ fun TelaBibliotecaAba(nav: NavHostController) {
                 }, color = p.textoSuave, fontSize = 14.sp, modifier = Modifier.padding(vertical = 24.dp))
             }
         }
-        items(lista, key = { it.id }) { o ->
-            if (grade) Column {
+        itemsIndexed(lista, key = { _, o -> o.id }) { idx, o ->
+            if (modo == "ESTANTE") LivroEstante(o, idx, comNovos[o.id], { mover = o }) { nav.navigate("obra/${o.id}") }
+            else if (grade) Column {
                 CapaItem(o, 200.dp, if (o.status == StatusObra.CONCLUIDA) "lida" else faltam(o), segurar = { mover = o }) { nav.navigate("obra/${o.id}") }
                 if (o.totalCapitulos > 0 && o.status == StatusObra.LENDO) Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(p.borda)) {
                     Box(Modifier.fillMaxWidth(o.lidos.toFloat() / o.totalCapitulos).fillMaxHeight().background(p.destaque))
@@ -926,5 +934,39 @@ private fun CartaoMoedas() {
                 "Gastar: obras com 🔒 “Antes de todo mundo” liberam capítulos agendados").forEach { Text("• $it", fontSize = 13.sp, color = Color.White) }
             Text("As moedas são grátis e não valem dinheiro.", fontSize = 11.sp, color = Color(0xFFD9C2A0))
         }
+    }
+}
+
+/** Livro na prateleira: entra girando, barra de progresso enchendo, selo de capítulo novo pulando e lombada dourada nas lidas. */
+@Composable
+private fun LivroEstante(o: ResumoObra, idx: Int, novos: Int?, segurar: () -> Unit, abrir: () -> Unit) {
+    val p = LocalPaleta.current
+    val entrada = remember(o.id) { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(o.id) { kotlinx.coroutines.delay((idx % 12) * 70L); entrada.animateTo(1f, androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    val lida = o.status == StatusObra.CONCLUIDA
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "livro")
+    val pulo by t.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "pulo")
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp).graphicsLayer {
+            alpha = entrada.value; rotationY = (1 - entrada.value) * 45f; translationX = (1 - entrada.value) * -60f; cameraDistance = 12 * density
+        }) {
+            Box(Modifier.fillMaxWidth().aspectRatio(0.69f).graphicsLayer { rotationY = -6f; cameraDistance = 14 * density }
+                .shadow(12.dp, RoundedCornerShape(6.dp)).clip(RoundedCornerShape(6.dp))
+                .then(if (lida) Modifier.border(2.5.dp, Brush.linearGradient(listOf(Color(0xFFFFE08A), Color(0xFFB8781A))), RoundedCornerShape(6.dp)) else Modifier)
+                .combinedClickable(onClick = abrir, onLongClick = segurar)) {
+                CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxSize().then(if (lida) Modifier.brilho(3200, idx * 300) else Modifier), 9.sp)
+            }
+            if (novos != null) Text("+$novos ${if (novos == 1) "CAP" else "CAPS"}", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White,
+                modifier = Modifier.align(Alignment.TopEnd).offset(4.dp, (-8).dp).graphicsLayer { translationY = -6f * pulo }
+                    .clip(RoundedCornerShape(8.dp)).background(LARANJA_FX).padding(horizontal = 6.dp, vertical = 3.dp))
+        }
+        // prateleira de madeira (cada livro desenha seu pedaço: as três juntas formam uma tábua)
+        Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(12.dp).shadow(8.dp).background(Brush.verticalGradient(listOf(Color(0xFF6B4422), Color(0xFF3A220E)))))
+        val frac = if (o.totalCapitulos > 0) o.lidos.toFloat() / o.totalCapitulos else 0f
+        val anim by androidx.compose.animation.core.animateFloatAsState(if (entrada.value > 0.9f) frac else 0f, androidx.compose.animation.core.tween(1200), label = "prog")
+        Box(Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(p.borda)) {
+            Box(Modifier.fillMaxWidth(anim).fillMaxHeight().background(if (lida) OURO_FX else p.destaque))
+        }
+        Text(o.titulo, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = p.textoSuave, modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp))
     }
 }
