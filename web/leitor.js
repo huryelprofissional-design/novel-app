@@ -3,7 +3,7 @@ import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas,
   capitulos, fichas, marcadores, salvarCapitulo, salvarObra, salvarItem, apagarItem, lerTexto, colTextos, salvarTexto, novoId, dialogo, confirmar,
   obraPub, capsPub, fichasPub, imagemPub, seguindo, seguir, minhaNota, avaliar, contarLeitura, registrarLeitura, curtiu, curtir, comentarios, comentar, apagarComentario,
-  collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra,
+  collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra, carteira, liberado, ganharMoedas,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
 
@@ -408,8 +408,10 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
 // ───────── LEITOR DO CATÁLOGO ─────────
 rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   carregando("descobrir");
-  const [o, caps, fs] = await Promise.all([obraPub(pid), capsPub(pid), fichasPub(pid)]);
+  const [o, todos, fs] = await Promise.all([obraPub(pid), capsPub(pid, true), fichasPub(pid), carteira()]);
   if (!o) { casca("descobrir", `<p class="suave">Obra não encontrada.</p>`); return; }
+  // capítulos no ar + os agendados que a pessoa liberou com moedas (ou todos, se for o autor)
+  const caps = todos.filter((c) => (c.publicadoEm || 0) <= agora() || o.autorUid === E.usuario.uid || liberado(pid, c.id));
   const i = caps.findIndex((c) => c.id === cid); const c = caps[i]; if (!c) { ir(`/pub/${pid}`); return; }
   const texto = await lerTexto(collection(db, "publicas", pid, "textos"), cid, c.partes);
   await corDoLeitor(await imagemPub(pid, "capa"), null);
@@ -442,7 +444,9 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   // progresso de quem segue: guarda o último capítulo lido nesta obra
   const naBib = [...E.obras.entries()].find(([, x]) => x.publicaId === pid && !x.apagado);
   if (naBib) salvarObra(naBib[0], { lidaEm: agora() });
-  const aoRolar = () => { const alt = document.documentElement.scrollHeight - innerHeight; const b = $("#prog"); if (b) b.style.width = (alt > 0 ? Math.min(1, scrollY / alt) : 1) * 100 + "%"; maratona(prox && `/publer/${pid}/${prox.id}`); };
+  let ganhou = false;
+  const aoRolar = () => { const alt = document.documentElement.scrollHeight - innerHeight; const fr = alt > 0 ? Math.min(1, scrollY / alt) : 1; const b = $("#prog"); if (b) b.style.width = fr * 100 + "%"; maratona(prox && `/publer/${pid}/${prox.id}`);
+    if (fr > 0.97 && !ganhou && o.autorUid !== E.usuario.uid) { ganhou = true; ganharMoedas(1, "leitura", 10, pid + "/" + cid).then((n) => n && toast("🪙 +1 moeda por terminar o capítulo")); } };
   // estatística para o autor: parágrafo mais longe que a pessoa chegou e tempo na página
   const blocos = $$("#texto [data-b]"); const totalB = blocos.length ? +blocos[blocos.length - 1].dataset.b + 1 : 0;
   let maxB = -1, inicio = Date.now();

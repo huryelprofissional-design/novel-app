@@ -3,7 +3,7 @@ import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, dataFmt, recente, casca, carregando, rota, ir, local, lista, urlBlob, notaTxt,
   catalogo, obraPub, capsPub, imagemPub, seguindo, seguir, minhaNota, avaliar, perfilPub, obrasDoAutor, segueAutor, seguirAutor, GENEROS, GENEROS_GRUPOS,
   corGenero, dialogo, confirmar, perguntar, entrarColab, minhasColabs, sairColab, capsRevisao, sugerir, colPub, getDocs, query, orderBy, limit,
-  fichasPub, EMAIL_DONO, collection, db, doc, getDoc,
+  fichasPub, EMAIL_DONO, collection, db, doc, getDoc, carteira, liberado, gastarMoedas,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
 
@@ -68,6 +68,9 @@ rota("/pub/(\\w+)", async (pid) => {
     $("#ok18").onclick = () => { local.gravar("maior18", true); window.redesenhar(); }; return;
   }
   const [caps, capa, segue, nota, fs, autor] = await Promise.all([capsPub(pid, souAutor), imagemPub(pid, "capa"), seguindo(pid), minhaNota(pid), fichasPub(pid), perfilPub(o.autorUid)]);
+  // acesso antecipado: capítulos agendados que dá para liberar com moedas
+  const futuros = !souAutor && o.antecipado > 0 ? (await capsPub(pid, true)).filter((c) => c.publicadoEm > agora()) : [];
+  const cart = futuros.length ? await carteira(true) : null;
   const desc = local.ler("pubDesc", false);
   const ordenados = desc ? [...caps].reverse() : caps;
   const naBib = lista().find((x) => x.publicaId === pid);
@@ -89,6 +92,8 @@ rota("/pub/(\\w+)", async (pid) => {
         ${(o.tags || []).length ? `<div class="chips" style="margin-bottom:16px">${o.tags.map((t) => `<span class="etiqueta">#${esc(t)}</span>`).join("")}</div>` : ""}
         ${souAutor ? "" : `<div class="estrelas">Sua nota: ${[1, 2, 3, 4, 5].map((n) => `<button data-e="${n}" class="${n <= nota ? "on" : ""}">${n <= nota ? "★" : "☆"}</button>`).join("")}</div>`}
         <div class="sec"><h2>Capítulos</h2><a class="suave peq" href="javascript:void 0" id="ord">⇅ ${desc ? "mais recentes" : "do início"}</a></div>
+        ${futuros.length ? `<div class="antecipado"><div class="cab-ant"><div><b>🔒 Antes de todo mundo</b><div class="peq">Capítulos já escritos que saem em breve. Libere agora com moedas (grátis: você ganha lendo e comentando).</div></div><b class="saldo">🪙 <span data-saldo>${cart.saldo}</span></b></div>
+          ${futuros.map((c) => { const lib = liberado(pid, c.id); const dias = Math.floor((c.publicadoEm - agora()) / 864e5); return `<div class="linha-ant"><div style="flex:1;min-width:0"><b>${esc(c.titulo)}</b><div class="peq">${dias >= 1 ? `sai para todos em ${dias} ${dias === 1 ? "dia" : "dias"}` : "sai para todos hoje"}</div></div><button class="btn-ant" data-lib="${c.id}">${lib ? "Ler" : "🪙 " + o.antecipado}</button></div>`; }).join("")}</div>` : ""}
         <div class="caps">${ordenados.map((c) => `<a class="cap" href="#/publer/${pid}/${c.id}"><span class="n">${caps.indexOf(c) + 1}</span><div style="flex:1;min-width:0"><div class="tt">${esc(c.titulo)}</div><div class="suave peq">${c.publicadoEm > agora() ? "agendado · " + dataFmt(c.publicadoEm) : haQuanto(c.publicadoEm)}${c.atualizadoEm - c.publicadoEm > 3600000 ? " · atualizado " + haQuanto(c.atualizadoEm) : ""}</div></div><span class="suave peq">♥ ${c.curtidas || 0} · 💬 ${c.comentarios || 0}</span></a>`).join("")}</div>
       </div>
     </div>`);
@@ -100,6 +105,11 @@ rota("/pub/(\\w+)", async (pid) => {
   const sa = $("#segaut"); if (sa) sa.onclick = async () => { segueAut = !segueAut; sa.textContent = segueAut ? "✓ Seguindo" : "Seguir autor"; try { await seguirAutor(o.autorUid, segueAut); } catch (_) {} };
   $$("[data-e]").forEach((b) => (b.onclick = async () => { const n = +b.dataset.e; $$("[data-e]").forEach((x) => { x.classList.toggle("on", +x.dataset.e <= n); x.textContent = +x.dataset.e <= n ? "★" : "☆"; }); try { await avaliar(pid, n); toast("Obrigado pela nota!"); } catch (_) {} }));
   $("#ord").onclick = () => { local.gravar("pubDesc", !desc); window.redesenhar(); };
+  $$("[data-lib]").forEach((b) => (b.onclick = async () => {
+    const cid = b.dataset.lib;
+    if (!liberado(pid, cid) && !(await gastarMoedas(o.antecipado, pid, cid))) { toast(`Faltam ${o.antecipado - E.carteira.saldo} moedas. Ganhe lendo, comentando e abrindo o app todo dia.`); return; }
+    ir(`/publer/${pid}/${cid}`);
+  }));
   $$("[data-f]").forEach((b) => (b.onclick = () => verFicha(fs.find((f) => f.id === b.dataset.f), null)));
 });
 

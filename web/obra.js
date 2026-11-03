@@ -5,7 +5,7 @@ import {
   imagemMinha, escolherArquivo, comprimirArquivo, enviarImagemMinha, dialogo, confirmar, perguntar, pendencias, publicarObra, publicarCapitulos,
   despublicarCapitulo, despublicarObra, obraPub, GENEROS_GRUPOS, CLASSIFICACOES, STATUS_NOME, lerTexto, colTextos, novoId, limparMarcas, partir,
   convidar, membros, removerMembro, enviarRevisao, tirarRevisao, capsRevisao, notas, sugestoes, aceitarSugestao, descartarSugestao, local, mapaNomes,
-  corDaImagem, corDaBase, usarCorDaObra, ENFEITES, enfeiteHTML,
+  corDaImagem, corDaBase, usarCorDaObra, ENFEITES, enfeiteHTML, definirAntecipado,
 } from "./nucleo.js";
 
 /** Pinta a tela com a cor da capa (selo, botões, capítulo atual…). */
@@ -322,6 +322,8 @@ rota("/publicar/(\\w+)", async (id) => {
         <label class="rot" style="margin-top:16px">Tags (vírgula)</label><input class="campo" id="tags" value="${esc(o.tagsPub || "")}" placeholder="vingança, regressão, slow burn">
         <label class="rot">Classificação</label><div class="chips" id="cl">${CLASSIFICACOES.map((c) => `<span class="chip ${o.classificacao === c ? "on" : ""}" data-c="${c}">${c === "LIVRE" ? "Livre" : "+" + c}</span>`).join("")}</div>
         <label class="troca" style="margin-top:14px"><input type="checkbox" id="exp" ${o.exportavel !== false ? "checked" : ""}> Leitores podem baixar como arquivo</label>
+        ${pub ? `<label class="rot" style="margin-top:16px">🪙 Acesso antecipado</label><div class="chips" id="ant">${[[0, "Desligado"], [2, "🪙 2"], [3, "🪙 3"], [5, "🪙 5"]].map(([v, t]) => `<span class="chip ${(pub.antecipado || 0) === v ? "on" : ""}" data-ant="${v}">${t}</span>`).join("")}</div>
+          <span class="suave peq">Agende capítulos para o futuro: quem quiser lê antes, pagando com moedas grátis que ganha lendo e comentando.${pub.desbloqueios ? ` Já liberaram cedo ${pub.desbloqueios} vez(es).` : ""}</span>` : ""}
         <div class="linha-botoes"><button class="btn" id="salvar" ${falta.length ? "disabled" : ""}>${o.publicada ? "Atualizar dados no catálogo" : "Publicar obra"}</button></div>
         ${o.publicada ? `<div class="linha-botoes" style="justify-content:space-between"><a class="suave peq" href="#/pub/${id}">Ver como os leitores veem ›</a><button class="btn2 peq" id="despub" style="color:var(--erro)">Tirar a obra do catálogo</button></div>` : ""}
       </div>
@@ -334,6 +336,7 @@ rota("/publicar/(\\w+)", async (id) => {
       </div>
     </div>`);
   $$("[data-g]").forEach((c) => (c.onclick = () => { const g = c.dataset.g; if (gen.has(g)) gen.delete(g); else { if (gen.size >= 4) { toast("Até 4 gêneros"); return; } gen.add(g); } c.classList.toggle("on", gen.has(g)); }));
+  $$("[data-ant]").forEach((c) => (c.onclick = async () => { $$("[data-ant]").forEach((y) => y.classList.toggle("on", y === c)); try { await definirAntecipado(id, +c.dataset.ant); toast("Acesso antecipado salvo"); } catch (e) { toast("Não deu: " + e.message); } }));
   let cl = o.classificacao || "LIVRE";
   $$("[data-c]").forEach((c) => (c.onclick = () => { cl = c.dataset.c; $$("[data-c]").forEach((y) => y.classList.toggle("on", y === c)); }));
   const guardar = async () => salvarObra(id, { generos: [...gen].join(","), tagsPub: $("#tags").value.split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean).join(","), classificacao: cl, exportavel: $("#exp").checked });

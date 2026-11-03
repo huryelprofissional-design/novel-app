@@ -4,7 +4,7 @@ import {
   auth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   eu, colObras, getDoc, onSnapshot, doc, db, catalogo, urlBlob, notaTxt, imagemPub, imagemMinha, nomeAutor, novaObra, perguntar, dialogo,
   salvarPerfil, escolherArquivo, comprimirArquivo, enviarImagemMinha, publicarPerfil, STATUS_NOME, salvarObra, confirmar, apagarObra, perfilPub,
-  segueAutor, CONQUISTAS, colItens, getDocs, query, where, obraPub, esc as escapar,
+  segueAutor, CONQUISTAS, colItens, getDocs, query, where, obraPub, esc as escapar, carteira, diarioMoedas,
 } from "./nucleo.js";
 import "./obra.js";
 import "./leitor.js";
@@ -172,10 +172,12 @@ rota("/perfil", async () => {
     </div>
     ${minhas.length ? `<div class="sec"><h2>Minhas obras</h2></div><div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : "escrevendo")).join("")}</div>` : ""}
     ${lendo.length ? `<div class="sec"><h2>Lendo agora</h2></div><div class="grade">${lendo.map((o) => cartao(o, o.autor ? "por " + o.autor : "")).join("")}</div>` : ""}
-    <div id="conquistas"></div><div id="citacoes"></div>`);
+    <div id="moedas"></div><div id="conquistas"></div><div id="citacoes"></div>`);
   preencherCapas();
   // conquistas (calculadas pelo app do celular)
   const ganhas = new Set((E.perfil.conquistas || "").split(",").filter(Boolean));
+  carteira().then((c) => { const el = $("#moedas"); if (el) el.innerHTML = `<details class="card moedas"><summary><span style="font-size:26px">🪙</span><div><b><span data-saldo>${c.saldo}</span> moedas</b><div class="peq">Para ler capítulos antes de todo mundo · clique para ver como ganhar</div></div></summary>
+    <ul><li>Abrir o Novely: +3 por dia</li><li>Terminar um capítulo de outro autor: +1 (até 10 por dia)</li><li>Comentar: +1 (até 5 por dia)</li><li>Gastar: obras com 🔒 “Antes de todo mundo” liberam capítulos agendados</li></ul><span class="peq">As moedas são grátis e não valem dinheiro. A carteira é a mesma do celular.</span></details>`; });
   $("#conquistas").innerHTML = `<div class="sec"><h2>Conquistas<span class="sub">${ganhas.size} de ${CONQUISTAS.length}${ganhas.size ? "" : " · abra o app no celular para atualizar"}</span></h2></div>
     <div class="conquistas">${[...CONQUISTAS].sort((a, b) => ganhas.has(b[0]) - ganhas.has(a[0])).map(([id, ic, t, cor]) => `<div class="conquista ${ganhas.has(id) ? "" : "apagada"}"><span style="--c:${cor}">${ic}</span><small>${t}</small></div>`).join("")}</div>`;
   // citações favoritas (grifos)
@@ -272,6 +274,7 @@ onAuthStateChanged(auth, async (u) => {
   if (!u) return desenhar();
   try { E.perfil = (await getDoc(eu())).data() || {}; } catch (_) { E.perfil = {}; }
   if (!E.perfil.nome && u.displayName) E.perfil.nome = u.displayName;
+  carteira(true).then(() => diarioMoedas()).then((n) => n && toast(`🪙 +${n} moedas de hoje`)).catch(() => {});
   let primeira = true;
   pararObras = onSnapshot(colObras(), (s) => {
     s.docChanges().forEach((ch) => { if (ch.type === "removed") E.obras.delete(ch.doc.id); else E.obras.set(ch.doc.id, ch.doc.data()); });

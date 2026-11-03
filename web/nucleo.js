@@ -389,6 +389,37 @@ export async function avaliar(pid, estrelas) {
   await setDoc(doc(db, "publicas", pid, "avaliacoes", E.usuario.uid), { estrelas, em: agora() });
   await updateDoc(doc(colPub(), pid), { somaEstrelas: increment(estrelas - antes), numEstrelas: increment(antes === 0 ? 1 : 0) });
 }
+// ───────── moedas (grátis) — a mesma carteira do celular, guardada na conta ─────────
+const hojeId = () => new Date().toISOString().slice(0, 10);
+export async function carteira(forcar) {
+  if (E.carteira && !forcar) return E.carteira;
+  let c = {}; try { c = (await getDoc(doc(db, "users", E.usuario.uid))).data()?.carteira || {}; } catch (_) {}
+  E.carteira = { saldo: c.saldo || 0, liberados: (c.liberados || "").split("\n").filter(Boolean) };
+  return E.carteira;
+}
+async function gravarCarteira() {
+  const c = E.carteira; try { await setDoc(doc(db, "users", E.usuario.uid), { carteira: { saldo: c.saldo, liberados: c.liberados.slice(-2000).join("\n"), em: agora() } }, { merge: true }); } catch (_) {}
+  document.querySelectorAll("[data-saldo]").forEach((el) => (el.textContent = c.saldo));
+}
+/** Ganha moedas com limite por dia por motivo; [unico] evita ganhar duas vezes pela mesma coisa. */
+export async function ganharMoedas(qtd, motivo, limite, unico) {
+  const c = await carteira(); const reg = local.ler("moedasDia", {}); const k = hojeId() + "|" + motivo;
+  if (unico) { const u = local.ler("moedasUnicas", {}); if (u[unico]) return 0; u[unico] = 1; local.gravar("moedasUnicas", u); }
+  const dar = Math.max(0, Math.min(qtd, limite - (reg[k] || 0))); if (!dar) return 0;
+  for (const x of Object.keys(reg)) if (!x.startsWith(hojeId())) delete reg[x];
+  reg[k] = (reg[k] || 0) + dar; local.gravar("moedasDia", reg);
+  c.saldo += dar; await gravarCarteira(); return dar;
+}
+export async function diarioMoedas() { if (local.ler("moedaDiariaPC", "") === hojeId()) return 0; local.gravar("moedaDiariaPC", hojeId()); return ganharMoedas(3, "diario", 3); }
+export const liberado = (pid, cid) => !!E.carteira?.liberados.includes(pid + "/" + cid);
+export async function gastarMoedas(qtd, pid, cid) {
+  const c = await carteira(true); if (c.liberados.includes(pid + "/" + cid)) return true; if (c.saldo < qtd) return false;
+  c.saldo -= qtd; c.liberados.push(pid + "/" + cid); await gravarCarteira();
+  try { await updateDoc(doc(colPub(), pid), { desbloqueios: increment(1) }); } catch (_) {}
+  return true;
+}
+export async function definirAntecipado(pid, custo) { await updateDoc(doc(colPub(), pid), { antecipado: custo }); }
+
 /** Estatística de leitura para o autor (sem texto, sem nome): até onde leu e quanto tempo. Uma por pessoa por capítulo. */
 export async function registrarLeitura(pid, cid, bloco, total, segundos) {
   if (!E.usuario || total <= 0 || bloco < 0) return;
@@ -431,6 +462,7 @@ export async function comentarios(pid, cid) {
 export async function comentar(pid, cid, texto, bloco = -1, trecho = "") {
   await addDoc(collection(db, "publicas", pid, "caps", cid, "comentarios"), { uid: E.usuario.uid, nome: nomeAutor(), texto: texto.trim().slice(0, 2000), em: agora(), bloco, trecho: trecho.slice(0, 300) });
   await updateDoc(doc(db, "publicas", pid, "caps", cid), { comentarios: increment(1) });
+  ganharMoedas(1, "comentario", 5);
 }
 export async function apagarComentario(pid, cid, id) {
   await deleteDoc(doc(db, "publicas", pid, "caps", cid, "comentarios", id));
