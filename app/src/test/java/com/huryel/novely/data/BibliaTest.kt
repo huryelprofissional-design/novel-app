@@ -73,3 +73,13 @@ class ElencoTest {
         org.junit.Assert.assertEquals('M', Elenco.genero(fichas[0], ps.joinToString("\n"), Elenco.Nomes(fichas)))
     }
 }
+
+class WordTest {
+    @Test fun textoDoWord() {
+        val xml = """<w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Capítulo 1 — O Chão</w:t></w:r></w:p>
+            <w:p><w:r><w:t xml:space="preserve">Ele disse </w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t>não</w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t xml:space="preserve"> mesmo</w:t></w:r><w:r><w:t xml:space="preserve"> e </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>saiu</w:t></w:r><w:r><w:t>.</w:t></w:r></w:p>
+            <w:p><w:r><w:t>— Fala &amp; ação.</w:t></w:r></w:p><w:p></w:p></w:body>"""
+        val t = textoDoWord(xml)
+        org.junit.Assert.assertEquals("Capítulo 1 — O Chão\n\nEle disse *não mesmo* e **saiu**.\n\n— Fala & ação.\n\n", t)
+    }
+}

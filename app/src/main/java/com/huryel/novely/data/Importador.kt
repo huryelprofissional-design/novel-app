@@ -137,26 +137,8 @@ class Importador(private val ctx: Context, private val repo: Repositorio) {
             }
         }
         if (xml.isEmpty()) error("não achei o texto dentro do Word")
-        fun desfazer(t: String) = t.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
-        val rxRun = Regex("<w:r[ >].*?</w:r>", RegexOption.DOT_MATCHES_ALL)
-        val rxT = Regex("<w:t(?: [^>]*)?>(.*?)</w:t>|<w:tab/>|<w:br/>", RegexOption.DOT_MATCHES_ALL)
         val saida = File(pastaTemp.apply { mkdirs() }, "word.txt")
-        saida.bufferedWriter().use { w ->
-            xml.split("</w:p>").forEach { par ->
-                val titulo = Regex("<w:pStyle w:val=\"(Heading|T[ií]tulo|Title)").containsMatchIn(par)
-                val sb = StringBuilder()
-                rxRun.findAll(par).forEach { r ->
-                    val run = r.value
-                    val texto = rxT.findAll(run).joinToString("") { m -> when { m.value == "<w:tab/>" -> " "; m.value == "<w:br/>" -> "\n"; else -> desfazer(m.groupValues[1]) } }
-                    if (texto.isBlank()) { sb.append(texto); return@forEach }
-                    val ital = Regex("<w:i(?: w:val=\"(?:1|true)\")?/>").containsMatchIn(run)
-                    val neg = Regex("<w:b(?: w:val=\"(?:1|true)\")?/>").containsMatchIn(run)
-                    sb.append(if (titulo) texto else if (neg) "**$texto**" else if (ital) "*$texto*" else texto)
-                }
-                val linha = sb.toString().replace("****", "").replace(Regex("(?<!\\*)\\*\\*(?!\\*)"), "").trim()
-                if (linha.isNotEmpty()) { w.write(if (titulo && !Texto.ehTituloCapitulo(linha)) "# $linha" else linha); w.write("\n\n") }
-            }
-        }
+        saida.writeText(textoDoWord(xml))
         return saida
     }
 
@@ -348,4 +330,34 @@ class Importador(private val ctx: Context, private val repo: Repositorio) {
             _estado.value = EstadoImport.Erro("A importação parou no meio: ${ex.message}. Os capítulos já salvos ficaram na obra.")
         }
     }
+}
+
+/** Texto de um Word (word/document.xml): um parágrafo por linha, com *itálico* e **negrito**; títulos viram “# ”. */
+fun textoDoWord(xml: String): String {
+    fun desfazer(t: String) = t.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
+    val rxRun = Regex("<w:r[ >].*?</w:r>", RegexOption.DOT_MATCHES_ALL)
+    val rxT = Regex("<w:t(?: [^>]*)?>(.*?)</w:t>|<w:tab/>|<w:br/>", RegexOption.DOT_MATCHES_ALL)
+    val rxI = Regex("<w:i(?: w:val=\"(?:1|true|on)\")?\\s*/>")
+    val rxB = Regex("<w:b(?: w:val=\"(?:1|true|on)\")?\\s*/>")
+    val rxTitulo = Regex("<w:pStyle w:val=\"(Heading|T[ií]tulo|Title)")
+    val w = StringBuilder()
+    for (par in xml.split("</w:p>")) {
+        val titulo = rxTitulo.containsMatchIn(par)
+        // pedaços com o mesmo estilo seguidos viram um só (o Word quebra o texto em vários pedaços)
+        val pedacos = ArrayList<Triple<StringBuilder, Boolean, Boolean>>()
+        rxRun.findAll(par).forEach { r ->
+            val run = r.value
+            val texto = rxT.findAll(run).joinToString("") { m -> when (m.value) { "<w:tab/>" -> " "; "<w:br/>" -> " "; else -> desfazer(m.groupValues[1]) } }
+            if (texto.isEmpty()) return@forEach
+            val i = !titulo && rxI.containsMatchIn(run); val b = !titulo && rxB.containsMatchIn(run)
+            val ult = pedacos.lastOrNull()
+            if (ult != null && ult.second == i && ult.third == b) ult.first.append(texto) else pedacos.add(Triple(StringBuilder(texto), i, b))
+        }
+        val linha = pedacos.joinToString("") { (t, i, b) ->
+            val x = t.toString(); val m = if (b) "**" else if (i) "*" else ""
+            if (m.isEmpty() || x.isBlank()) x else { val ini = x.length - x.trimStart().length; val fim = x.trimEnd().length; x.substring(0, ini) + m + x.substring(ini, fim) + m + x.substring(fim) }
+        }.trim()
+        if (linha.isNotEmpty()) w.append(if (titulo && !Texto.ehTituloCapitulo(linha)) "# $linha" else linha).append("\n\n")
+    }
+    return w.toString()
 }
