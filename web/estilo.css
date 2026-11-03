@@ -432,3 +432,4 @@ body.foco .conteudo { max-width: none; }
 .cap-l summary b:first-of-type { flex: 1; } .cap-l .num { color: var(--acento, var(--amb)); font-weight: 900; width: 26px; }
 .cap-l .rotulo { display: block; margin: 12px 0 6px; }
 .calor { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; } .calor i { height: 34px; border-radius: 4px; background: var(--acento, var(--amb)); color: #000; font-style: normal; font-weight: 800; font-size: 11px; display: grid; place-items: center; }
+.aviso-trad { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); padding: 10px 18px; border-radius: 16px; font-weight: 700; z-index: 50; }

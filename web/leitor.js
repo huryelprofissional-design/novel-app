@@ -1,6 +1,6 @@
 // Leitor (biblioteca e catálogo), editor e revisão.
 import {
-  E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras,
+  E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas,
   capitulos, fichas, marcadores, salvarCapitulo, salvarObra, salvarItem, apagarItem, lerTexto, colTextos, salvarTexto, novoId, dialogo, confirmar,
   obraPub, capsPub, fichasPub, imagemPub, seguindo, seguir, minhaNota, avaliar, contarLeitura, registrarLeitura, curtiu, curtir, comentarios, comentar, apagarComentario,
   collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra,
@@ -32,6 +32,12 @@ function painelAjustes(aoMudar) {
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="capi" ${p.capitular ? "checked" : ""}> Primeira letra grande (capitular)</label>
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="mara" ${p.maratona ? "checked" : ""}> Maratona: próximo capítulo começa sozinho</label>
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="cobra" ${usarCorDaObra() ? "checked" : ""}> Cores da capa da obra</label>
+    <label class="rot" style="margin-top:14px">Ouvir</label>
+    <label class="troca"><input type="checkbox" id="vpers" ${local.ler("vozesPersonagens", true) ? "checked" : ""}> Uma voz para cada personagem (pelo “disse Fulano”)</label>
+    <select class="campo" id="narr" style="margin-top:8px"><option value="">Narrador: voz padrão</option>${speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt")).map((v) => `<option value="${esc(v.name)}" ${v.name === local.ler("narradorPC", "") ? "selected" : ""}>Narrador: ${esc(v.name)}</option>`).join("")}</select>
+    <label class="rot" style="margin-top:14px">Ler em outro idioma</label>
+    <select class="campo" id="idi">${IDIOMAS.map(([k, n]) => `<option value="${k}" ${k === local.ler("idiomaLeitura", "") ? "selected" : ""}>${n}</option>`).join("")}</select>
+    <span class="suave peq">Tradução feita pelo próprio navegador (Chrome ou Edge recentes), sem internet depois de baixar o idioma.</span>
     <div class="linha-botoes"><button class="btn2 peq" id="pad">Voltar ao padrão</button><button class="btn peq" data-n>Pronto</button></div>`);
   const grava = (k, v) => { local.gravar("leitura", { ...pref(), [k]: v }); aoMudar(); };
   $("#tam", d).oninput = (e) => { $("#vt", d).textContent = e.target.value + "px"; grava("tam", +e.target.value); };
@@ -41,6 +47,9 @@ function painelAjustes(aoMudar) {
   $("#capi", d).onchange = (e) => { grava("capitular", e.target.checked); window.redesenhar(); };
   $("#mara", d).onchange = (e) => grava("maratona", e.target.checked);
   $("#cobra", d).onchange = (e) => { local.gravar("corDaObra", e.target.checked); window.redesenhar(); };
+  $("#vpers", d).onchange = (e) => local.gravar("vozesPersonagens", e.target.checked);
+  $("#narr", d).onchange = (e) => local.gravar("narradorPC", e.target.value);
+  $("#idi", d).onchange = (e) => { local.gravar("idiomaLeitura", e.target.value); d.close(); window.redesenhar(); };
   $$("[data-fonte]", d).forEach((c) => (c.onclick = () => { grava("fonte", c.dataset.fonte); $$("[data-fonte]", d).forEach((x) => x.classList.toggle("on", x === c)); }));
   $$("[data-tema]", d).forEach((c) => (c.onclick = () => { grava("tema", c.dataset.tema); $$("[data-tema]", d).forEach((x) => x.classList.toggle("on", x === c)); }));
   $("#pad", d).onclick = () => { local.gravar("leitura", {}); aoMudar(); d.close(); };
@@ -98,22 +107,101 @@ function comentariosTrecho(pid, cid, bloco, trecho, todos) {
   $("#ce", d).onclick = async () => { const t = $("#ct", d).value.trim(); if (!t) return; await comentar(pid, cid, t, bloco, trecho); d.close(); toast("Comentário enviado"); window.redesenhar(); };
 }
 
-// ───────── ouvir (voz do navegador) ─────────
-let falando = null;
+// ───────── ler traduzido (tradutor do próprio navegador) ─────────
+const IDIOMAS = [["", "Original (sem traduzir)"], ["pt", "Português"], ["en", "Inglês"], ["es", "Espanhol"], ["fr", "Francês"], ["it", "Italiano"], ["de", "Alemão"], ["ja", "Japonês"], ["ko", "Coreano"], ["zh", "Chinês"], ["ru", "Russo"]];
+async function traduzirTela() {
+  const para = local.ler("idiomaLeitura", ""); if (!para) return;
+  if (!("Translator" in self)) { toast("Este navegador não traduz sozinho. Use o Chrome ou Edge mais novo (ou o tradutor do navegador)."); return; }
+  const pars = $$("#texto [data-b]").filter((p) => p.tagName !== "DIV");
+  let de = "pt";
+  try { if ("LanguageDetector" in self) { const det = await LanguageDetector.create(); de = (await det.detect(pars.slice(0, 6).map((p) => p.textContent).join(" ")))[0]?.detectedLanguage?.split("-")[0] || "pt"; } } catch (_) {}
+  if (de === para) return;
+  const aviso = document.createElement("div"); aviso.className = "aviso-trad vidro"; aviso.textContent = "Preparando a tradução…"; document.body.appendChild(aviso);
+  try {
+    const t = await Translator.create({ sourceLanguage: de, targetLanguage: para, monitor(m) { m.addEventListener("downloadprogress", (e) => (aviso.textContent = `Baixando o idioma… ${Math.round(e.loaded * 100)}%`)); } });
+    let n = 0;
+    for (const p of pars) {
+      if (!document.body.contains(p)) break;
+      const fala = /^[—–-]\s*/.exec(p.textContent)?.[0] || "";
+      const txt = p.textContent.replace(/✎|💬.*$/g, "").trim().replace(/^[—–-]\s*/, "");
+      if (txt) { const tr = await t.translate(txt); const extra = [...p.querySelectorAll(".balao-trecho,.nota-grifo")]; p.textContent = fala + tr; extra.forEach((x) => p.appendChild(x)); }
+      if (++n % 5 === 0) aviso.textContent = `Traduzindo ${n} de ${pars.length}…`;
+    }
+  } catch (e) { toast("Não deu para traduzir: " + (e.message || e)); }
+  aviso.remove();
+}
+
+// ───────── ouvir (voz do navegador), com uma voz para cada personagem ─────────
+let falando = null, fichasVoz = [];
+const VERBOS_FALA = /\b(disse|diz|perguntou|pergunta|respondeu|responde|gritou|grita|murmurou|sussurrou|falou|fala|retrucou|rosnou|riu|completou|continuou|explicou|insistiu|berrou|resmungou|exclamou|declarou|rebateu|admitiu|repetiu|chamou|cortou|provocou|zombou|suspirou|ordenou|avisou|sorriu|bufou)\b/g;
+const FEM = /\b(garota|mulher|menina|moça|irmã|mãe|filha|rainha|princesa|senhora|avó|tia|ela|dela|esposa|namorada|guerreira|aluna)\b/giu;
+const MASC = /\b(garoto|homem|menino|rapaz|irmão|pai|filho|rei|príncipe|senhor|avô|tio|ele|dele|marido|namorado|guerreiro|aluno)\b/giu;
+const VOZES_F = /francisca|thalita|brenda|elza|giovanna|leila|leticia|letícia|manuela|yara|maria|luciana|vitoria|vitória|female|feminin/i;
+const VOZES_M = /antonio|antônio|donato|fabio|fábio|humberto|julio|júlio|nicolau|valerio|valério|daniel|male|masculin/i;
+export function nomesVoz(fs) {
+  const m = new Map(); const ps = fs.filter((f) => !f.tipo || f.tipo === "PERSONAGEM");
+  for (const f of ps) { m.set(f.nome.trim(), f.id); for (const a of (f.apelidos || "").split(",").map((x) => x.trim())) if (a.length >= 2 && a[0] === a[0].toUpperCase() && !m.has(a)) m.set(a, f.id); }
+  for (const [p, id] of partesUnicas(ps)) if (!m.has(p)) m.set(p, id);
+  const alt = [...m.keys()].filter((k) => k.length >= 2).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const rx = alt ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(?:${alt})(?![\\p{L}\\p{N}'’-])`, "gu") : null;
+  return (s) => rx ? [...s.matchAll(rx)].map((x) => ({ id: m.get(x[0]), ini: x.index, fim: x.index + x[0].length })) : [];
+}
+function falante(narr, achar) {
+  const ns = achar(narr); if (!ns.length) return null;
+  for (const v of narr.matchAll(VERBOS_FALA)) { const ve = v.index + v[0].length; const d = ns.find((x) => x.ini >= ve && x.ini - ve <= 25); if (d) return d.id; const a = [...ns].reverse().find((x) => x.fim <= v.index && v.index - x.fim <= 14); if (a) return a.id; }
+  const u = [...new Set(ns.map((x) => x.id))]; return u.length === 1 ? u[0] : null;
+}
+/** Divide cada parágrafo em narração e falas e descobre quem fala (mesma regra do app). */
+export function dividirElenco(textos, achar) {
+  let ult = null, pen = null;
+  return textos.map((t, i) => {
+    if (!/^[—–-]/.test(t)) return [{ texto: t, quem: null }];
+    const pedacos = t.replace(/^[—–-]\s*/, "").split(/\s+[—–]\s+/);
+    let quem = falante(pedacos.filter((_, k) => k % 2).join(" "), achar);
+    if (!quem && i > 0 && /:\s*$/.test(textos[i - 1])) quem = falante(textos[i - 1].slice(-160), achar);
+    if (!quem && ult && pen && ult !== pen) quem = pen;
+    if (quem && quem !== ult) { pen = ult; ult = quem; }
+    return pedacos.map((x, k) => ({ texto: x.trim(), quem: k % 2 ? null : quem })).filter((x) => x.texto);
+  });
+}
+function generoFicha(f, texto, achar) {
+  let fem = ((`${f.descricao || ""} ${f.aparencia || ""}`).match(FEM) || []).length * 3, masc = ((`${f.descricao || ""} ${f.aparencia || ""}`).match(MASC) || []).length * 3;
+  for (const m of achar(texto).filter((x) => x.id === f.id).slice(0, 80)) { const p = texto.slice(m.fim, m.fim + 70); fem += (p.match(FEM) || []).length; masc += (p.match(MASC) || []).length; }
+  return fem > masc * 1.3 && fem >= 2 ? "F" : masc > fem * 1.3 && masc >= 2 ? "M" : null;
+}
 function pararVoz() { speechSynthesis.cancel(); falando = null; $$(".falando").forEach((p) => p.classList.remove("falando")); const b = $("#ouvir"); if (b) b.textContent = "▶ Ouvir"; }
 function ouvir(apartir = 0) {
   const pars = $$("#texto [data-b]").filter((p) => p.tagName !== "DIV");
   if (falando !== null) { pararVoz(); return; }
-  const vel = local.ler("velVoz", 1);
+  const vel = local.ler("velVoz", 1), vozesPers = local.ler("vozesPersonagens", true);
   let i = Math.max(0, pars.findIndex((p) => +p.dataset.b >= apartir));
-  const voz = speechSynthesis.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt-br")) || speechSynthesis.getVoices().find((v) => v.lang?.startsWith("pt"));
+  const pt = speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt"));
+  const br = pt.filter((v) => /br/i.test(v.lang)); const todas = br.length ? br : pt;
+  const narr = todas.find((v) => v.name === local.ler("narradorPC", "")) || todas[0];
+  const textos = pars.map((p) => p.textContent.replace(/✎|💬.*$/g, "").trim());
+  const achar = nomesVoz(fichasVoz); const segs = dividirElenco(textos, achar);
+  // voz e tom de cada personagem: mulheres com vozes femininas, homens com masculinas, cada um com um tom
+  const fem = todas.filter((v) => VOZES_F.test(v.name) && v !== narr), masc = todas.filter((v) => VOZES_M.test(v.name) && v !== narr);
+  const tons = [1, 0.85, 1.15, 0.93, 1.07]; const elenco = new Map(); let nf = 0, nm = 0, nx = 0; const tudo = textos.join("\n");
+  for (const id of [...new Set(segs.flat().map((s) => s.quem).filter(Boolean))]) {
+    const f = fichasVoz.find((x) => x.id === id); const g = f ? generoFicha(f, tudo, achar) : null;
+    const lista = (g === "F" ? fem : g === "M" ? masc : todas).length ? (g === "F" ? fem : g === "M" ? masc : todas) : todas;
+    const k = g === "F" ? nf++ : g === "M" ? nm++ : nx++;
+    elenco.set(id, { voz: lista[k % Math.max(1, lista.length)], tom: tons[(Math.floor(k / Math.max(1, lista.length)) + (g ? 0 : 2)) % tons.length] });
+  }
   const prox = () => {
     if (falando === null || i >= pars.length) { pararVoz(); return; }
     const p = pars[i]; $$(".falando").forEach((x) => x.classList.remove("falando")); p.classList.add("falando");
     p.scrollIntoView({ block: "center", behavior: "smooth" });
-    const u = new SpeechSynthesisUtterance(p.textContent.replace("✎", "")); u.lang = "pt-BR"; if (voz) u.voice = voz; u.rate = vel;
-    u.onend = () => { i++; prox(); }; u.onerror = () => pararVoz();
-    falando = i; speechSynthesis.speak(u);
+    const lista = segs[i]; let k = 0;
+    const fala = () => {
+      if (falando === null) return;
+      if (k >= lista.length) { i++; prox(); return; }
+      const s = lista[k++]; const e = vozesPers && s.quem ? elenco.get(s.quem) : null;
+      const u = new SpeechSynthesisUtterance(s.texto); u.lang = "pt-BR"; u.voice = e?.voz || narr || null; u.pitch = e?.tom || 1; u.rate = vel;
+      u.onend = fala; u.onerror = () => pararVoz(); speechSynthesis.speak(u);
+    };
+    falando = i; fala();
   };
   falando = 0; const b = $("#ouvir"); if (b) b.textContent = "■ Parar"; prox();
 }
@@ -162,6 +250,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   };
   const ligar = () => {
     ligarNomes(fs, async (f) => (f.imagemHash ? (await import("./nucleo.js")).imagemMinha(f.id + "-foto") : null));
+    fichasVoz = fs; traduzirTela();
     $("#ouvir").onclick = () => ouvir(0);
     $("#aj").onclick = () => painelAjustes(() => { $(".leitor").setAttribute("style", estiloLeitura()); });
     $("#lcaps").onclick = () => painelCapitulos(caps, capId, (x) => `#/ler/${obraId}/${x.id}`);
@@ -340,6 +429,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
       <div style="display:flex;gap:10px"><textarea class="campo" id="com" rows="2" placeholder="O que achou do capítulo?"></textarea><button class="btn peq" id="enviar">Enviar</button></div>
       <div id="lcom">${coms.map((m) => `<div class="comentario"><span class="av" style="width:34px;height:34px">${esc((m.nome || "?").slice(0, 1))}</span><div style="flex:1"><b>${esc(m.nome)}</b> <span class="suave peq">${haQuanto(m.em)}</span><div>${esc(m.texto)}</div></div>${m.uid === E.usuario.uid || o.autorUid === E.usuario.uid ? `<button class="btn2 peq" data-ac="${m.id}">Apagar</button>` : ""}</div>`).join("") || `<p class="suave">Seja o primeiro a comentar.</p>`}</div></div></div>`);
   ligarNomes(fichasLista);
+  fichasVoz = fichasLista; traduzirTela();
   $("#ouvir").onclick = () => ouvir(0);
   $("#aj").onclick = () => painelAjustes(() => $(".leitor").setAttribute("style", estiloLeitura()));
   $("#lcaps").onclick = () => painelCapitulos(caps, cid, (x) => `#/publer/${pid}/${x.id}`);
