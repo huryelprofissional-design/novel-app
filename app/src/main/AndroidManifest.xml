@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <application
         android:name=".NovelyApp"
         android:allowBackup="true"
@@ -104,6 +106,7 @@
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/atalhos" />
         </activity-alias>
+        <service android:name=".data.ServicoVoz" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <receiver android:name=".data.WidgetNovely" android:exported="true" android:label="Novely">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_novely_info" />

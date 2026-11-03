@@ -301,7 +301,7 @@ object Biblia {
         val relacoes = pares.filter { it.value.cenas >= 2 }.map { (k, p) ->
             val tipos = listOf("família" to p.fam * 1.4, "romance" to p.rom * 1.6, "rivais" to p.riv * 0.8, "aliados" to p.ali * 1.0)
             val melhor = tipos.maxByOrNull { it.second }!!
-            Relacao(k.first, k.second, p.cenas, p.primeiro, p.ultimo, if (melhor.second >= 3 * p.cenas.coerceAtMost(4) / 2.0) melhor.first else "convivem", p.porCap)
+            Relacao(k.first, k.second, p.cenas, p.primeiro, p.ultimo, if (melhor.second >= 1.2 * p.cenas.coerceAtMost(5)) melhor.first else "convivem", p.porCap)
         }.sortedByDescending { it.cenas }
         val ordem = alertas.sortedWith(compareBy<Alerta> { it.nivel.ordinal }.thenBy { it.cap })
         return Resultado(caps, retratos, relacoes, ordem)

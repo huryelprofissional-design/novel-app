@@ -522,6 +522,17 @@ class Preferencias(ctx: Context) {
     val conquistas = texto("conquistas", "")
     /** Alertas da Bíblia viva que o autor mandou ignorar (uma chave por linha). */
     val bibliaIgnorados = texto("bibliaIgnorados", "")
+    /** Ouvir: cada personagem com a própria voz. */
+    val vozesPersonagens = bool("vozesPersonagens", true)
+    /** Vozes escolhidas para personagens: "obra|ficha|voz|tom" por linha. */
+    private val vozesElencoP = texto("vozesElenco", "")
+    fun vozesElenco(obraId: Long): Map<Long, VozPersonagem> = vozesElencoP.valor.split('\n').mapNotNull { l ->
+        val c = l.split('|'); if (c.size != 4 || c[0] != obraId.toString()) null else c[1].toLongOrNull()?.let { it to VozPersonagem(c[2], c[3].toFloatOrNull() ?: 1f) }
+    }.toMap()
+    fun definirVozElenco(obraId: Long, fichaId: Long, v: VozPersonagem) {
+        val resto = vozesElencoP.valor.split('\n').filter { it.isNotBlank() && !it.startsWith("$obraId|$fichaId|") }
+        vozesElencoP.definir((resto + "$obraId|$fichaId|${v.voz}|${v.tom}").takeLast(400).joinToString("\n"))
+    }
     fun ignorarAlerta(chave: String) { bibliaIgnorados.definir((bibliaIgnorados.valor.split('\n').filter { it.isNotBlank() } + chave).takeLast(500).joinToString("\n")) }
 
     // ── Leitor: rolagem automática, luz ──

@@ -124,7 +124,7 @@ fun ConteudoBiblia(res: Biblia.Resultado, abaInicial: String, abrirCap: (Long) -
                     Row(Modifier.fillMaxWidth().clip(forma(14.dp)).background(p.superficie).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("⌂ ${rt.ficha.nome}", fontWeight = FontWeight.Bold)
-                            Text("${rt.total} menções · ${rt.capsComEle} capítulos", fontSize = 12.sp, color = p.textoSuave)
+                            Text("${rt.total} ${if (rt.total == 1) "menção" else "menções"} · ${rt.capsComEle} ${if (rt.capsComEle == 1) "capítulo" else "capítulos"}", fontSize = 12.sp, color = p.textoSuave)
                         }
                         Aparicoes(rt.porCap, Modifier.width(120.dp).height(26.dp))
                     }
@@ -189,12 +189,13 @@ private fun Retrato(rt: Biblia.Retrato, res: Biblia.Resultado, aberto: Boolean, 
     Column(Modifier.fillMaxWidth().clip(forma(18.dp)).background(p.superficie).clickable(onClick = alternar).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(46.dp).clip(CircleShape).background(p.borda), contentAlignment = Alignment.Center) {
-                if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) else Text("☺", color = p.destaque, fontSize = 20.sp)
+                if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                else Text(rt.ficha.nome.split(' ').mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString(""), color = p.destaque, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             }
             Column(Modifier.weight(1f)) {
                 Text(rt.ficha.nome, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(if (rt.total == 0) "Ainda não aparece no texto"
-                else "${rt.capsComEle} de ${res.caps.size} caps · ${rt.falas} falas · do cap. ${rt.primeiro + 1} ao ${rt.ultimo + 1}", fontSize = 12.sp, color = p.textoSuave)
+                else "${rt.capsComEle} de ${res.caps.size} caps · ${rt.falas} ${if (rt.falas == 1) "fala" else "falas"} · do cap. ${rt.primeiro + 1} ao ${rt.ultimo + 1}", fontSize = 12.sp, color = p.textoSuave)
             }
             if (rt.fatos.any { it.tipo == Biblia.Tipo.MORTE }) Text("✝", fontSize = 18.sp, color = p.textoSuave)
         }

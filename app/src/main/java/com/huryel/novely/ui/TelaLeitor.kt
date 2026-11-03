@@ -19,6 +19,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -158,56 +159,6 @@ fun montarBlocos(texto: String): List<Bloco> {
 }
 
 // ───────── Leitura em voz alta (motor de voz do próprio Android, funciona offline se a voz estiver instalada) ─────────
-
-class Voz(ctx: android.content.Context, private val aoTerminar: (String) -> Unit) {
-    var pronta by mutableStateOf(false)
-        private set
-    var erro by mutableStateOf<String?>(null)
-        private set
-    private lateinit var tts: TextToSpeech
-    init {
-        tts = TextToSpeech(ctx.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val r = tts.setLanguage(Locale("pt", "BR"))
-                if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) tts.language = Locale.getDefault()
-                pronta = true
-            } else erro = "Nenhum motor de voz disponível. Instale “Serviços de voz do Google” na Play Store."
-        }
-        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(id: String?) {}
-            override fun onDone(id: String?) { if (id != null) aoTerminar(id) }
-            @Deprecated("Deprecated in Java") override fun onError(id: String?) {}
-        })
-    }
-    private var vozEscolhida: String = ""
-
-    fun falar(texto: String, id: String, velocidade: Float) {
-        aplicarVoz()
-        tts.setSpeechRate(velocidade)
-        tts.speak(texto.take(3900), TextToSpeech.QUEUE_FLUSH, null, id)
-    }
-
-    /** Só vozes do Brasil que funcionam sem internet. */
-    fun vozes(): List<android.speech.tts.Voice> = try {
-        (tts.voices?.toList() ?: emptyList())
-            .filter { it.locale.language == "pt" && it.locale.country.equals("BR", true) && !it.isNetworkConnectionRequired && !it.features.contains("notInstalled") }
-            .sortedWith(compareBy({ generoVoz(it.name) ?: "z" }, { it.name }))
-    } catch (e: Exception) { emptyList() }
-
-    fun usarVoz(nome: String) { vozEscolhida = nome; aplicarVoz() }
-
-    /** Reaplica a voz antes de cada fala: alguns motores esquecem a escolha depois de stop(). */
-    private fun aplicarVoz() {
-        if (vozEscolhida.isEmpty()) return
-        try {
-            val v = tts.voices?.firstOrNull { it.name == vozEscolhida } ?: return
-            if (tts.voice?.name != v.name) tts.voice = v
-        } catch (_: Exception) {}
-    }
-
-    fun parar() { tts.stop() }
-    fun liberar() { tts.stop(); tts.shutdown() }
-}
 
 /** "Mulher" / "Homem" pelo nome técnico da voz (Google, Samsung e outros); null se não der para saber. */
 fun generoVoz(nome: String): String? {
@@ -397,22 +348,19 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         }
     }
 
-    // ── Voz ──
-    var falando by remember { mutableStateOf(-1) }
-    var tocando by remember { mutableStateOf(false) }
+    // ── Voz: o Narrador lê com uma voz por personagem e continua com a tela apagada ──
+    val nar by com.huryel.novely.data.Narrador.estado.collectAsState()
+    val vozPronta by com.huryel.novely.data.Narrador.pronta.collectAsState()
+    val vozesPersonagens by prefs.vozesPersonagens.estado.collectAsState()
+    val chaveVoz = "cap:${c.id}:${b.size}"
+    val falando = if (nar.chave == chaveVoz) nar.bloco else -1
+    val tocando = nar.chave == chaveVoz && nar.tocando
     val falaveis = remember(b) { b.indices.filter { b[it] !is Bloco.Separador && b[it].plano.isNotBlank() } }
-    val voz = remember {
-        Voz(ctx) { id ->
-            val atual = id.toIntOrNull() ?: return@Voz
-            val prox = falaveis.firstOrNull { it > atual }
-            if (prox == null) { tocando = false; falando = -1 } else falando = prox
-        }
-    }
-    DisposableEffect(Unit) { onDispose { voz.liberar() } }
-    LaunchedEffect(voz.pronta, narrador) { if (voz.pronta) voz.usarVoz(narrador) }
-    LaunchedEffect(falando, tocando) {
+    LaunchedEffect(Unit) { com.huryel.novely.data.Narrador.iniciar(ctx) }
+    LaunchedEffect(vozPronta, narrador) { if (vozPronta) com.huryel.novely.data.Narrador.definirNarrador(narrador) }
+    LaunchedEffect(velocidade, vozesPersonagens) { com.huryel.novely.data.Narrador.velocidade = velocidade; com.huryel.novely.data.Narrador.vozesPersonagens = vozesPersonagens }
+    LaunchedEffect(falando) {
         if (tocando && falando >= 0) {
-            voz.falar(b[falando].plano, falando.toString(), velocidade)
             if (modoPaginas) irParaBloco(falando) else {
                 val vis = estado.layoutInfo.visibleItemsInfo
                 val item = falando + 1
@@ -420,15 +368,13 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             }
         }
     }
+    suspend fun prepararVoz() = com.huryel.novely.data.Narrador.carregar(chaveVoz, listOfNotNull(obra?.titulo, c.titulo).joinToString(" · "),
+        b.map { it.plano }, b.map { it is Bloco.Paragrafo && it.fala }, c.obraId)
     fun tocar() {
-        if (falando < 0) falando = falaveis.firstOrNull { it >= blocoAtual() } ?: return
-        tocando = true
+        val ini = if (falando >= 0) falando else falaveis.firstOrNull { it >= blocoAtual() } ?: return
+        escopo.launch { prepararVoz(); com.huryel.novely.data.Narrador.tocar(ini) }
     }
-    fun pausar() { tocando = false; voz.parar() }
-    var timerFim by remember { mutableStateOf(0L) }
-    LaunchedEffect(timerFim) {
-        if (timerFim > 0) { kotlinx.coroutines.delay((timerFim - System.currentTimeMillis()).coerceAtLeast(0)); pausar(); timerFim = 0 }
-    }
+    fun pausar() = com.huryel.novely.data.Narrador.pausar()
 
     // ── Busca ──
     var consulta by remember { mutableStateOf(consultaInicial) }
@@ -720,11 +666,12 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
 
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             AnimatedVisibility(controles && painel == Painel.VOZ, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                PainelVoz(voz, tocando, velocidade, { if (tocando) pausar() else tocar() },
-                    { val ant = falaveis.lastOrNull { it < falando }; if (ant != null) falando = ant },
-                    { val px = falaveis.firstOrNull { it > falando }; if (px != null) falando = px },
-                    { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it); voz.usarVoz(it); if (tocando && falando >= 0) voz.falar(b[falando].plano, falando.toString(), velocidade) },
-                    timerFim, { min -> timerFim = if (min == 0) 0L else System.currentTimeMillis() + min * 60_000L })
+                PainelVoz(vozPronta, tocando, velocidade, { if (tocando) pausar() else tocar() },
+                    { val ant = falaveis.lastOrNull { it < falando }; if (ant != null) com.huryel.novely.data.Narrador.irPara(ant) },
+                    { val px = falaveis.firstOrNull { it > falando }; if (px != null) com.huryel.novely.data.Narrador.irPara(px) },
+                    { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it) },
+                    nar.timerFim, { min -> com.huryel.novely.data.Narrador.timer(min) },
+                    vozesPersonagens, { prefs.vozesPersonagens.definir(it) }, c.obraId, { prepararVoz() })
             }
             AnimatedVisibility(controles && painel == Painel.BUSCA, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 PainelBusca(consulta, { consulta = it; achadoAtual = 0 }, achados.size, achadoAtual,
@@ -1078,10 +1025,13 @@ private fun BotaoBarra(rotulo: String, ativo: Boolean, icone: @Composable () -> 
 }
 
 @Composable
-private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit,
-                      narrador: String, definirNarrador: (String) -> Unit, timerFim: Long = 0L, definirTimer: (Int) -> Unit = {}) {
+private fun PainelVoz(pronta: Boolean, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit,
+                      narrador: String, definirNarrador: (String) -> Unit, timerFim: Long, definirTimer: (Int) -> Unit,
+                      vozesPersonagens: Boolean, definirVozesPersonagens: (Boolean) -> Unit, obraId: Long, preparar: suspend () -> Unit) {
     val p = LocalPaleta.current
     var escolhendo by remember { mutableStateOf(false) }
+    var elenco by remember { mutableStateOf(false) }
+    val escopoV = rememberCoroutineScope()
     var agora by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timerFim) { while (timerFim > 0) { agora = System.currentTimeMillis(); kotlinx.coroutines.delay(15_000) } }
     Column(
@@ -1089,21 +1039,21 @@ private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: (
             .border(1.dp, p.destaque.copy(alpha = 0.35f), forma(22.dp)).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(voz.erro ?: if (tocando) "Lendo em voz alta…" else "Ouvir a partir daqui", fontWeight = FontWeight.Bold, color = p.destaque, fontSize = 13.sp)
+        Text(com.huryel.novely.data.Narrador.erro ?: if (tocando) "Lendo em voz alta · continua com a tela apagada" else "Ouvir a partir daqui", fontWeight = FontWeight.Bold, color = p.destaque, fontSize = 13.sp)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = { definirVel(when { velocidade < 0.95f -> 1.0f; velocidade < 1.15f -> 1.25f; velocidade < 1.4f -> 1.5f; velocidade < 1.9f -> 2.0f; else -> 0.8f }) }) {
                 Text("${"%.2f".format(velocidade).trimEnd('0').trimEnd(',', '.')}×", fontWeight = FontWeight.Bold)
             }
             IconButton(onClick = voltar) { Icon(Icons.Filled.KeyboardArrowUp, "Parágrafo anterior") }
-            FilledIconButton(onClick = alternar, enabled = voz.pronta, modifier = Modifier.size(58.dp),
+            FilledIconButton(onClick = alternar, enabled = pronta, modifier = Modifier.size(58.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = p.destaque, contentColor = p.sobreDestaque)) {
                 if (tocando) Text("❚❚", fontWeight = FontWeight.Bold) else Icon(Icons.Filled.PlayArrow, "Tocar")
             }
             IconButton(onClick = avancar) { Icon(Icons.Filled.KeyboardArrowDown, "Próximo parágrafo") }
             Box {
-                TextButton(onClick = { escolhendo = true }, enabled = voz.pronta) { Text("Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                TextButton(onClick = { escolhendo = true }, enabled = pronta) { Text("Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                 DropdownMenu(escolhendo, { escolhendo = false }, modifier = Modifier.heightIn(max = 380.dp)) {
-                    val lista = remember(voz.pronta) { voz.vozes() }
+                    val lista = remember(pronta) { com.huryel.novely.data.Narrador.vozesDisponiveis() }
                     if (lista.isEmpty()) DropdownMenuItem(text = { Text("Nenhuma voz brasileira offline. Instale em Configurações › Saída de texto para voz.") }, onClick = { escolhendo = false })
                     var mulher = 0; var homem = 0; var outra = 0
                     lista.forEach { v ->
@@ -1130,8 +1080,66 @@ private fun PainelVoz(voz: Voz, tocando: Boolean, velocidade: Float, alternar: (
             }
             if (timerFim > 0) Text("faltam ${((timerFim - agora) / 60_000 + 1)} min", fontSize = 11.sp, color = p.textoSuave)
         }
-        if (narrador.isNotEmpty()) Text("Toque em “Narrador” para trocar a voz. Para mais vozes: Configurações do Android › Saída de texto para voz.", fontSize = 11.sp, color = p.textoSuave)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Uma voz para cada personagem", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("O app descobre quem fala pelo “disse Fulano”", fontSize = 11.sp, color = p.textoSuave)
+            }
+            Switch(vozesPersonagens, definirVozesPersonagens)
+        }
+        if (vozesPersonagens) TextButton(onClick = { escopoV.launch { preparar(); elenco = true } }, enabled = pronta) { Text("🎭 Elenco: escolher as vozes", color = p.destaque, fontWeight = FontWeight.Bold) }
+        if (narrador.isNotEmpty()) Text("Para mais vozes: Configurações do Android › Saída de texto para voz.", fontSize = 11.sp, color = p.textoSuave)
     }
+    if (elenco) DialogoElenco(obraId) { elenco = false }
+}
+
+/** Elenco: a voz e o tom de cada personagem que fala no capítulo, com amostra. */
+@Composable
+private fun DialogoElenco(obraId: Long, fechar: () -> Unit) {
+    val p = LocalPaleta.current
+    val nar = com.huryel.novely.data.Narrador
+    val vozes = remember { nar.vozesDisponiveis() }
+    var versao by remember { mutableIntStateOf(0) }
+    AlertDialog(onDismissRequest = fechar, confirmButton = { TextButton(onClick = fechar) { Text("Pronto") } },
+        title = { Text("Elenco") },
+        text = {
+            if (nar.nomesElenco.isEmpty()) Text("Ninguém fala neste capítulo com nome reconhecido. Use “— … — disse Fulano” e crie a ficha do personagem.", color = p.textoSuave)
+            else androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(nar.nomesElenco.entries.toList(), key = { it.key }) { (id, nome) ->
+                    key(versao) {
+                        val v = nar.vozDe(id) ?: com.huryel.novely.data.VozPersonagem("", 1f)
+                        var abrir by remember { mutableStateOf(false) }
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(nome, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { nar.amostra(v, "Eu sou $nome. É assim que eu falo.") }) { Text("▶ Ouvir") }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box {
+                                    val i = vozes.indexOfFirst { it.name == v.voz }
+                                    val g = vozes.getOrNull(i)?.let { nar.generoDaVoz(it.name) }
+                                    Text((if (g == 'F') "♀ " else if (g == 'M') "♂ " else "") + if (i >= 0) "Voz ${i + 1}" else "Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clip(forma(10.dp)).background(p.borda).clickable { abrir = true }.padding(horizontal = 10.dp, vertical = 6.dp))
+                                    DropdownMenu(abrir, { abrir = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+                                        vozes.forEachIndexed { k, vz ->
+                                            val gg = nar.generoDaVoz(vz.name)
+                                            DropdownMenuItem(text = { Text((if (gg == 'F') "♀ Mulher" else if (gg == 'M') "♂ Homem" else "◦") + " · voz ${k + 1}") },
+                                                onClick = { abrir = false; val nv = v.copy(voz = vz.name); nar.mudarVoz(obraId, id, nv); versao++; nar.amostra(nv, "Assim?") })
+                                        }
+                                    }
+                                }
+                                listOf(0.82f to "grave", 1f to "normal", 1.18f to "agudo").forEach { (t, rot) ->
+                                    val ativo = kotlin.math.abs(v.tom - t) < 0.09f
+                                    Text(rot, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (ativo) p.sobreDestaque else p.texto,
+                                        modifier = Modifier.clip(forma(10.dp)).background(if (ativo) p.destaque else p.borda)
+                                            .clickable { val nv = v.copy(tom = t); nar.mudarVoz(obraId, id, nv); versao++; nar.amostra(nv, "Assim?") }.padding(horizontal = 10.dp, vertical = 6.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        })
 }
 
 @Composable

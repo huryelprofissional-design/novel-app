@@ -44,3 +44,32 @@ class BibliaTest {
         assertTrue("lento: $ms ms", ms < 5000)
     }
 }
+
+class ElencoTest {
+    private val fichas = listOf(
+        Ficha(1, 1, nome = "Han Seo-jun", apelidos = "Seo-jun", descricao = "garoto de 17 anos"),
+        Ficha(2, 1, nome = "Lee Hana", descricao = "menina do clube"),
+    )
+
+    @Test fun descobreQuemFala() {
+        val ps = listOf(
+            "— Vem comigo — disse Lee Hana. — Agora.",
+            "— Não posso — respondeu Seo-jun.",
+            "— Por quê?",
+            "— Porque não.",
+            "Lee Hana suspirou.",
+        )
+        val falas = ps.map { it.startsWith("—") }
+        val r = Elenco.dividir(ps, falas, Elenco.Nomes(fichas))
+        // fala, narração, fala
+        org.junit.Assert.assertEquals(listOf(2L, null, 2L), r[0].map { it.quem })
+        org.junit.Assert.assertEquals("Vem comigo", r[0][0].texto)
+        org.junit.Assert.assertEquals(1L, r[1][0].quem)
+        // sem "disse": alterna entre os dois
+        org.junit.Assert.assertEquals(2L, r[2][0].quem)
+        org.junit.Assert.assertEquals(1L, r[3][0].quem)
+        org.junit.Assert.assertEquals(null, r[4][0].quem)
+        org.junit.Assert.assertEquals('F', Elenco.genero(fichas[1], ps.joinToString("\n"), Elenco.Nomes(fichas)))
+        org.junit.Assert.assertEquals('M', Elenco.genero(fichas[0], ps.joinToString("\n"), Elenco.Nomes(fichas)))
+    }
+}
