@@ -18,6 +18,8 @@ data class ObraPublica(
     val capaMini: ByteArray?, val leituras: Long, val leiturasSemana: Long, val semanaId: String, val seguidores: Long,
     val somaEstrelas: Long, val numEstrelas: Long, val numCaps: Long, val palavras: Long, val atualizadaEm: Long, val publicadaEm: Long,
     val enfeite: String = "",
+    /** Moedas para ler capítulos agendados antes (0 = desligado) e quantas vezes liberaram. */
+    val antecipado: Int = 0, val desbloqueios: Long = 0,
 ) {
     val nota: Float get() = if (numEstrelas > 0) somaEstrelas.toFloat() / numEstrelas else 0f
 }
@@ -164,7 +166,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         leituras = d.getLong("leituras") ?: 0, leiturasSemana = d.getLong("leiturasSemana") ?: 0, semanaId = d.getString("semanaId") ?: "",
         seguidores = d.getLong("seguidores") ?: 0, somaEstrelas = d.getLong("somaEstrelas") ?: 0, numEstrelas = d.getLong("numEstrelas") ?: 0,
         numCaps = d.getLong("numCaps") ?: 0, palavras = d.getLong("palavras") ?: 0, atualizadaEm = d.getLong("atualizadaEm") ?: 0, publicadaEm = d.getLong("publicadaEm") ?: 0,
-        enfeite = d.getString("enfeite") ?: "",
+        enfeite = d.getString("enfeite") ?: "", antecipado = (d.getLong("antecipado") ?: 0).toInt(), desbloqueios = d.getLong("desbloqueios") ?: 0,
     )
 
     /** modo: ALTA (mais lidas) | SEMANA (ranking da semana) | NOVIDADES | CONCLUIDAS | genero:X */
@@ -221,14 +223,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             val lc = dao.capituloPublico(obraId, c.id)
             if (lc == null || c.atualizadoEm > lc.publicadoEm) {
                 aoProgresso("Baixando capítulo ${i + 1} de ${caps.size}…")
-                val sb = StringBuilder()
-                for (k in 0 until c.partes) sb.append(col.document(pid).collection("textos").document(if (k == 0) c.id else "${c.id}~$k").get().await().getString("texto") ?: "")
-                val texto = sb.toString()
-                val novo = (lc ?: Capitulo(obraId = obraId, titulo = c.titulo, ordem = c.ordem)).copy(
-                    titulo = c.titulo, ordem = c.ordem, palavras = ArquivosTexto.contarPalavras(texto), rascunho = false, publicaId = c.id, publicadoEm = c.atualizadoEm, resumo = c.resumo)
-                val id = if (lc == null) dao.inserirCapitulo(novo) else { dao.atualizarCapitulo(novo); lc.id }
-                repo.textos.gravar(id, texto)
-                dao.capituloAgora(id)?.let { try { repo.indexarFichas(it, texto) } catch (_: Exception) {} }
+                baixarCap(pid, obraId, c, lc)
             }
         }
         // fichas do autor (campos que ele preencheu)
@@ -244,6 +239,30 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             }
         } catch (_: Exception) {}
         obraId
+    }
+
+    private suspend fun baixarCap(pid: String, obraId: Long, c: CapPublico, lc: Capitulo?): Long {
+        val sb = StringBuilder()
+        for (k in 0 until c.partes) sb.append(col.document(pid).collection("textos").document(if (k == 0) c.id else "${c.id}~$k").get().await().getString("texto") ?: "")
+        val texto = sb.toString()
+        val novo = (lc ?: Capitulo(obraId = obraId, titulo = c.titulo, ordem = c.ordem)).copy(
+            titulo = c.titulo, ordem = c.ordem, palavras = ArquivosTexto.contarPalavras(texto), rascunho = false, publicaId = c.id, publicadoEm = c.atualizadoEm, resumo = c.resumo)
+        val id = if (lc == null) dao.inserirCapitulo(novo) else { dao.atualizarCapitulo(novo); lc.id }
+        repo.textos.gravar(id, texto)
+        dao.capituloAgora(id)?.let { try { repo.indexarFichas(it, texto) } catch (_: Exception) {} }
+        return id
+    }
+
+    /** Autor: liga o acesso antecipado (custo em moedas; 0 desliga). */
+    suspend fun definirAntecipado(pid: String, custo: Int) = withContext(Dispatchers.IO) { col.document(pid).update("antecipado", custo.toLong()).await() }
+
+    /** Leitor: baixa a obra (se precisar) e o capítulo agendado que liberou com moedas. Devolve o id local do capítulo. */
+    suspend fun liberarAntecipado(pid: String, c: CapPublico, aoProgresso: (String) -> Unit = {}): Long = withContext(Dispatchers.IO) {
+        val obraId = dao.obraPublica(pid)?.id ?: baixar(pid, aoProgresso)
+        aoProgresso("Baixando “${c.titulo}”…")
+        val id = baixarCap(pid, obraId, c, dao.capituloPublico(obraId, c.id))
+        try { col.document(pid).update("desbloqueios", FieldValue.increment(1)).await() } catch (_: Exception) {}
+        id
     }
 
     /** Confere as obras seguidas e baixa capítulos novos/alterados. Devolve "título|quantos" das que tiveram novidade. */
@@ -367,6 +386,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             "texto" to texto.trim().take(2000), "em" to System.currentTimeMillis(), "bloco" to bloco, "trecho" to trecho.take(300))).await()
         cap.update("comentarios", FieldValue.increment(1)).await()
         prefs.comentou.definir(true)
+        Moedas.ganhar(1, "comentario", 5)
     }
 
     suspend fun apagarComentario(pid: String, cid: String, c: Comentario) = withContext(Dispatchers.IO) {

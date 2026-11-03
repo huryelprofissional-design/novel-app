@@ -528,6 +528,13 @@ class Preferencias(ctx: Context) {
     val vozesPersonagens = bool("vozesPersonagens", true)
     /** Ler traduzido: código do idioma ("" = original). */
     val idiomaLeitura = texto("idiomaLeitura", "")
+    // moedas (grátis): saldo, ganhos do dia, presente diário, capítulos liberados cedo
+    val moedas = longo("moedas", 0L)
+    val moedasDia = texto("moedasDia", "")
+    val moedaDiaria = texto("moedaDiaria", "")
+    val moedaSequencia = longo("moedaSequencia", 0L)
+    val desbloqueados = texto("desbloqueados", "")
+    val carteiraEm = longo("carteiraEm", 0L)
     /** Vozes escolhidas para personagens: "obra|ficha|voz|tom" por linha. */
     private val vozesElencoP = texto("vozesElenco", "")
     fun vozesElenco(obraId: Long): Map<Long, VozPersonagem> = vozesElencoP.valor.split('\n').mapNotNull { l ->

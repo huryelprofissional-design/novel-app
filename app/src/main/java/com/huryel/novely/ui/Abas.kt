@@ -647,6 +647,7 @@ fun TelaPerfilAba(nav: NavHostController) {
                 items(lendo, key = { it.id }) { o -> CapaPerfil(o) { nav.navigate("obra/${o.id}") } }
             }
         }
+        CartaoMoedas()
         SecaoConquistas()
         SecaoCitacoes()
         Spacer(Modifier.height(10.dp))
@@ -898,5 +899,28 @@ private fun ItemAvisoLinha(titulo: String, sub: String, acao: () -> Unit) {
     Column(Modifier.padding(horizontal = 18.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).clickable(onClick = acao).padding(16.dp)) {
         Text(titulo, fontWeight = FontWeight.Bold, color = p.destaque)
         Text(sub, fontSize = 12.sp, color = p.textoSuave)
+    }
+}
+
+/** Saldo de moedas e como ganhar. */
+@Composable
+private fun CartaoMoedas() {
+    val p = LocalPaleta.current
+    val saldo by com.huryel.novely.data.Moedas.saldo.collectAsState()
+    var aberto by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).clip(RoundedCornerShape(18.dp))
+        .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF3A2410), Color(0xFF1A1208)))).clickable { aberto = !aberto }.padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("🪙", fontSize = 26.sp)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text("$saldo moedas", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFFFFC94A))
+                Text("Para ler capítulos antes de todo mundo · toque para ver como ganhar", fontSize = 12.sp, color = Color(0xFFD9C2A0))
+            }
+        }
+        if (aberto) Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("Abrir o app: +3 por dia", "7 dias seguidos: +10 de bônus", "Terminar um capítulo de outro autor: +1 (até 10 por dia)", "Comentar: +1 (até 5 por dia)",
+                "Gastar: obras com 🔒 “Antes de todo mundo” liberam capítulos agendados").forEach { Text("• $it", fontSize = 13.sp, color = Color.White) }
+            Text("As moedas são grátis e não valem dinheiro.", fontSize = 11.sp, color = Color(0xFFD9C2A0))
+        }
     }
 }

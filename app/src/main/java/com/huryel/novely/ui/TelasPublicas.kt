@@ -232,11 +232,14 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
     var trabalhando by remember { mutableStateOf<String?>(null) }
     var sinopseAberta by remember { mutableStateOf(false) }
     var maisRecentes by remember { mutableStateOf(false) }
+    var futuros by remember { mutableStateOf<List<CapPublico>>(emptyList()) }
 
     LaunchedEffect(pid) {
         try {
             obra = pub.obra(pid) ?: run { erro = "Esta obra não está mais publicada."; return@LaunchedEffect }
             caps = pub.capitulos(pid, autor = obra?.autorUid == pub.meuUid)
+            if ((obra?.antecipado ?: 0) > 0 && obra?.autorUid != pub.meuUid)
+                futuros = pub.capitulos(pid, autor = true).filter { it.publicadoEm > System.currentTimeMillis() }
             seguindo = pub.seguindo(pid); minhaNota = pub.minhaNota(pid)
             capa = CachePoster.capa(pid)
         } catch (e: Exception) { erro = "Sem conexão. Volte e tente de novo." }
@@ -371,6 +374,41 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
                     Text("♥ ${c.curtidas}  💬 ${c.comentarios}", fontSize = 12.sp, color = p.textoSuave)
                 }
             }
+            if (futuros.isNotEmpty()) item {
+                val saldo by com.huryel.novely.data.Moedas.saldo.collectAsState()
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp).clip(RoundedCornerShape(18.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF3A2410), Color(0xFF1A1208)))).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("🔒 Antes de todo mundo", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
+                            Text("Capítulos já escritos que saem em breve. Libere agora com moedas.", fontSize = 12.sp, color = Color(0xFFD9C2A0))
+                        }
+                        Text("🪙 $saldo", fontWeight = FontWeight.ExtraBold, color = Color(0xFFFFC94A), fontSize = 16.sp)
+                    }
+                    futuros.forEach { c ->
+                        val liberado = com.huryel.novely.data.Moedas.liberado(pid, c.id)
+                        val dias = ((c.publicadoEm - System.currentTimeMillis()) / 86_400_000L).toInt()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(c.titulo, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(if (dias >= 1) "sai para todos em $dias ${if (dias == 1) "dia" else "dias"}" else "sai para todos hoje", fontSize = 11.5.sp, color = Color(0xFFD9C2A0))
+                            }
+                            val custo = o.antecipado
+                            Text(if (liberado) "Ler" else "🪙 $custo", fontWeight = FontWeight.ExtraBold, color = Color.Black, fontSize = 13.sp,
+                                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (liberado || saldo >= custo) Color(0xFFFFC94A) else Color(0xFF6B5A3A))
+                                    .clickable(enabled = trabalhando == null) {
+                                        if (!liberado && !com.huryel.novely.data.Moedas.gastar(custo, pid, c.id)) { erro = "Faltam ${custo - saldo} moedas. Ganhe lendo, comentando e abrindo o app todo dia."; return@clickable }
+                                        escopo.launch {
+                                            try {
+                                                val id = pub.liberarAntecipado(pid, c) { trabalhando = it }
+                                                trabalhando = null; nav.navigate("leitor/$id")
+                                            } catch (e: Exception) { trabalhando = null; erro = e.message }
+                                        }
+                                    }.padding(horizontal = 14.dp, vertical = 7.dp))
+                        }
+                    }
+                }
+            }
         }
         // barra fixa embaixo: coração (seguir a obra) + "Ler agora" branco
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, p.fundo.copy(alpha = 0.92f), p.fundo)))
@@ -450,6 +488,7 @@ fun TelaPublicar(obraId: Long, nav: NavHostController) {
                             modifier = Modifier.padding(top = 4.dp).clickable { nav.navigate("pub/${o.nuvemId}") })
                     }
                 }
+                if (o.publicada) CartaoAntecipado(o.nuvemId)
                 if (pend.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0x22E57373)).padding(12.dp)) {
                     Text("Para publicar falta:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     pend.forEach { Text("• $it", fontSize = 13.sp, color = p.textoSuave) }
@@ -711,5 +750,29 @@ fun TelaAutor(autor: String, nav: NavHostController) {
                 repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
             }
         }
+    }
+}
+
+/** Autor: acesso antecipado com moedas (capítulos agendados podem ser lidos antes por quem pagar com moedas grátis). */
+@Composable
+private fun CartaoAntecipado(pid: String) {
+    val p = LocalPaleta.current
+    val app = NovelyApp.instancia
+    var remota by remember { mutableStateOf<ObraPublica?>(null) }
+    var custo by remember { mutableIntStateOf(-1) }
+    val escopo = rememberCoroutineScope()
+    LaunchedEffect(pid) { try { remota = app.pub.obra(pid); custo = remota?.antecipado ?: 0 } catch (_: Exception) {} }
+    if (custo < 0) return
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("🪙 Acesso antecipado", fontWeight = FontWeight.ExtraBold)
+        Text("Agende capítulos para o futuro: quem quiser lê antes, pagando com moedas grátis que ganha lendo e comentando. Ninguém paga dinheiro.",
+            fontSize = 12.sp, color = p.textoSuave)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(0 to "Desligado", 2 to "🪙 2", 3 to "🪙 3", 5 to "🪙 5").forEach { (v, rot) ->
+                Chip(rot, custo == v) { custo = v; escopo.launch { try { app.pub.definirAntecipado(pid, v) } catch (_: Exception) {} } }
+            }
+        }
+        val n = remota?.desbloqueios ?: 0
+        if (n > 0) Text("Leitores liberaram capítulos cedo $n ${if (n == 1L) "vez" else "vezes"}.", fontSize = 12.sp, color = p.destaque, fontWeight = FontWeight.Bold)
     }
 }

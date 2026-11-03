@@ -462,6 +462,11 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     val maratona by prefs.maratona.estado.collectAsState()
     var contagem by remember(c.id) { mutableIntStateOf(-1) }
     val noFim by remember { derivedStateOf { progresso >= 0.995f } }
+    // moeda por terminar capítulo de outro autor (uma vez por capítulo, até 10 por dia)
+    LaunchedEffect(noFim, social) {
+        val sc = social
+        if (noFim && sc != null && obra?.minha != true) com.huryel.novely.data.Moedas.ganhar(1, "leitura", 10, "${sc.first}/${sc.second}")
+    }
     LaunchedEffect(noFim, maratona, c.id) {
         if (!maratona || !noFim || proximo == null || contagem != -1) return@LaunchedEffect
         for (sgs in 5 downTo 1) { contagem = sgs; kotlinx.coroutines.delay(1000); if (contagem < 0) return@LaunchedEffect }

@@ -90,6 +90,12 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     if (donoAparelho.isEmpty()) LaunchedEffect(usuario?.uid) { app.prefs.contaDoAparelho.definir(usuario!!.uid) }
     else if (donoAparelho != usuario?.uid) { TelaOutraConta(usuario?.email ?: ""); return }
     // sincroniza ao entrar, a cada 3 minutos com o app aberto e ao sair/minimizar
+    val ctxMoedas = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(usuario?.uid) {
+        com.huryel.novely.data.Moedas.carregarDaNuvem()
+        val g = com.huryel.novely.data.Moedas.diario()
+        if (g > 0) android.widget.Toast.makeText(ctxMoedas, "🪙 +$g moedas de hoje" + if (g > 3) " (7 dias seguidos!)" else "", android.widget.Toast.LENGTH_SHORT).show()
+    }
     LaunchedEffect(usuario?.uid) {
         while (true) {
             app.sinc.sincronizar()
