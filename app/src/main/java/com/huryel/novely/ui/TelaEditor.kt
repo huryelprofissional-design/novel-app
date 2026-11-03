@@ -34,6 +34,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -154,6 +156,12 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
     var contadorPilhas by remember { mutableStateOf(0) } // força recomposição dos botões
 
     val lista = rememberLazyListState()
+    // máquina de escrever: papel, letra de máquina, som de cada tecla, batida e a linha sempre no meio
+    val maquina by prefs.maquina.estado.collectAsState()
+    val vistaEd = androidx.compose.ui.platform.LocalView.current
+    val layouts = remember { HashMap<Int, androidx.compose.ui.text.TextLayoutResult>() }
+    val batida = remember { androidx.compose.animation.core.Animatable(0f) }
+    var centrar by remember { mutableIntStateOf(0) }
 
     fun carregarTexto(texto: String) {
         pedacos.clear()
@@ -300,6 +308,14 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         if (ocupado) return
         val antigo = pd.valor
         if (novo.text != antigo.text) { empilhar(pd, antigo); versao++ }
+        if (maquina && novo.text != antigo.text) {
+            com.huryel.novely.data.Maquina.somDa(antigo.text, novo.text)?.let { som ->
+                com.huryel.novely.data.Maquina.tocar(som)
+                vistaEd.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                if (som != "apagar") escopo.launch { batida.snapTo(if (som == "enter") 5f else 2f); batida.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.4f, stiffness = 900f)) }
+            }
+            centrar++
+        }
         pd.valor = novo
         if (novo.text == antigo.text) return
         val nlAntes = antigo.text.count { it == '\n' }
@@ -484,7 +500,17 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
     }
 
     val familia = when (fonte) { "SEM_SERIFA" -> FontFamily.SansSerif; "SERIFA" -> FontFamily.Serif; else -> p.fonteLeitura }
-    val estilo = TextStyle(fontFamily = familia, fontSize = 17.sp, lineHeight = 29.sp, color = p.texto)
+    val estilo = if (maquina) TextStyle(fontFamily = FontFamily.Monospace, fontSize = 16.sp, lineHeight = 29.sp, color = Color(0xFF2B241C), letterSpacing = 0.2.sp)
+        else TextStyle(fontFamily = familia, fontSize = 17.sp, lineHeight = 29.sp, color = p.texto)
+    // linha atual sempre no meio da tela (como o papel subindo na máquina)
+    LaunchedEffect(centrar) {
+        if (!maquina || focado !in pedacos.indices) return@LaunchedEffect
+        val pd = pedacos[focado]; val lay = layouts[pd.id] ?: return@LaunchedEffect
+        val info = lista.layoutInfo.visibleItemsInfo.firstOrNull { it.index == focado } ?: return@LaunchedEffect
+        val y = info.offset + lay.getCursorRect(pd.valor.selection.start.coerceIn(0, pd.valor.text.length)).top
+        val alvo = lista.layoutInfo.viewportEndOffset * 0.42f
+        lista.animateScrollBy(y - alvo, androidx.compose.animation.core.tween(160))
+    }
 
     // ───────── Diálogos ─────────
     cap?.let { c ->
@@ -538,7 +564,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                         IconButton(onClick = { painel = if (painel == PainelEd.BUSCA) PainelEd.NENHUM else PainelEd.BUSCA }) { Icon(Icons.Filled.Search, "Buscar e substituir") }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mais opções") }
-                            MenuEditor(menu, { menu = false }, cap, repeticoes, nav,
+                            MenuEditor(menu, { menu = false }, cap, repeticoes, nav, maquina, { prefs.maquina.definir(!maquina); centrar++ },
                                 aoFoco = { modoFoco = true }, aoRepeticoes = { repeticoes = !repeticoes }, aoMapa = { mostrarMapa = true },
                                 aoDialogo = { dialogo = it }, aoSeparar = { separarTudo(false) },
                                 aoMarcar = { c -> val n = c.copy(rascunho = !c.rascunho); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } })
@@ -577,14 +603,18 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                 val realce = remember(p, qNorm, repeticoes, ignorarCaixa) { RealceEditor(p, if (consulta.length >= 2) qNorm else "", ignorarCaixa, repeticoes) }
                 val vidroEd = rememberVidro()
                 Box(Modifier.weight(1f).fillMaxWidth()) {
-                LazyColumn(state = lista, modifier = Modifier.fillMaxSize().background(p.fundo).fonteVidro(vidroEd),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = if (modoFoco) 48.dp else 12.dp)) {
+                LazyColumn(state = lista, modifier = Modifier.fillMaxSize()
+                        .then(if (maquina) Modifier.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFFEDE4D0), Color(0xFFF5EFE2), Color(0xFFEDE4D0))))
+                            .graphicsLayer { translationY = batida.value * density } else Modifier.background(p.fundo))
+                        .fonteVidro(vidroEd),
+                    contentPadding = PaddingValues(horizontal = if (maquina) 26.dp else 20.dp, vertical = if (maquina) 280.dp else if (modoFoco) 48.dp else 12.dp)) {
                     itemsIndexed(pedacos, key = { _, x -> x.id }) { i, pd ->
                         BasicTextField(
                             value = pd.valor,
                             onValueChange = { novo -> aoMudar(i, pd, novo) },
                             textStyle = estilo,
-                            cursorBrush = SolidColor(p.destaque),
+                            cursorBrush = SolidColor(if (maquina) Color(0xFFB3261E) else p.destaque),
+                            onTextLayout = { layouts[pd.id] = it },
                             visualTransformation = realce,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             modifier = Modifier.fillMaxWidth().focusRequester(pd.foco).onFocusChanged { if (it.isFocused) focado = i },
@@ -689,7 +719,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
 
 @Composable
 private fun MenuEditor(
-    aberto: Boolean, fechar: () -> Unit, cap: Capitulo?, repeticoes: Boolean, nav: NavHostController,
+    aberto: Boolean, fechar: () -> Unit, cap: Capitulo?, repeticoes: Boolean, nav: NavHostController, maquina: Boolean, aoMaquina: () -> Unit,
     aoFoco: () -> Unit, aoRepeticoes: () -> Unit, aoMapa: () -> Unit, aoDialogo: (String) -> Unit, aoSeparar: () -> Unit, aoMarcar: (Capitulo) -> Unit,
 ) {
     DropdownMenu(aberto, fechar) {
@@ -697,6 +727,7 @@ private fun MenuEditor(
         cap?.let { c -> DropdownMenuItem(text = { Text("👥 Escrever junto ao vivo") }, onClick = { fechar(); nav.navigate("vivo/${c.id}") }) }
         DropdownMenuItem(text = { Text("◷ Sessão de escrita (cronômetro)") }, onClick = { fechar(); aoDialogo("sessao") })
         DropdownMenuItem(text = { Text("Modo foco") }, onClick = { fechar(); aoFoco() })
+        DropdownMenuItem(text = { Text(if (maquina) "✓ ⌨ Máquina de escrever" else "⌨ Máquina de escrever") }, onClick = { fechar(); aoMaquina() })
         DropdownMenuItem(text = { Text("Mapa do capítulo") }, onClick = { fechar(); aoMapa() })
         DropdownMenuItem(text = { Text(if (repeticoes) "✓ Destacar repetições" else "Destacar repetições") }, onClick = { fechar(); aoRepeticoes() })
         HorizontalDivider()

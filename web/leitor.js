@@ -325,7 +325,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
       <button data-ins="@" class="cor-nome" title="Personagem">@</button><button data-ins="&" class="cor-lugar" title="Lugar">&amp;</button><span class="div"></span>
       <button data-fala title="Nova fala">—</button><button data-env="**" title="Negrito (Ctrl+B)"><b>B</b></button><button data-env="*" title="Itálico (Ctrl+I)"><i>I</i></button><button data-ins="“" title="Aspas">“ ”</button>
       <button data-ins="\n\n* * *\n\n" title="Separador de cena">◆</button><button data-ins="\n# " title="Subtítulo">H</button><span class="div"></span>
-      <button id="bbusca" title="Buscar e substituir (Ctrl+F)">⌕ Buscar</button><button id="bfichas" title="Personagens">☺ Fichas</button><button id="bfoco" title="Modo foco">⛶ Foco</button><button id="bia" class="ia-btn" title="Estúdio de IA">✨ IA</button><button id="bvivo" title="Escrever junto ao vivo com coautores">👥 Ao vivo</button>
+      <button id="bbusca" title="Buscar e substituir (Ctrl+F)">⌕ Buscar</button><button id="bfichas" title="Personagens">☺ Fichas</button><button id="bfoco" title="Modo foco">⛶ Foco</button><button id="bmaq" title="Máquina de escrever: som de tecla, papel e a linha sempre no meio">⌨ Máquina</button><button id="bia" class="ia-btn" title="Estúdio de IA">✨ IA</button><button id="bvivo" title="Escrever junto ao vivo com coautores">👥 Ao vivo</button>
     </div>
     <div class="busca-ed vidro" id="busca" hidden><input class="campo" id="q" placeholder="Buscar…"><input class="campo" id="r" placeholder="Substituir por…"><span class="suave peq" id="qn"></span>
       <button class="btn2 peq" id="qant">‹</button><button class="btn2 peq" id="qprox">›</button><button class="btn2 peq" id="rum">Substituir</button><button class="btn2 peq" id="rtodos">Todos</button><button class="btn2 peq" id="qx">✕</button></div>
@@ -362,6 +362,10 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   $$("[data-env]").forEach((b) => (b.onclick = () => inserir(b.dataset.env, true)));
   $("[data-fala]").onclick = () => { const a = ta.selectionStart; const antes = ta.value.slice(0, a); inserir((antes && !antes.endsWith("\n") ? "\n\n" : "") + "— "); };
   $("#bfoco").onclick = () => document.body.classList.toggle("foco");
+  // máquina de escrever: papel, letra de máquina, som de cada tecla e a linha atual sempre no meio da tela
+  const maq = maquinaDeEscrever(ta);
+  $("#bmaq").classList.toggle("on", maq.ligada());
+  $("#bmaq").onclick = () => { $("#bmaq").classList.toggle("on", maq.alternar()); ta.focus(); };
   $("#bfichas").onclick = () => {
     const d = dialogo(`<h3 style="margin-top:0">Personagens e lugares</h3>${fs.length ? `<div class="lista-nomes">${fs.map((f) => `<div><b>${esc(f.nome)}</b><span class="suave peq">${f.tipo === "LUGAR" ? "lugar" : "personagem"}</span><button class="btn2 peq" data-mencao="${esc(f.nome)}" data-s="${f.tipo === "LUGAR" ? "&" : "@"}">Inserir</button></div>`).join("")}</div>` : `<p class="suave">Nenhuma ficha ainda. Escreva @Nome, descrição no texto.</p>`}<div class="linha-botoes"><a class="btn2 peq" href="#/obra/${obraId}/fichas">Abrir fichas</a><button class="btn peq" data-n>Fechar</button></div>`);
     $$("[data-mencao]", d).forEach((b) => (b.onclick = () => { d.close(); inserir(marcar(b.dataset.s, b.dataset.mencao)); }));
@@ -481,3 +485,45 @@ rota("/revisao/(\\w+)/(\\w+)", async (pid, cid) => {
   $$("#texto [data-b]").forEach((p) => (p.onclick = async () => { const t = await perguntar("Sua nota sobre este trecho", ""); if (!t) return; await anotar(pid, cid, p.textContent, t); toast("Nota enviada"); window.redesenhar(); }));
   $$("[data-an]").forEach((b) => (b.onclick = async () => { await apagarNota(pid, cid, b.dataset.an); window.redesenhar(); }));
 });
+
+// ───────── máquina de escrever ─────────
+let audio = null;
+function som(tipo) {
+  try {
+    audio = audio || new AudioContext(); const a = audio, t = a.currentTime;
+    const ruido = (dur, vol, freq, q = 1) => {
+      const b = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 5);
+      const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+      const g = a.createGain(); g.gain.value = vol; s.connect(f).connect(g).connect(a.destination); s.start(t);
+    };
+    const tom = (freq, dur, vol, quando = 0) => {
+      const o = a.createOscillator(), g = a.createGain(); o.frequency.value = freq; o.type = "sine";
+      g.gain.setValueAtTime(vol, t + quando); g.gain.exponentialRampToValueAtTime(0.0001, t + quando + dur); o.connect(g).connect(a.destination); o.start(t + quando); o.stop(t + quando + dur);
+    };
+    if (tipo === "tecla") { ruido(0.035, 0.9, 2200 + Math.random() * 900, 0.8); ruido(0.05, 0.5, 260, 1.2); }
+    else if (tipo === "apagar") ruido(0.03, 0.5, 1400, 1);
+    else if (tipo === "espaco") { ruido(0.05, 0.6, 900, 0.7); ruido(0.06, 0.4, 180, 1); }
+    else if (tipo === "enter") { tom(2093, 0.9, 0.18); ruido(0.32, 0.5, 700, 0.5); setTimeout(() => ruido(0.06, 0.8, 300, 1), 260); }
+  } catch (_) {}
+}
+function caretY(ta) {
+  const m = document.createElement("div"); const cs = getComputedStyle(ta);
+  for (const k of ["fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "padding", "border", "boxSizing", "whiteSpace", "wordWrap", "width"]) m.style[k] = cs[k];
+  m.style.position = "absolute"; m.style.visibility = "hidden"; m.style.whiteSpace = "pre-wrap"; m.style.overflowWrap = "break-word";
+  m.textContent = ta.value.slice(0, ta.selectionStart); const sp = document.createElement("span"); sp.textContent = "|"; m.appendChild(sp);
+  document.body.appendChild(m); const y = sp.offsetTop; m.remove(); return y;
+}
+export function maquinaDeEscrever(ta) {
+  let on = !!local.ler("maquina", false);
+  const aplicar = () => document.body.classList.toggle("maquina", on);
+  const centrar = () => { if (!on) return; const alvo = caretY(ta) - ta.clientHeight * 0.42; ta.scrollTo({ top: Math.max(0, alvo), behavior: "smooth" }); };
+  ta.addEventListener("keydown", (e) => {
+    if (!on || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Enter") som("enter"); else if (e.key === "Backspace" || e.key === "Delete") som("apagar"); else if (e.key === " ") som("espaco"); else if (e.key.length === 1) som("tecla");
+    if (e.key.length === 1 || e.key === "Enter") { ta.classList.remove("batida"); void ta.offsetWidth; ta.classList.add("batida"); }
+  });
+  ta.addEventListener("input", () => requestAnimationFrame(centrar));
+  aplicar(); setTimeout(centrar, 50);
+  return { ligada: () => on, alternar: () => { on = !on; local.gravar("maquina", on); aplicar(); centrar(); return on; } };
+}

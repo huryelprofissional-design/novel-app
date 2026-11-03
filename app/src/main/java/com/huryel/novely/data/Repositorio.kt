@@ -541,6 +541,8 @@ class Preferencias(ctx: Context) {
     val vozesPersonagens = bool("vozesPersonagens", true)
     /** Ler traduzido: código do idioma ("" = original). */
     val idiomaLeitura = texto("idiomaLeitura", "")
+    /** Editor no modo máquina de escrever (papel, letra de máquina, som e linha sempre no meio). */
+    val maquina = bool("maquina", false)
     // moedas (grátis): saldo, ganhos do dia, presente diário, capítulos liberados cedo
     val moedas = longo("moedas", 0L)
     val moedasDia = texto("moedasDia", "")

@@ -96,3 +96,13 @@ class NomesTest {
         org.junit.Assert.assertEquals("Lin Feng" to null, Marcas.separarEpiteto("Lin Feng"))
     }
 }
+
+class MaquinaTest {
+    @Test fun somCerto() {
+        org.junit.Assert.assertEquals("tecla", Maquina.somDa("Ola", "Olaa"))
+        org.junit.Assert.assertEquals("espaco", Maquina.somDa("Ola", "Ola "))
+        org.junit.Assert.assertEquals("enter", Maquina.somDa("Ola", "Ola\n"))
+        org.junit.Assert.assertEquals("apagar", Maquina.somDa("Ola", "Ol"))
+        org.junit.Assert.assertEquals(null, Maquina.somDa("Ola", "Ola mundo inteiro"))
+    }
+}
