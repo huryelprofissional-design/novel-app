@@ -394,7 +394,7 @@ body.foco .conteudo { max-width: none; }
 .ia-tipo { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.08); color: inherit; cursor: pointer; font: inherit; transition: transform .15s, border-color .15s; }
 .ia-tipo span { font-size: 20px; } .ia-tipo b { font-size: 14px; } .ia-tipo small { color: var(--suave); font-size: 11.5px; line-height: 1.3; }
 .ia-tipo:hover { transform: translateY(-2px); }
-.ia-tipo.on { border-color: var(--acento); background: linear-gradient(135deg, color-mix(in srgb, var(--acento) 28%, transparent), color-mix(in srgb, #C13DFF 22%, transparent)); }
+.ia-tipo.on { border-color: var(--acento, var(--amb)); background: linear-gradient(135deg, color-mix(in srgb, var(--acento, var(--amb)) 28%, transparent), color-mix(in srgb, #C13DFF 22%, transparent)); }
 .ia-op .rot { display: block; margin: 12px 0 6px; font-size: 12px; color: var(--suave); text-transform: uppercase; letter-spacing: .08em; }
 .ia-op .chips { gap: 6px; } .ia-op .chip { cursor: pointer; }
 .ia-prompt { margin: 16px 0 12px; border-radius: 16px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.08); padding: 12px 14px; }
@@ -403,3 +403,32 @@ body.foco .conteudo { max-width: none; }
 .ferr-ia { background: linear-gradient(135deg, rgba(255,106,43,.28), rgba(193,61,255,.24)); }
 .ia-btn { font-family: inherit !important; font-weight: 700; border-radius: 10px; background: linear-gradient(135deg, #FF6A2B, #C13DFF) !important; color: #fff !important; }
 @media (max-width: 860px) { .ia { grid-template-columns: 1fr; } .ia-tipos { position: static; } }
+
+/* Bíblia viva, mapa e leitores */
+.biblia { display: flex; flex-direction: column; gap: 10px; max-width: 900px; }
+.biblia blockquote, .cap-l blockquote { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,.35); font-style: italic; }
+.alerta { border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+.alerta h3 { margin: 8px 0 4px; } .alerta p { margin: 0; }
+.nivel { background: var(--c); color: #000; font-size: 10px; font-weight: 900; letter-spacing: .1em; padding: 2px 7px; border-radius: 6px; }
+.barras { display: flex; align-items: flex-end; gap: 2px; height: 28px; margin-top: 8px; width: 100%; }
+.barras i { flex: 1; background: var(--acento, var(--amb)); border-radius: 2px; min-width: 2px; }
+.retrato summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.retrato summary::-webkit-details-marker { display: none; }
+.retrato .rotulo { margin: 12px 0 4px; display: block; }
+.retrato .fato { padding: 8px 10px; background: rgba(0,0,0,.3); border-radius: 10px; margin-top: 6px; }
+.legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--suave); }
+.legenda i, .ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.tag { font-size: 11px; font-weight: 800; color: var(--c); border: 1px solid var(--c); border-radius: 8px; padding: 1px 8px; }
+.trilha { height: 6px; border-radius: 3px; background: var(--borda); margin: 8px 0 6px; overflow: hidden; width: 100%; }
+.trilha i { display: block; height: 100%; background: var(--acento, var(--amb)); border-radius: 3px; }
+.mapa { position: relative; padding: 0; overflow: hidden; height: min(64vh, 640px); }
+.mapa svg { width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.dica-mapa { position: absolute; top: 8px; left: 0; right: 0; text-align: center; pointer-events: none; }
+.mapa-tempo { display: flex; flex-direction: column; gap: 6px; margin: 10px 4px; } .mapa-tempo input { accent-color: var(--acento, var(--amb)); width: 100%; }
+.numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.numeros .card { display: flex; flex-direction: column; } .numeros b { font-size: 26px; color: var(--acento, var(--amb)); }
+.dica-l { display: flex; gap: 12px; align-items: flex-start; font-size: 20px; margin-bottom: 8px; } .dica-l b { font-size: 14px; }
+.cap-l { margin-bottom: 8px; } .cap-l summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.cap-l summary b:first-of-type { flex: 1; } .cap-l .num { color: var(--acento, var(--amb)); font-weight: 900; width: 26px; }
+.cap-l .rotulo { display: block; margin: 12px 0 6px; }
+.calor { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; } .calor i { height: 34px; border-radius: 4px; background: var(--acento, var(--amb)); color: #000; font-style: normal; font-weight: 800; font-size: 11px; display: grid; place-items: center; }

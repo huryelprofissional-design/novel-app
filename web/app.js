@@ -10,6 +10,7 @@ import "./obra.js";
 import "./leitor.js";
 import "./catalogo.js";
 import "./ia.js";
+import "./biblia.js";
 
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); E.instalar = e; });
 

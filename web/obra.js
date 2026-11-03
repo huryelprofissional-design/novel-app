@@ -134,6 +134,8 @@ function menuObra(id, ancora) {
   const itens = [];
   if (pode) {
     itens.push(["✨ Estúdio de IA", () => ir(`/ia/${id}`)]);
+    itens.push(["📖 Bíblia viva (furos e mapa)", () => ir(`/biblia/${id}`)]);
+    if (o.publicada) itens.push(["📊 Leitores", () => ir(`/leitores/${id}`)]);
     itens.push(["Editar título, sinopse e status", () => editarDetalhes(id)]);
     itens.push(["Trocar capa", () => trocarImagem(id, "capa")], ["Trocar banner", () => trocarImagem(id, "banner")]);
     itens.push([o.publicada ? "Publicação" : "Publicar no catálogo", () => ir(`/publicar/${id}`)]);
