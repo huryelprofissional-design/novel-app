@@ -62,6 +62,7 @@ fun TelaFichas(obraId: Long, nav: NavHostController) {
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Topo("Personagens e lugares", nav) {
+                TextButton(onClick = { nav.navigate("biblia/$obraId") }) { Text("📖 Bíblia", color = p.destaque) }
                 TextButton(onClick = { relendo = true; escopoF.launch { repo.reindexarObra(obraId); relendo = false } }, enabled = !relendo) {
                     Text(if (relendo) "Relendo…" else "↻ Reler o texto", color = p.destaque)
                 }

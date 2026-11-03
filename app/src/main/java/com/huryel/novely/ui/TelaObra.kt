@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -476,6 +477,7 @@ private fun PainelOpcoesObra(
                     Text("Próximo capítulo, revisão, reviravoltas, personagens — com todo o contexto da obra", fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
                 }
             }
+            if (o.minha && livre) CartaoBiblia(o.id) { navegar("biblia/${o.id}") }
             GradeOpcoes(listOfNotNull(
                 Triple(Icons.Filled.Person, "Personagens", e { navegar("fichas/${o.id}") }),
                 Triple(Icons.Filled.DateRange, "Linha do tempo", e { navegar("tempo/${o.id}") }),
@@ -560,5 +562,33 @@ private fun GradeOpcoes(itens: List<Triple<androidx.compose.ui.graphics.vector.I
             }
         }
         repeat(4 - itens.size) { Spacer(Modifier.weight(1f)) }
+    }
+}
+
+/** Entrada da Bíblia viva, com a contagem de alertas (lida em segundo plano). */
+@Composable
+private fun CartaoBiblia(obraId: Long, abrir: () -> Unit) {
+    val p = LocalPaleta.current
+    val app = NovelyApp.instancia
+    val ignorados by app.prefs.bibliaIgnorados.estado.collectAsState()
+    var alertas by remember { mutableStateOf<List<com.huryel.novely.data.Biblia.Alerta>?>(null) }
+    LaunchedEffect(obraId, ignorados) { alertas = try { app.repo.biblia(obraId, ignorados).alertas } catch (_: Exception) { emptyList() } }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).border(1.dp, p.destaque.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+            .clickable(onClick = abrir).padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("📖", fontSize = 22.sp)
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text("Bíblia viva", fontWeight = FontWeight.ExtraBold)
+            val l = alertas
+            Text(when {
+                l == null -> "Lendo os capítulos…"
+                l.isEmpty() -> "Nenhum furo encontrado · quem aparece onde, fatos e relações"
+                else -> "${l.count { it.nivel == com.huryel.novely.data.Biblia.Nivel.FURO }} furos · ${l.size} alertas no total"
+            }, fontSize = 12.sp, color = p.textoSuave)
+        }
+        val n = alertas?.size ?: 0
+        if (n > 0) Text("$n", fontWeight = FontWeight.ExtraBold, color = Color.Black, fontSize = 13.sp,
+            modifier = Modifier.clip(CircleShape).background(if (alertas!!.any { it.nivel == com.huryel.novely.data.Biblia.Nivel.FURO }) Color(0xFFFF4D4D) else Color(0xFFFF9A3C)).padding(horizontal = 9.dp, vertical = 3.dp))
     }
 }

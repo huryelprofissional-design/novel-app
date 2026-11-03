@@ -324,6 +324,20 @@ class Repositorio(ctx: Context) {
 
     fun trechosFicha(fichaId: Long) = dao.trechos(fichaId)
 
+    private val cacheBiblia = java.util.concurrent.ConcurrentHashMap<Long, Pair<String, Biblia.Resultado>>()
+
+    /** Bíblia viva da obra (lida no aparelho; refeita só quando um capítulo, ficha ou alerta ignorado muda). */
+    suspend fun biblia(obraId: Long, ignorados: String): Biblia.Resultado = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        val caps = dao.capitulosAgora(obraId)
+        val fichas = dao.fichasAgora(obraId)
+        val chave = caps.joinToString(",") { "${it.id}:${it.atualizadoEm}:${it.titulo.hashCode()}" } + "|" + fichas.joinToString(",") { "${it.id}:${it.alteradoEm}:${it.nome.hashCode()}" } + "|" + ignorados.hashCode()
+        cacheBiblia[obraId]?.takeIf { it.first == chave }?.let { return@withContext it.second }
+        val lidos = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { caps.map { Biblia.Cap(it.id, it.titulo, textos.ler(it.id)) } }
+        val r = Biblia.analisar(lidos, fichas, ignorados.split('\n').filter { it.isNotBlank() }.toSet(), obraId)
+        cacheBiblia[obraId] = chave to r
+        r
+    }
+
     /** Apaga tudo deste aparelho (troca de conta). A nuvem da conta antiga não é tocada. */
     suspend fun apagarTudoLocal(prefs: Preferencias) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         banco.clearAllTables()
@@ -506,6 +520,9 @@ class Preferencias(ctx: Context) {
     val comentou = bool("comentou", false)
     /** Conquistas já desbloqueadas (ids separados por vírgula) — sobe para a nuvem para o PC mostrar. */
     val conquistas = texto("conquistas", "")
+    /** Alertas da Bíblia viva que o autor mandou ignorar (uma chave por linha). */
+    val bibliaIgnorados = texto("bibliaIgnorados", "")
+    fun ignorarAlerta(chave: String) { bibliaIgnorados.definir((bibliaIgnorados.valor.split('\n').filter { it.isNotBlank() } + chave).takeLast(500).joinToString("\n")) }
 
     // ── Leitor: rolagem automática, luz ──
     val velocidadeRolagem = real("velRolagem", 1.0f)
