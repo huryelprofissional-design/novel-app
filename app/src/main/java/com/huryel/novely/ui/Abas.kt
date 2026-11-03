@@ -3,6 +3,7 @@ package com.huryel.novely.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -938,6 +939,7 @@ private fun CartaoMoedas() {
 }
 
 /** Livro na prateleira: entra girando, barra de progresso enchendo, selo de capítulo novo pulando e lombada dourada nas lidas. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LivroEstante(o: ResumoObra, idx: Int, novos: Int?, segurar: () -> Unit, abrir: () -> Unit) {
     val p = LocalPaleta.current
@@ -945,7 +947,7 @@ private fun LivroEstante(o: ResumoObra, idx: Int, novos: Int?, segurar: () -> Un
     LaunchedEffect(o.id) { kotlinx.coroutines.delay((idx % 12) * 70L); entrada.animateTo(1f, androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     val lida = o.status == StatusObra.CONCLUIDA
     val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "livro")
-    val pulo by t.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "pulo")
+    val pulo by t.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable<Float>(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "pulo")
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp).graphicsLayer {
             alpha = entrada.value; rotationY = (1 - entrada.value) * 45f; translationX = (1 - entrada.value) * -60f; cameraDistance = 12 * density
