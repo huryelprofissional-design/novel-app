@@ -46,4 +46,27 @@ class TelasTest {
     @Test fun bibliaViva() {
         for (aba in listOf("ALERTAS", "PESSOAS", "MAPA", "RELACOES")) foto("biblia_$aba") { ConteudoBiblia(exemplo, aba, {}, {}, { _, _ -> }) }
     }
+
+    @Test fun leitores() {
+        val L = com.huryel.novely.data.Publicador::Leitura
+        val leituras = ArrayList<com.huryel.novely.data.Publicador.Leitura>()
+        val r = java.util.Random(7)
+        for (u in 1..40) {
+            var cap = 1
+            while (cap <= 6) {
+                val total = 60
+                val larga = r.nextInt(100) < (if (cap == 3) 45 else 12)
+                val bloco = if (larga) (if (cap == 3) 34 + r.nextInt(3) else r.nextInt(total)) else total - 1
+                leituras.add(L("u$u", "c$cap", bloco, total, 300L + r.nextInt(600), 1L, System.currentTimeMillis() - r.nextInt(14) * 86_400_000L, if (u % 4 == 0) "pc" else "android"))
+                if (larga) break
+                cap++
+            }
+        }
+        val pars = (0 until 60).map { "Parágrafo $it: Seo-jun olhou a chuva bater na janela do ginásio e pensou no que o pai tinha dito." }
+        val caps = (1..6).map { Triple("c$it", listOf("O Chão", "Primeiro Soco", "A Conversa Longa", "Sangue", "Final do Torneio", "Depois")[it - 1], pars) }
+        val n = calcularNumeros(caps, leituras, mapOf("c1" to (12L to 4L)))
+        org.junit.Assert.assertEquals(40, n.leitores)
+        org.junit.Assert.assertTrue(n.caps[2].paradaBloco in 34..36)
+        foto("leitores") { ConteudoEstatisticas(n, abertoInicial = 2) }
+    }
 }

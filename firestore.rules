@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function logado() { return request.auth != null; }
+    // dono do app (painel de dono): pode remover obras do catálogo
+    function admin() { return logado() && request.auth.token.email == 'huryelprofissional@gmail.com' && request.auth.token.email_verified == true; }
+    function dono(pid) {
+      return logado() && get(/databases/$(database)/documents/publicas/$(pid)).data.autorUid == request.auth.uid;
+    }
+
+    // obras e textos de cada pessoa (só ela vê)
+    match /users/{uid}/{doc=**} {
+      allow read, write: if logado() && request.auth.uid == uid;
+    }
+
+    // perfil público do autor
+    match /perfis/{uid} {
+      allow read: if logado();
+      allow write: if logado() && request.auth.uid == uid;
+      allow update: if logado() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seguidores']);
+      match /seguidores/{quem} {
+        allow read: if logado();
+        allow write: if logado() && request.auth.uid == quem;
+      }
+    }
+
+    // catálogo público: qualquer pessoa com conta lê; só o autor escreve
+    match /publicas/{pid} {
+      allow read: if logado();
+      allow create: if logado() && request.resource.data.autorUid == request.auth.uid;
+      allow update: if logado() && (resource.data.autorUid == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['leituras', 'leiturasSemana', 'semanaId', 'seguidores', 'somaEstrelas', 'numEstrelas']));
+      allow delete: if (logado() && resource.data.autorUid == request.auth.uid) || admin();
+
+      match /caps/{cid} {
+        allow read: if logado();
+        allow create: if dono(pid);
+        allow delete: if dono(pid) || admin();
+        allow update: if dono(pid)
+          || (logado() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['curtidas', 'comentarios', 'leituras']));
+        match /curtidas/{uid} {
+          allow read: if logado();
+          allow write: if logado() && request.auth.uid == uid;
+        }
+        match /comentarios/{id} {
+          allow read: if logado();
+          allow create: if logado() && request.resource.data.uid == request.auth.uid && request.resource.data.texto.size() <= 2000;
+          allow delete: if logado() && (resource.data.uid == request.auth.uid || dono(pid) || admin());
+        }
+      }
+      match /textos/{t}   { allow read: if logado(); allow write: if dono(pid); allow delete: if admin(); }
+      match /arquivos/{a} { allow read: if logado(); allow write: if dono(pid); allow delete: if admin(); }
+      match /fichas/{f}   { allow read: if logado(); allow write: if dono(pid); allow delete: if admin(); }
+      match /seguidores/{uid} { allow read: if logado(); allow write: if logado() && request.auth.uid == uid; }
+      match /avaliacoes/{uid} { allow read: if logado(); allow write: if logado() && request.auth.uid == uid; }
+      // estatística de leitura: cada pessoa grava só a dela; só o autor lê
+      match /leituras/{id} {
+        allow read: if dono(pid);
+        allow create, update: if logado() && request.resource.data.uid == request.auth.uid && id == request.resource.data.cap + '_' + request.auth.uid;
+      }
+    }
+
+    // coautores e revisores (por convite)
+    match /convites/{codigo} {
+      allow read: if logado();
+      allow create: if logado() && request.resource.data.autorUid == request.auth.uid;
+      allow delete: if logado() && resource.data.autorUid == request.auth.uid;
+    }
+    function donoColab(pid) { return logado() && get(/databases/$(database)/documents/colabs/$(pid)).data.autorUid == request.auth.uid; }
+    function membroColab(pid) { return logado() && exists(/databases/$(database)/documents/colabs/$(pid)/membros/$(request.auth.uid)); }
+    match /colabs/{pid} {
+      allow read: if donoColab(pid) || membroColab(pid);
+      allow create: if logado() && request.resource.data.autorUid == request.auth.uid;
+      allow update, delete: if donoColab(pid);
+      match /membros/{uid} {
+        allow read: if donoColab(pid) || membroColab(pid);
+        allow create: if logado() && request.auth.uid == uid
+          && get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.pid == pid
+          && get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.papel == request.resource.data.papel;
+        allow delete: if donoColab(pid) || (logado() && request.auth.uid == uid);
+      }
+      match /revisao/{cid} {
+        allow read: if donoColab(pid) || membroColab(pid);
+        allow write: if donoColab(pid);
+        match /notas/{id} {
+          allow read: if donoColab(pid) || membroColab(pid);
+          allow create: if (donoColab(pid) || membroColab(pid)) && request.resource.data.uid == request.auth.uid;
+          allow delete: if donoColab(pid) || (logado() && resource.data.uid == request.auth.uid);
+        }
+      }
+      match /textos/{t} { allow read: if donoColab(pid) || membroColab(pid); allow write: if donoColab(pid); }
+      match /sugestoes/{id} {
+        allow read: if donoColab(pid) || membroColab(pid);
+        allow create: if membroColab(pid) && request.resource.data.uid == request.auth.uid
+          && get(/databases/$(database)/documents/colabs/$(pid)/membros/$(request.auth.uid)).data.papel == 'COAUTOR';
+        allow delete: if donoColab(pid) || (logado() && resource.data.uid == request.auth.uid);
+      }
+    }
+  }
+}

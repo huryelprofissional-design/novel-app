@@ -484,6 +484,7 @@ private fun PainelOpcoesObra(
                 Triple(Icons.Filled.Star, "Grifos", e { navegar("marcadores/${o.id}") }),
                 Triple(Icons.Filled.Favorite, "Coleção", e { abrirDialogo(Dialogo.Colecao) }),
                 if (o.publicaId.isNotEmpty()) Triple(Icons.Filled.Share, "Página pública", e { navegar("pub/${o.publicaId}") }) else null,
+                if (o.minha && o.publicada) Triple(Icons.Filled.Info, "Leitores", e { navegar("leitores/${o.id}") }) else null,
             ))
             SecaoOpcoes("Organizar") {
                 GradeOpcoes(listOfNotNull(

@@ -320,10 +320,15 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     val progIni = remember { c.progresso }
     var inicioSessao by remember { mutableStateOf(System.currentTimeMillis()) }
     val donoCiclo = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    // até onde chegou nesta visita (para a estatística do autor de obras do catálogo)
+    val maxBloco = remember(c.id) { intArrayOf(-1) }
+    LaunchedEffect(c.id, paginas) { snapshotFlow { if (progresso >= 0.995f) b.size - 1 else blocoAtual() }.collect { if (it > maxBloco[0]) maxBloco[0] = it } }
     fun registrarSessao() {
         val seg = ((System.currentTimeMillis() - inicioSessao) / 1000).toInt().coerceIn(0, 3 * 3600)
         val pal = ((progresso - progIni).coerceAtLeast(0f) * c.palavras).toInt()
         if (seg >= 5) prefs.registrarLeitura(seg, pal)
+        val s = social
+        if (s != null && obra?.minha != true && seg >= 3) { val m = maxBloco[0]; app.escopo.launch { app.pub.registrarLeitura(s.first, s.second, m, b.size, seg) } }
         inicioSessao = System.currentTimeMillis()
     }
     DisposableEffect(donoCiclo) {

@@ -389,6 +389,21 @@ export async function avaliar(pid, estrelas) {
   await setDoc(doc(db, "publicas", pid, "avaliacoes", E.usuario.uid), { estrelas, em: agora() });
   await updateDoc(doc(colPub(), pid), { somaEstrelas: increment(estrelas - antes), numEstrelas: increment(antes === 0 ? 1 : 0) });
 }
+/** Estatística de leitura para o autor (sem texto, sem nome): até onde leu e quanto tempo. Uma por pessoa por capítulo. */
+export async function registrarLeitura(pid, cid, bloco, total, segundos) {
+  if (!E.usuario || total <= 0 || bloco < 0) return;
+  const k = "lmax/" + pid + "/" + cid; const mx = local.ler("lmax", {});
+  const max = Math.max(mx[k] ?? -1, Math.min(bloco, total - 1)); mx[k] = max; local.gravar("lmax", mx);
+  try {
+    await setDoc(doc(db, "publicas", pid, "leituras", `${cid}_${E.usuario.uid}`), {
+      uid: E.usuario.uid, cap: cid, bloco: max, total, segundos: increment(segundos), sessoes: increment(1), em: agora(), plataforma: "pc",
+    }, { merge: true });
+  } catch (_) {}
+}
+export async function leiturasObra(pid) {
+  const r = await getDocs(query(collection(db, "publicas", pid, "leituras"), limit(8000)));
+  return r.docs.map((d) => d.data()).filter((x) => x.uid && x.cap);
+}
 export async function contarLeitura(pid, cid) {
   const vistos = local.ler("contados", {}); const k = pid + "/" + cid;
   if (vistos[k]) return;

@@ -2,7 +2,7 @@
 import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras,
   capitulos, fichas, marcadores, salvarCapitulo, salvarObra, salvarItem, apagarItem, lerTexto, colTextos, salvarTexto, novoId, dialogo, confirmar,
-  obraPub, capsPub, fichasPub, imagemPub, seguindo, seguir, minhaNota, avaliar, contarLeitura, curtiu, curtir, comentarios, comentar, apagarComentario,
+  obraPub, capsPub, fichasPub, imagemPub, seguindo, seguir, minhaNota, avaliar, contarLeitura, registrarLeitura, curtiu, curtir, comentarios, comentar, apagarComentario,
   collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
@@ -353,9 +353,17 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   const naBib = [...E.obras.entries()].find(([, x]) => x.publicaId === pid && !x.apagado);
   if (naBib) salvarObra(naBib[0], { lidaEm: agora() });
   const aoRolar = () => { const alt = document.documentElement.scrollHeight - innerHeight; const b = $("#prog"); if (b) b.style.width = (alt > 0 ? Math.min(1, scrollY / alt) : 1) * 100 + "%"; maratona(prox && `/publer/${pid}/${prox.id}`); };
-  window.onscroll = aoRolar;
+  // estatística para o autor: parágrafo mais longe que a pessoa chegou e tempo na página
+  const blocos = $$("#texto [data-b]"); const totalB = blocos.length ? +blocos[blocos.length - 1].dataset.b + 1 : 0;
+  let maxB = -1, inicio = Date.now();
+  const medir = () => { const lim = innerHeight * 0.7; let ult = -1; for (const el of blocos) { if (el.getBoundingClientRect().top < lim) ult = +el.dataset.b; else break; } if (ult > maxB) maxB = ult; };
+  const enviar = () => { if (o.autorUid === E.usuario.uid) return; const seg = Math.min(3 * 3600, Math.round((Date.now() - inicio) / 1000)); inicio = Date.now(); if (seg >= 3) registrarLeitura(pid, cid, maxB, totalB, seg); };
+  const aoEsconder = () => { if (document.visibilityState === "hidden") enviar(); else inicio = Date.now(); };
+  document.addEventListener("visibilitychange", aoEsconder);
+  medir();
+  window.onscroll = () => { aoRolar(); medir(); };
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/publer/${pid}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/publer/${pid}/${ant.id}`); };
-  E.saindo = async () => pararVoz();
+  E.saindo = async () => { document.removeEventListener("visibilitychange", aoEsconder); enviar(); pararVoz(); };
 });
 
 // ───────── REVISÃO (notas de revisores) ─────────

@@ -459,6 +459,8 @@ class Preferencias(ctx: Context) {
     @Synchronized fun marcarVistoPublica(pid: String, ms: Long) =
         vistos.definir((vistos.valor.split(',').filter { it.isNotBlank() && !it.startsWith("$pid=") } + "$pid=$ms").joinToString(","))
     private val contados = texto("contados", "")
+    fun maxLido(k: String) = sp.getInt(k, -1)
+    fun definirMaxLido(k: String, v: Int) = sp.edit().putInt(k, v).apply()
     fun jaContado(k: String) = contados.valor.split('\n').contains(k)
     @Synchronized fun marcarContado(k: String) = contados.definir((contados.valor.split('\n').filter { it.isNotBlank() } + k).takeLast(3000).joinToString("\n"))
     val bio = texto("bio", "")

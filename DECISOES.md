@@ -80,7 +80,7 @@ Testes com texto sintético em `app/src/test`: contar palavras, dividir em bloco
 - Catálogo `publicas/{obra}` (id = nuvemId da obra do autor). Capítulo por capítulo, agendamento, republicar manual.
 - Leitores baixam a obra inteira (só leitura, offline). Seguir, estrelas, curtidas, comentários, leituras (1 por capítulo por pessoa), ranking semanal.
 - Obras de outros autores importadas por EPUB/TXT nunca vão para o catálogo.
-- Regras do Firestore: `scratchpad/regras-firestore.txt`.
+- Regras do Firestore: `firestore.rules` (colar no console do Firebase › Firestore › Regras).
 
 ## Atualização do app
 - Repositório público; o app consulta `releases/latest` ao abrir (no máx. a cada 15 min), mostra janela e instala por cima.

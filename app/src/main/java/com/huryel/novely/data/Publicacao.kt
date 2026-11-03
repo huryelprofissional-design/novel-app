@@ -312,6 +312,34 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         } catch (_: Exception) {}
     }
 
+    /**
+     * Estatística de leitura para o autor (sem texto, sem nome): até que parágrafo a pessoa chegou,
+     * quanto tempo leu e em quantas vezes. Um documento por pessoa por capítulo.
+     */
+    suspend fun registrarLeitura(pid: String, cid: String, bloco: Int, total: Int, segundos: Int) = withContext(Dispatchers.IO) {
+        if (uid.isEmpty() || total <= 0 || bloco < 0) return@withContext
+        val k = "lmax/$pid/$cid"
+        val max = maxOf(prefs.maxLido(k), bloco.coerceAtMost(total - 1))
+        prefs.definirMaxLido(k, max)
+        try {
+            col.document(pid).collection("leituras").document("${cid}_$uid").set(mapOf(
+                "uid" to uid, "cap" to cid, "bloco" to max.toLong(), "total" to total.toLong(),
+                "segundos" to FieldValue.increment(segundos.toLong()), "sessoes" to FieldValue.increment(1),
+                "em" to System.currentTimeMillis(), "plataforma" to "android",
+            ), com.google.firebase.firestore.SetOptions.merge()).await()
+        } catch (_: Exception) {}
+    }
+
+    data class Leitura(val uid: String, val cap: String, val bloco: Int, val total: Int, val segundos: Long, val sessoes: Long, val em: Long, val plataforma: String)
+
+    /** Todas as leituras de uma obra (só o autor consegue ler). */
+    suspend fun leituras(pid: String): List<Leitura> = withContext(Dispatchers.IO) {
+        col.document(pid).collection("leituras").limit(8000).get().await().documents.mapNotNull { d ->
+            Leitura(d.getString("uid") ?: return@mapNotNull null, d.getString("cap") ?: return@mapNotNull null, (d.getLong("bloco") ?: 0).toInt(),
+                (d.getLong("total") ?: 1).toInt(), d.getLong("segundos") ?: 0, d.getLong("sessoes") ?: 1, d.getLong("em") ?: 0, d.getString("plataforma") ?: "")
+        }
+    }
+
     suspend fun curtiu(pid: String, cid: String): Boolean = try { col.document(pid).collection("caps").document(cid).collection("curtidas").document(uid).get().await().exists() } catch (_: Exception) { false }
 
     suspend fun curtir(pid: String, cid: String, sim: Boolean) = withContext(Dispatchers.IO) {
