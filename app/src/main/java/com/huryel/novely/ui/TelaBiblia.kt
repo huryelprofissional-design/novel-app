@@ -76,6 +76,15 @@ fun ConteudoBiblia(res: Biblia.Resultado, abaInicial: String, abrirCap: (Long) -
     val p = LocalPaleta.current
     var aba by remember { mutableStateOf(abaInicial) }
     var aberto by remember { mutableStateOf<Long?>(null) }
+    var relAberta by remember { mutableStateOf<String?>(null) }
+    val estadoPessoas = androidx.compose.foundation.lazy.rememberLazyListState()
+    // "Ver Fulano" nas relações: abre o retrato dele já rolado até lá
+    LaunchedEffect(aba, aberto) {
+        val id = aberto ?: return@LaunchedEffect
+        if (aba != "PESSOAS") return@LaunchedEffect
+        val i = res.retratos.filter { it.ficha.tipo != TipoFicha.LUGAR }.indexOfFirst { it.ficha.id == id }
+        if (i >= 0) estadoPessoas.animateScrollToItem(i)
+    }
     Column(Modifier.fillMaxSize()) {
         Text("Lida agora dos ${res.caps.size} capítulos, aqui no celular. São pistas, não regras: você decide.",
             fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(horizontal = 20.dp))
@@ -115,7 +124,7 @@ fun ConteudoBiblia(res: Biblia.Resultado, abaInicial: String, abrirCap: (Long) -
                     }
                 }
             }
-            "PESSOAS" -> LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            "PESSOAS" -> LazyColumn(state = estadoPessoas, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val lista = res.retratos.filter { it.ficha.tipo != TipoFicha.LUGAR }
                 items(lista, key = { it.ficha.id }) { rt -> Retrato(rt, res, aberto == rt.ficha.id, { aberto = if (aberto == rt.ficha.id) null else rt.ficha.id }) { fato -> porNaFicha(rt.ficha, fato) } }
                 val lugares = res.retratos.filter { it.ficha.tipo == TipoFicha.LUGAR && it.total > 0 }
@@ -137,16 +146,41 @@ fun ConteudoBiblia(res: Biblia.Resultado, abaInicial: String, abrirCap: (Long) -
                 val maior = res.relacoes.maxOfOrNull { it.cenas } ?: 1
                 items(res.relacoes.take(80), key = { "${it.a}-${it.b}" }) { rl ->
                     val cor = corRelacao(rl.tipo)
-                    Column(Modifier.fillMaxWidth().clip(forma(14.dp)).background(p.superficie).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("${res.ficha(rl.a)?.nome}  ⇄  ${res.ficha(rl.b)?.nome}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val chave = "${rl.a}-${rl.b}"
+                    val aberta = relAberta == chave
+                    Column(Modifier.fillMaxWidth().clip(forma(14.dp)).background(p.superficie).clickable { relAberta = if (aberta) null else chave }.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            // um nome por linha: nome comprido não some mais
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(res.ficha(rl.a)?.nome ?: "?", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("⇄ " + (res.ficha(rl.b)?.nome ?: "?"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
                             Text(rl.tipo, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = cor,
-                                modifier = Modifier.clip(forma(8.dp)).border(1.dp, cor.copy(alpha = 0.6f), forma(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
+                                modifier = Modifier.padding(start = 8.dp).clip(forma(8.dp)).border(1.dp, cor.copy(alpha = 0.6f), forma(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
                         }
                         Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(p.borda)) {
                             Box(Modifier.fillMaxWidth(rl.cenas / maior.toFloat()).fillMaxHeight().clip(CircleShape).background(cor))
                         }
-                        Text("${rl.cenas} cenas juntos · cap. ${rl.primeiro + 1}" + if (rl.ultimo != rl.primeiro) " a ${rl.ultimo + 1}" else "", fontSize = 12.sp, color = p.textoSuave)
+                        Text("${rl.cenas} cenas juntos · cap. ${rl.primeiro + 1}" + (if (rl.ultimo != rl.primeiro) " a ${rl.ultimo + 1}" else "") + if (aberta) "" else "  ·  toque para ver mais",
+                            fontSize = 12.sp, color = p.textoSuave)
+                        if (aberta) {
+                            Text(when (rl.tipo) {
+                                "família" -> "As cenas dos dois falam de família (pai, irmão, clã…)."
+                                "romance" -> "As cenas dos dois têm clima de romance (beijo, abraço, coração…)."
+                                "rivais" -> "As cenas dos dois têm briga, ameaça ou rivalidade."
+                                "aliados" -> "As cenas dos dois têm ajuda, treino ou amizade."
+                                else -> "Dividem cenas, mas o texto não deixa claro o tipo de relação."
+                            }, fontSize = 13.sp)
+                            Text("CENAS JUNTOS POR CAPÍTULO", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = p.destaque, modifier = Modifier.padding(top = 4.dp))
+                            Aparicoes(rl.porCap, Modifier.fillMaxWidth().height(28.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(rl.a, rl.b).forEach { id ->
+                                    val nome = res.ficha(id)?.nome?.split(' ')?.let { if (it.size > 1) it.drop(1).joinToString(" ") else it.first() } ?: "?"
+                                    TextButton(onClick = { aberto = id; aba = "PESSOAS" }) { Text("Ver $nome", color = p.destaque, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -193,7 +227,7 @@ private fun Retrato(rt: Biblia.Retrato, res: Biblia.Resultado, aberto: Boolean, 
                 else Text(rt.ficha.nome.split(' ').mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString(""), color = p.destaque, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             }
             Column(Modifier.weight(1f)) {
-                Text(rt.ficha.nome, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(rt.ficha.nome, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(if (rt.total == 0) "Ainda não aparece no texto"
                 else "${rt.capsComEle} de ${res.caps.size} caps · ${rt.falas} ${if (rt.falas == 1) "fala" else "falas"} · do cap. ${rt.primeiro + 1} ao ${rt.ultimo + 1}", fontSize = 12.sp, color = p.textoSuave)
             }

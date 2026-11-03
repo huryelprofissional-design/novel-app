@@ -83,3 +83,16 @@ class WordTest {
         org.junit.Assert.assertEquals("Capítulo 1 — O Chão\n\nEle disse *não mesmo* e **saiu**.\n\n— Fala & ação.\n\n", t)
     }
 }
+
+class NomesTest {
+    @Test fun parteDoNomeNaoPegaOutraPessoa() {
+        val rx = Marcas.regexNomes(listOf("Gwon Mu-hyeok", "Mu-hyeok", "Gwon"))!!
+        val achados = rx.findAll("Gwon Mu-hyeok riu. A voz de Gwon Jang-ho ecoou. Gwon olhou.").map { it.value }.toList()
+        org.junit.Assert.assertEquals(listOf("Gwon Mu-hyeok", "Gwon"), achados)
+    }
+
+    @Test fun epitetoViraApelido() {
+        org.junit.Assert.assertEquals("Gwon Mu-hyeok" to "Demônio do Céu do Norte", Marcas.separarEpiteto("Gwon Mu-hyeok, o Demônio do Céu do Norte"))
+        org.junit.Assert.assertEquals("Lin Feng" to null, Marcas.separarEpiteto("Lin Feng"))
+    }
+}

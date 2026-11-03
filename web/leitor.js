@@ -61,7 +61,8 @@ const CORES_GRIFO = { AMBAR: "#E9A65A", VERDE: "#6FC2B4", AZUL: "#7FA7E6", ROSA:
 export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
   let capitularFeita = !pref().capitular;
   const linhas = limparMarcas(t).split("\n").map((l) => l.trim()).filter(Boolean);
-  const lista = [...nomes.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  // palavra solta (parte do nome) não vale colada a outro nome: em "Gwon Jang-ho" o "Gwon" é de outra pessoa
+  const lista = [...nomes.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (n.trim().includes(" ") ? "" : "(?!\\s\\p{Lu}\\p{Ll})"));
   const rxNomes = lista.length ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(${lista.join("|")})(?![\\p{L}\\p{N}]|[-'’]\\p{L})`, "gu") : null;
   return linhas.map((l, i) => {
     const g = grifos.get(i);
@@ -142,7 +143,7 @@ export function nomesVoz(fs) {
   const m = new Map(); const ps = fs.filter((f) => !f.tipo || f.tipo === "PERSONAGEM");
   for (const f of ps) { m.set(f.nome.trim(), f.id); for (const a of (f.apelidos || "").split(",").map((x) => x.trim())) if (a.length >= 2 && a[0] === a[0].toUpperCase() && !m.has(a)) m.set(a, f.id); }
   for (const [p, id] of partesUnicas(ps)) if (!m.has(p)) m.set(p, id);
-  const alt = [...m.keys()].filter((k) => k.length >= 2).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const alt = [...m.keys()].filter((k) => k.length >= 2).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (k.includes(" ") ? "" : "(?!\\s\\p{Lu}\\p{Ll})")).join("|");
   const rx = alt ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(?:${alt})(?![\\p{L}\\p{N}'’-])`, "gu") : null;
   return (s) => rx ? [...s.matchAll(rx)].map((x) => ({ id: m.get(x[0]), ini: x.index, fim: x.index + x[0].length })) : [];
 }

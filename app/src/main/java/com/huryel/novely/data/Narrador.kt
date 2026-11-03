@@ -42,7 +42,7 @@ object Elenco {
             pessoas.forEach { f -> put(f.nome.trim(), f.id); f.apelidos.split(',').map { it.trim() }.filter { it.length >= 2 && it[0].isUpperCase() }.forEach { putIfAbsent(it, f.id) } }
             Marcas.partesUnicas(pessoas.associate { it.nome.trim() to it.id }).forEach { (k, v) -> putIfAbsent(k, v) }
         }.filterKeys { it.length >= 2 }
-        private val rx = if (mapa.isEmpty()) null else Regex("(?<![\\p{L}\\p{N}'’-])(?:" + mapa.keys.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) } + ")(?![\\p{L}\\p{N}'’-])")
+        private val rx = if (mapa.isEmpty()) null else Regex("(?<![\\p{L}\\p{N}'’-])(?:" + mapa.keys.sortedByDescending { it.length }.joinToString("|") { Marcas.alternativa(it) } + ")(?![\\p{L}\\p{N}'’-])")
         fun achar(s: String): List<Pair<Long, IntRange>> = rx?.findAll(s)?.mapNotNull { m -> mapa[m.value]?.let { it to m.range } }?.toList() ?: emptyList()
     }
 

@@ -120,9 +120,23 @@ object Marcas {
     private val COMUNS = setOf("deus", "senhor", "senhora", "mestre", "rei", "rainha", "príncipe", "princesa", "dona", "dom", "não", "sim", "então")
 
     /** Regex para achar nomes de fichas no texto do leitor (hífen e apóstrofo contam como parte do nome). */
+    /**
+     * Um nome para a regra de destaque. Palavra solta (sobrenome/parte do nome, apelido de uma palavra) não vale
+     * quando vem colada a outro nome com maiúscula: em "Gwon Jang-ho", o "Gwon" é de outra pessoa, não do Gwon Mu-hyeok.
+     */
+    fun alternativa(nome: String): String = Regex.escape(nome) + if (' ' in nome.trim()) "" else "(?!\\s\\p{Lu}\\p{Ll})"
+
+    /** Nome de ficha com epíteto ("Gwon Mu-hyeok, o Demônio do Céu do Norte") → nome e apelido separados. */
+    fun separarEpiteto(nome: String): Pair<String, String?> {
+        val i = nome.indexOf(',')
+        if (i <= 0) return nome.trim() to null
+        val resto = nome.substring(i + 1).trim().replace(Regex("^(o|a|os|as)\\s+", RegexOption.IGNORE_CASE), "").trim()
+        return nome.substring(0, i).trim() to resto.ifEmpty { null }
+    }
+
     fun regexNomes(nomes: Collection<String>): Regex? {
         val l = nomes.map { it.trim() }.filter { it.length >= 2 }.distinct().sortedByDescending { it.length }
         if (l.isEmpty()) return null
-        return Regex("(?<![\\p{L}\\p{N}'’-])(" + l.joinToString("|") { Regex.escape(it) } + ")(?![\\p{L}\\p{N}]|[-'’]\\p{L})")
+        return Regex("(?<![\\p{L}\\p{N}'’-])(" + l.joinToString("|") { alternativa(it) } + ")(?![\\p{L}\\p{N}]|[-'’]\\p{L})")
     }
 }

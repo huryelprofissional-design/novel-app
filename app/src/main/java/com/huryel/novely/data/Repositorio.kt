@@ -278,7 +278,17 @@ class Repositorio(ctx: Context) {
      * Lê as marcas @Personagem e &Lugar do capítulo: cria fichas que faltam, junta apelidos
      * e guarda os parágrafos de definição como trechos (por capítulo). Retorna os nomes das fichas novas.
      */
+    /** Fichas com epíteto no nome ("Fulano, o Demônio do Norte"): o nome fica limpo e o epíteto vira apelido. */
+    suspend fun repararNomes(obraId: Long) {
+        dao.fichasAgora(obraId).filter { ',' in it.nome }.forEach { f ->
+            val (nome, ep) = Marcas.separarEpiteto(f.nome)
+            val apelidos = (f.apelidos.split(',').map { it.trim() } + listOfNotNull(ep)).filter { it.isNotEmpty() && !it.equals(nome, true) }.distinctBy { it.lowercase() }
+            dao.atualizarFicha(f.copy(nome = nome, apelidos = apelidos.joinToString(", ")))
+        }
+    }
+
     suspend fun indexarFichas(c: Capitulo, texto: String): List<String> {
+        repararNomes(c.obraId)
         if ('@' !in texto && '&' !in texto && dao.contarTrechosCap(c.id) == 0) return emptyList()
         val fichasObra = dao.fichasAgora(c.obraId)
         val conhecidos = (fichasObra.flatMap { f -> listOf(f.nome) + f.apelidos.split(',') } + Marcas.partesUnicas(fichasObra.associate { it.nome to it.id }).keys)
@@ -291,11 +301,13 @@ class Repositorio(ctx: Context) {
             dao.apagarTrechosCap(c.id)
             achados.forEachIndexed { i, (m, trecho) ->
                 val partes = Marcas.partesUnicas(fichas.associate { it.nome to it.id })
-                fun casa(f: Ficha) = f.nome.equals(m.nome, true) || f.apelidos.split(',').any { it.trim().equals(m.nome, true) } ||
+                fun casa(f: Ficha) = f.nome.equals(m.nome, true) || f.nome.equals(Marcas.separarEpiteto(m.nome).first, true) || f.apelidos.split(',').any { it.trim().equals(m.nome, true) } ||
                     partes.entries.any { (p, id) -> id == f.id && p.equals(m.nome, true) }
                 var f = fichas.firstOrNull { casa(it) }
                 if (f == null) {
-                    val nova = Ficha(obraId = c.obraId, tipo = if (m.lugar) TipoFicha.LUGAR else TipoFicha.PERSONAGEM, nome = m.nome, apelidos = m.apelidos.joinToString(", "))
+                    val (nomeLimpo, epiteto) = Marcas.separarEpiteto(m.nome)
+                    val nova = Ficha(obraId = c.obraId, tipo = if (m.lugar) TipoFicha.LUGAR else TipoFicha.PERSONAGEM, nome = nomeLimpo,
+                        apelidos = (m.apelidos + listOfNotNull(epiteto)).distinctBy { it.lowercase() }.joinToString(", "))
                     f = nova.copy(id = dao.inserirFicha(nova)); fichas.add(f); novos.add(m.nome)
                 } else if (m.apelidos.isNotEmpty()) {
                     val atuais = f.apelidos.split(',').map { it.trim() }.filter { it.isNotEmpty() }
@@ -328,6 +340,7 @@ class Repositorio(ctx: Context) {
 
     /** Bíblia viva da obra (lida no aparelho; refeita só quando um capítulo, ficha ou alerta ignorado muda). */
     suspend fun biblia(obraId: Long, ignorados: String): Biblia.Resultado = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        repararNomes(obraId)
         val caps = dao.capitulosAgora(obraId)
         val fichas = dao.fichasAgora(obraId)
         val chave = caps.joinToString(",") { "${it.id}:${it.atualizadoEm}:${it.titulo.hashCode()}" } + "|" + fichas.joinToString(",") { "${it.id}:${it.alteradoEm}:${it.nome.hashCode()}" } + "|" + ignorados.hashCode()

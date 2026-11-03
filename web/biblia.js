@@ -49,7 +49,7 @@ export function analisar(caps, fs, ignorados = new Set(), obraId = "") {
   const porId = new Map(fs.map((f) => [f.id, f])); const pessoas = new Set(fs.filter((f) => f.tipo !== "LUGAR" && f.tipo !== "OUTRO").map((f) => f.id));
   const n = caps.length, contagem = new Map(), falas = new Map(), falasCap = new Map(), fatos = [], lugares = new Map(), pares = new Map(), alertas = [], tokens = new Map();
   if (!nomes.size) return { caps, retratos: [], relacoes: [], alertas: [] };
-  const alt = [...nomes.keys()].filter((k) => k.length >= 2).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const alt = [...nomes.keys()].filter((k) => k.length >= 2).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (k.includes(" ") ? "" : "(?!\\s\\p{Lu}\\p{Ll})")).join("|");
   const rx = new RegExp(`(?<![${L}'’-])(?:${alt})(?![${L}'’-])`, "gu");
   const achar = (s) => [...s.matchAll(rx)].map((m) => ({ id: nomes.get(m[0]), ini: m.index, fim: m.index + m[0].length }));
   const perto = (ms, pos, max = 70) => { let best = null, bd = 1e9; for (const m of ms) { if (!pessoas.has(m.id)) continue; const d = pos >= m.fim ? pos - m.fim : pos < m.ini ? m.ini - pos : 0; if (d < bd) { bd = d; best = m.id; } } return bd <= max ? best : null; };

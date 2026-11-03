@@ -324,6 +324,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     val marcas by remember(c.id) { repo.marcadoresCap(c.id) }.collectAsState(initial = emptyList())
     val marcasPorBloco = remember(marcas) { marcas.associateBy { it.bloco } }
     val fichas by remember(c.obraId) { repo.fichas(c.obraId) }.collectAsState(initial = emptyList())
+    LaunchedEffect(c.obraId) { repo.repararNomes(c.obraId) }
     var blocoSel by remember { mutableStateOf(-1) }
     var fichaVer by remember { mutableStateOf<com.huryel.novely.data.Ficha?>(null) }
 

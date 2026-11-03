@@ -128,7 +128,7 @@ object Biblia {
         val alertas = ArrayList<Alerta>()
         if (nomes.isEmpty()) return Resultado(caps, emptyList(), emptyList(), emptyList())
 
-        val alt = nomes.keys.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
+        val alt = nomes.keys.sortedByDescending { it.length }.joinToString("|") { Marcas.alternativa(it) }
         // só testa a partir de letras maiúsculas (nomes próprios): bem mais rápido em textos longos
         val soMaiusculas = nomes.keys.all { it[0].isUpperCase() }
         val rx = Regex((if (soMaiusculas) "(?=\\p{Lu})" else "") + "(?<![$L'’-])(?:$alt)(?![$L'’-])")
