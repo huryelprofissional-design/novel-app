@@ -18,6 +18,8 @@ android {
         val numeroBuild = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionCode = numeroBuild
         versionName = "2.3 · build $numeroBuild"
+        // só celulares de 64 bits (quase todos desde 2017): o tradutor no aparelho pesa 16 MB por tipo de processador
+        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     // Chave fixa: cada APK novo instala POR CIMA do anterior, sem apagar suas obras.
@@ -47,6 +49,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    // bibliotecas nativas comprimidas dentro do APK (o download fica bem menor)
+    packaging { jniLibs { useLegacyPackaging = true } }
     // Testes de tela (Robolectric + Roborazzi): desenham telas no computador e salvam PNG em build/telas
     testOptions {
         unitTests.isIncludeAndroidResources = true
