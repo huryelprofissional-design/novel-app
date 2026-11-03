@@ -397,14 +397,16 @@ rota("/colaboracao/(\\w+)", async (id) => {
 // ───────── importar TXT ─────────
 const RX_CAP = /^\s*(?:(cap[ií]tulo|chapter|cap\.?)\s*[\dIVXLC]+.*|pr[oó]logo.*|ep[ií]logo.*|interl[uú]dio.*|prologue.*|epilogue.*)$/i;
 window.importarTXT = async () => {
-  const f = await escolherArquivo(".txt,text/plain"); if (!f) return;
-  const texto = (await f.text()).replace(/\r\n?/g, "\n");
+  const f = await escolherArquivo(".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"); if (!f) return;
+  let texto;
+  try { texto = (/\.docx$/i.test(f.name) ? textoDoWord(await lerZip(await f.arrayBuffer(), "word/document.xml")) : await f.text()).replace(/\r\n?/g, "\n"); }
+  catch (e) { toast("Não consegui ler o arquivo: " + e.message); return; }
   const linhas = texto.split("\n"); const caps = []; let atual = null;
   linhas.forEach((l, i) => {
-    if (RX_CAP.test(l) && l.trim().length < 90 && (i === 0 || !linhas[i - 1].trim())) { atual = { titulo: l.trim(), linhas: [] }; caps.push(atual); }
+    if ((RX_CAP.test(l) || /^#\s+\S/.test(l)) && l.trim().length < 90 && (i === 0 || !linhas[i - 1].trim())) { atual = { titulo: l.trim().replace(/^#+\s*/, ""), linhas: [] }; caps.push(atual); }
     else { if (!atual) { atual = { titulo: "Capítulo 1", linhas: [] }; caps.push(atual); } atual.linhas.push(l); }
   });
-  const titulo = await perguntar(`Encontrei ${caps.length} capítulo(s). Título da obra:`, f.name.replace(/\.txt$/i, ""));
+  const titulo = await perguntar(`Encontrei ${caps.length} capítulo(s). Título da obra:`, f.name.replace(/\.(txt|docx)$/i, ""));
   if (titulo === null) return;
   const d = dialogo(`<h3 style="margin-top:0">Importando…</h3><p class="suave" id="pr">Criando a obra</p>`);
   const id = await novaObra(titulo.trim(), "LENDO");
@@ -413,3 +415,40 @@ window.importarTXT = async () => {
   for (const c of await capitulos(id, true)) await salvarCapitulo(id, c.id, { rascunho: false });
   d.close(); toast("Importado!"); ir(`/obra/${id}`);
 };
+
+/** Lê um arquivo de dentro de um .zip (o .docx é um zip), sem biblioteca: diretório central + DecompressionStream. */
+export async function lerZip(buf, nome) {
+  const v = new DataView(buf); let fim = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 66000); i--) if (v.getUint32(i, true) === 0x06054b50) { fim = i; break; }
+  if (fim < 0) throw new Error("não é um arquivo .docx válido");
+  let p = v.getUint32(fim + 16, true); const n = v.getUint16(fim + 10, true); const dec = new TextDecoder();
+  for (let k = 0; k < n; k++) {
+    const metodo = v.getUint16(p + 10, true), tam = v.getUint32(p + 20, true), ln = v.getUint16(p + 28, true), le = v.getUint16(p + 30, true), lc = v.getUint16(p + 32, true), off = v.getUint32(p + 42, true);
+    const arq = dec.decode(new Uint8Array(buf, p + 46, ln));
+    if (arq === nome) {
+      const ini = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true); const dados = new Uint8Array(buf, ini, tam);
+      if (metodo === 0) return dec.decode(dados);
+      const s = new Blob([dados]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return await new Response(s).text();
+    }
+    p += 46 + ln + le + lc;
+  }
+  throw new Error("não achei o texto dentro do Word");
+}
+/** Texto de um Word: um parágrafo por linha, com *itálico* e **negrito**; títulos viram “# ” (igual ao app). */
+export function textoDoWord(xml) {
+  const desfaz = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+  let saida = "";
+  for (const par of xml.split("</w:p>")) {
+    const titulo = /<w:pStyle w:val="(Heading|T[ií]tulo|Title)/.test(par); const ped = [];
+    for (const r of par.match(/<w:r[ >][\s\S]*?<\/w:r>/g) || []) {
+      const t = [...r.matchAll(/<w:t(?: [^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g)].map((m) => m[0] === "<w:tab/>" || m[0] === "<w:br/>" ? " " : desfaz(m[1])).join("");
+      if (!t) continue;
+      const i = !titulo && /<w:i(?: w:val="(?:1|true|on)")?\s*\/>/.test(r), b = !titulo && /<w:b(?: w:val="(?:1|true|on)")?\s*\/>/.test(r);
+      const u = ped.at(-1); if (u && u.i === i && u.b === b) u.t += t; else ped.push({ t, i, b });
+    }
+    const linha = ped.map(({ t, i, b }) => { const m = b ? "**" : i ? "*" : ""; if (!m || !t.trim()) return t; const a = t.length - t.trimStart().length, z = t.trimEnd().length; return t.slice(0, a) + m + t.slice(a, z) + m + t.slice(z); }).join("").trim();
+    if (linha) saida += (titulo && !RX_CAP.test(linha) ? "# " + linha : linha) + "\n\n";
+  }
+  return saida;
+}

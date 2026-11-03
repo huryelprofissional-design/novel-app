@@ -139,7 +139,7 @@ rota("/biblioteca(?:/(\\w+))?", async (aba = "LENDO") => {
 // ───────── ESCREVER ─────────
 rota("/escrever", async () => {
   const minhas = lista().filter((o) => o.minha && !o.trancada).sort((a, b) => b.atualizadaEm - a.atualizadaEm);
-  casca("escrever", `<div class="topo"><h1>Escrever</h1><button class="btn2" id="importar">Importar TXT</button><button class="btn" id="nova">+ Nova obra</button></div>
+  casca("escrever", `<div class="topo"><h1>Escrever</h1><button class="btn2" id="importar">Importar TXT ou Word</button><button class="btn" id="nova">+ Nova obra</button></div>
     ${minhas.length ? `<div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : STATUS_NOME[o.status] || "")).join("")}</div>` : `<div class="card vazio"><b>Crie sua primeira obra.</b><span class="suave">Ela aparece no celular também.</span></div>`}
     <div class="sec"><h2>Ferramentas</h2></div>
     <div class="ferramentas">

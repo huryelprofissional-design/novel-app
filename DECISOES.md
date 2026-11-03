@@ -84,3 +84,14 @@ Testes com texto sintético em `app/src/test`: contar palavras, dividir em bloco
 
 ## Atualização do app
 - Repositório público; o app consulta `releases/latest` ao abrir (no máx. a cada 15 min), mostra janela e instala por cima.
+
+## Novembro 2026 — ferramentas grandes
+- Bíblia viva (`data/Biblia.kt` = `web/biblia.js`): lê os capítulos no aparelho, sem IA. Fatos por regras de texto (idade, olhos, cabelo, morte, ferimento, nível, juramento), furos, retrato, relações por cena e mapa (força de mola, barra no tempo). Alertas ignorados ficam no aparelho.
+- Ouvir com elenco: `Elenco`/`Narrador` (Android, serviço mediaPlayback com notificação) e `dividirElenco` no PC. Quem fala: verbo de fala + nome, senão alterna entre os dois últimos.
+- Leitores: `publicas/{obra}/leituras/{cap}_{uid}` (bloco máximo, total, segundos, sessões, plataforma). Só o autor lê.
+- Tradução: ML Kit no Android (offline, guarda em files/traducoes); Translator API do navegador no PC.
+- Importar: .docx (sem biblioteca: zip + XML) e link do Google Docs (só Android; o navegador bloqueia por CORS).
+- Moedas grátis: carteira em `users/{uid}.carteira` (saldo, liberados), mesma no celular e no PC. Acesso antecipado: `publicas/{obra}.antecipado` (custo) e `desbloqueios`.
+- Ao vivo: `colabs/{obra}/aovivo/{cap}/pars|gente|chat`; trava por parágrafo (25 s, renovada a cada 10 s); cor = hashCode do uid (igual no Kotlin e no JS). "Trazer para a obra" é só do autor.
+- Testes de tela: Robolectric + Roborazzi em `TelasTest`; as fotos vão para o ramo `telas` a cada build.
+- APK publicado é o release (R8 + perfis do Compose), assinado com a mesma chave do debug.
