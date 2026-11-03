@@ -89,10 +89,14 @@ export function ligarReacoes() {
 }
 
 // ───────── clima da cena ─────────
-const CLIMA = [["chuva", /\b(chuva|chovia|chover|choveu|garoa|tempestade|trov[aã]o|trovoada|rel[aâ]mpago|aguaceiro|temporal)/gi],
-  ["neve", /\b(neve|nevava|nevasca|nevando|geada)/gi], ["fogo", /\b(fogo|chamas?|fogueira|lareira|inc[eê]ndio|brasas?|labaredas?|queimava|ardia)/gi],
-  ["vento", /\b(vento|ventania|vendaval|rajadas?|brisa|uivava)/gi], ["noite", /\b(noite|luar|madrugada|estrelas|escurid[aã]o|meia-noite)/gi]];
-export function detectarClima(t) { let m = null, n = 0; for (const [k, rx] of CLIMA) { const c = (t.match(rx) || []).length; if (c >= (k === "noite" ? 2 : 1) && c > n) { m = k; n = c; } } return m; }
+// palavra forte vale 2, fraca 1; precisa de 3 pontos. Sem verbos soltos ("chama", "ardia") que aparecem em qualquer cena.
+const CLIMA = [
+  ["chuva", /\b(tempestade|aguaceiro|temporal|chuva forte|chovia forte)/gi, /\b(chuva|chovia|chover|choveu|garoa|trov[aã]o|trovoada|rel[aâ]mpago)/gi],
+  ["neve", /\b(nevasca|nevava|nevando|flocos de neve)/gi, /\b(neve|geada)\b/gi],
+  ["fogo", /\b(inc[eê]ndio|fogueira|lareira|labaredas|em chamas)/gi, /\b(fogo|brasas|chamas)\b/gi],
+  ["vento", /\b(ventania|vendaval|rajadas? de vento)/gi, /\b(vento|uivava)\b/gi],
+  ["noite", /\b(meia-noite|luar|c[eé]u estrelado)/gi, /\b(noite|madrugada|lua)\b/gi]];
+export function detectarClima(t) { let m = null, n = 0; for (const [k, forte, fraca] of CLIMA) { const c = (t.match(forte) || []).length * 2 + (t.match(fraca) || []).length; if (c >= 3 && c > n) { m = k; n = c; } } return m; }
 export const ROTULO_CLIMA = { chuva: "🌧 chuva na cena", neve: "❄ neve na cena", fogo: "🔥 fogo na cena", vento: "🌬 vento na cena", noite: "🌙 noite na cena" };
 
 /** Liga o clima no leitor: olha os parágrafos visíveis e desenha partículas por cima. Devolve uma função para desligar. */
@@ -106,13 +110,15 @@ export function ligarClima() {
   let alvo = null;
   const olhar = () => {
     const vis = [...document.querySelectorAll("#texto [data-b]")].filter((p) => { const r = p.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
-    alvo = detectarClima(vis.map((p) => p.textContent).join(" "));
+    const achou = detectarClima(vis.map((p) => p.textContent).join(" "));
+    // só troca depois de confirmar em 3 olhadas seguidas (~2 s naquele trecho)
+    if (achou === alvo) vezes = 0; else if (achou === cand) { if (++vezes >= 3) { alvo = achou; vezes = 0; } } else { cand = achou; vezes = 1; }
     if (alvo) pill.textContent = ROTULO_CLIMA[alvo]; pill.classList.toggle("on", !!alvo);
   };
-  let tm; const aoRolar = () => { clearTimeout(tm); tm = setTimeout(olhar, 250); }; addEventListener("scroll", aoRolar); setTimeout(olhar, 400);
+  let cand = null, vezes = 0; const relogio = setInterval(olhar, 700);
   (function q(agora) {
     if (!vivo) return;
-    if (alvo !== tipo) { alfa -= .04; if (alfa <= 0) { alfa = 0; tipo = alvo; if (tipo) novo(tipo); } } else if (tipo && alfa < 1) alfa = Math.min(1, alfa + .02);
+    if (alvo !== tipo) { alfa -= .012; if (alfa <= 0) { alfa = 0; tipo = alvo; if (tipo) novo(tipo); } } else if (tipo && alfa < 1) alfa = Math.min(1, alfa + .007);
     const t = (agora - t0) / 1000, w = c.width, h = c.height; g.clearRect(0, 0, w, h);
     if (tipo) for (const p of ps) {
       if (tipo === "chuva") { const y = ((p.y + t * 1.3 * p.v) % 1) * (h + 80) - 40, x = ((p.x + t * .12 * p.v) % 1) * w; g.strokeStyle = `rgba(191,216,255,${.35 * alfa * p.s})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 5 * p.v, y + 22 * p.v); g.stroke(); }
@@ -123,7 +129,7 @@ export function ligarClima() {
     }
     requestAnimationFrame(q);
   })(t0);
-  return () => { vivo = false; c.remove(); pill.remove(); removeEventListener("resize", tam); removeEventListener("scroll", aoRolar); };
+  return () => { vivo = false; c.remove(); pill.remove(); removeEventListener("resize", tam); clearInterval(relogio); };
 }
 
 /** Cabeçalho do fim de capítulo: anel com quanto já leu e os ganhos. */

@@ -90,6 +90,7 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.style.TextDecoration
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
@@ -670,9 +671,15 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         val somCena by prefs.somCena.estado.collectAsState()
         var clima by remember { mutableStateOf<String?>(null) }
         if (climaLigado) LaunchedEffect(b) {
-            snapshotFlow { blocoAtual() }.collect { bi ->
-                val janela = (bi - 1..bi + 4).mapNotNull { b.getOrNull(it)?.plano }.joinToString(" ")
-                clima = withContext(Dispatchers.Default) { detectarClima(janela) }
+            // só troca depois de confirmar: o clima novo tem que aparecer em 3 leituras seguidas (≈2 s parado nele)
+            var candidato: String? = null; var vezes = 0
+            snapshotFlow { blocoAtual() }.collectLatest { bi ->
+                while (true) {
+                    val janela = (bi - 2..bi + 5).mapNotNull { b.getOrNull(it)?.plano }.joinToString(" ")
+                    val achou = withContext(Dispatchers.Default) { detectarClima(janela) }
+                    if (achou == clima) { vezes = 0 } else if (achou == candidato) { if (++vezes >= 3) { clima = achou; vezes = 0 } } else { candidato = achou; vezes = 1 }
+                    kotlinx.coroutines.delay(700)
+                }
             }
         } else clima = null
         DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }

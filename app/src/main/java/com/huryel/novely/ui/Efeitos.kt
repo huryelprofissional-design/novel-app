@@ -259,21 +259,21 @@ fun RankingSemana() {
 
 // ───────── Clima da cena (leitor) ─────────
 
+// palavra forte vale 2 pontos, fraca 1; precisa de 3 pontos na janela. Nada de verbos soltos ("chama", "ardia") que aparecem em qualquer cena.
 private val PALAVRAS_CLIMA = listOf(
-    "chuva" to Regex("\\b(chuva|chovia|chover|choveu|garoa|tempestade|trov[aã]o|trovoada|rel[aâ]mpago|aguaceiro|temporal)", RegexOption.IGNORE_CASE),
-    "neve" to Regex("\\b(neve|nevava|nevasca|flocos de neve|nevando|geada)", RegexOption.IGNORE_CASE),
-    "fogo" to Regex("\\b(fogo|chamas?|fogueira|lareira|inc[eê]ndio|brasas?|labaredas?|queimava|ardia)", RegexOption.IGNORE_CASE),
-    "vento" to Regex("\\b(vento|ventania|vendaval|rajadas?|brisa|uivava)", RegexOption.IGNORE_CASE),
-    "noite" to Regex("\\b(noite|luar|madrugada|estrelas|escurid[aã]o|meia-noite)", RegexOption.IGNORE_CASE),
+    "chuva" to (Regex("\\b(tempestade|aguaceiro|temporal|tromba d.água|chuva forte|chovia forte)", RegexOption.IGNORE_CASE) to Regex("\\b(chuva|chovia|chover|choveu|garoa|trov[aã]o|trovoada|rel[aâ]mpago|gotas de chuva)", RegexOption.IGNORE_CASE)),
+    "neve" to (Regex("\\b(nevasca|nevava|nevando|flocos de neve)", RegexOption.IGNORE_CASE) to Regex("\\b(neve|geada)\\b", RegexOption.IGNORE_CASE)),
+    "fogo" to (Regex("\\b(inc[eê]ndio|fogueira|lareira|labaredas|em chamas)", RegexOption.IGNORE_CASE) to Regex("\\b(fogo|brasas|chamas)\\b", RegexOption.IGNORE_CASE)),
+    "vento" to (Regex("\\b(ventania|vendaval|rajadas? de vento)", RegexOption.IGNORE_CASE) to Regex("\\b(vento|uivava)\\b", RegexOption.IGNORE_CASE)),
+    "noite" to (Regex("\\b(meia-noite|luar|c[eé]u estrelado)", RegexOption.IGNORE_CASE) to Regex("\\b(noite|madrugada|lua)\\b", RegexOption.IGNORE_CASE)),
 )
 
-/** Qual clima o trecho sugere (chuva, neve, fogo, vento, noite) ou null. Noite pede duas menções, porque aparece demais. */
+/** Qual clima o trecho sugere (chuva, neve, fogo, vento, noite) ou null. */
 fun detectarClima(texto: String): String? {
     var melhor: String? = null; var nota = 0
     for ((tipo, rx) in PALAVRAS_CLIMA) {
-        val n = rx.findAll(texto).take(6).count()
-        val minimo = if (tipo == "noite") 2 else 1
-        if (n >= minimo && n > nota) { melhor = tipo; nota = n }
+        val n = rx.first.findAll(texto).take(5).count() * 2 + rx.second.findAll(texto).take(6).count()
+        if (n >= 3 && n > nota) { melhor = tipo; nota = n }
     }
     return melhor
 }
@@ -289,8 +289,8 @@ fun ClimaCena(tipo: String?, modifier: Modifier = Modifier) {
     var mostrado by remember { mutableStateOf(tipo) }
     val alfa = remember { Animatable(0f) }
     LaunchedEffect(tipo) {
-        if (tipo != mostrado) { alfa.animateTo(0f, tween(500)); mostrado = tipo }
-        if (tipo != null) alfa.animateTo(1f, tween(900))
+        if (tipo != mostrado) { alfa.animateTo(0f, tween(1200)); mostrado = tipo }
+        if (tipo != null) alfa.animateTo(1f, tween(2500))
     }
     val m = mostrado ?: return
     val r = remember(m) { Random(m.hashCode()) }
