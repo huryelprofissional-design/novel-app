@@ -461,3 +461,92 @@ body.maquina .editor textarea::selection { background: rgba(179,38,30,.25); }
 body.maquina .editor textarea.batida { animation: batida .09s ease-out; }
 @keyframes batida { 0% { transform: translateY(0) } 40% { transform: translateY(1.5px) } 100% { transform: translateY(0) } }
 #bmaq.on { background: #F3ECDD; color: #2B241C; }
+
+/* ───────── efeitos (mesmos do app) ───────── */
+@keyframes brilhoPassa { 0% { transform: translateX(-120%) skewX(-20deg); } 60%, 100% { transform: translateX(260%) skewX(-20deg); } }
+@keyframes gira { to { transform: rotate(360deg); } }
+@keyframes entraLivro { from { opacity: 0; transform: perspective(600px) rotateY(45deg) translateX(-40px); } to { opacity: 1; transform: none; } }
+@keyframes kenburns { from { transform: scale(1.15) translate(0, 0); } to { transform: scale(1.35) translate(-4%, -3%); } }
+@keyframes respira { 0%, 100% { box-shadow: 0 0 40px color-mix(in srgb, var(--cor) 40%, transparent); } 50% { box-shadow: 0 0 90px color-mix(in srgb, var(--cor) 75%, transparent); } }
+@keyframes sobe { from { opacity: 1; transform: translate(-50%, 0) scale(.9); } to { opacity: 0; transform: translate(-50%, -80px) scale(1.2); } }
+@keyframes pulo { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.35); } }
+@keyframes chama { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.08, .92); } }
+@keyframes raios { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes entraCel { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
+
+.brilha span, .hero .btn-branco, .obra-c.lida .capa { position: relative; overflow: hidden; }
+.brilha span::after, .hero .btn-branco::after, .obra-c.lida .capa::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: brilhoPassa 3s ease-in-out infinite; pointer-events: none; }
+.brilha:nth-child(2n) span::after { animation-delay: .6s; } .brilha:nth-child(3n) span::after { animation-delay: 1.2s; }
+
+/* anel girando (avatar do perfil e autores com capítulo novo): o degradê gira, a forma fica */
+@property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes giraAng { to { --ang: 360deg; } }
+.anel-gira { position: relative; display: inline-grid; place-items: center; padding: 4px; border-radius: 50%; background: conic-gradient(from var(--ang), #FF6A2B, #8E2DE2, #4FA3FF, #FFC94A, #FF6A2B); animation: giraAng 3s linear infinite; }
+.anel-gira > .av { border: 3px solid #000; }
+.autor-q.ativo::before { content: ""; position: absolute; top: -6px; left: 50%; width: 74px; height: 74px; margin-left: -37px; border-radius: 25px; background: conic-gradient(from var(--ang), #FF6A2B, #8E2DE2, #4FA3FF, #FFC94A, #FF6A2B); animation: giraAng 3s linear infinite; }
+.autor-q.ativo .av { position: relative; box-shadow: 0 0 0 3px #000; }
+
+/* estante */
+.grade.estante { row-gap: 34px; column-gap: 0; padding: 0 6px; }
+.grade.estante .obra-c { padding: 0 10px; position: relative; animation: entraLivro .65s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.grade.estante .obra-c .capa { transform: perspective(700px) rotateY(-7deg); box-shadow: 8px 14px 28px rgba(0,0,0,.6); border-radius: 6px; transition: transform .3s; }
+.grade.estante .obra-c:hover .capa { transform: perspective(700px) rotateY(0) translateY(-6px); }
+.grade.estante .obra-c::after { content: ""; display: block; height: 12px; margin: -2px -10px 0; background: linear-gradient(#6B4422, #3A220E); box-shadow: 0 8px 14px rgba(0,0,0,.55); order: 1; }
+.grade.estante .obra-c .nm, .grade.estante .obra-c .sb { order: 2; }
+.obra-c.lida .capa { outline: 2.5px solid #FFC94A; outline-offset: -2.5px; }
+
+/* início: capa grande animada */
+.hero { position: relative; height: 420px; border-radius: 30px; overflow: hidden; cursor: pointer; margin: 10px 0 8px; display: flex; align-items: flex-end; gap: 26px; padding: 30px; animation: respira 4s ease-in-out infinite; }
+.hero-fundo { position: absolute; inset: 0; }
+.hero-fundo .capa { position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0; filter: blur(26px) brightness(.55); animation: kenburns 14s ease-in-out infinite alternate; }
+.hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 30%, rgba(0,0,0,.85)); }
+.hero-capa, .hero-txt { position: relative; z-index: 1; }
+.hero-capa .capa { width: 190px; border-radius: 14px; transform: rotate(-3deg); box-shadow: 0 30px 60px rgba(0,0,0,.7); }
+.hero-txt h2 { font-size: 38px; line-height: 1.05; margin: 6px 0 8px; font-weight: 900; }
+.hero .btn-branco { display: inline-block; margin-top: 18px; background: #fff; color: #000; font-weight: 900; padding: 14px 26px; border-radius: 30px; }
+@media (max-width: 760px) { .hero { height: 360px; padding: 20px; gap: 16px; } .hero-capa .capa { width: 120px; } .hero-txt h2 { font-size: 26px; } }
+
+/* nível, missões, baú */
+.progresso-pc { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+@media (max-width: 760px) { .progresso-pc { grid-template-columns: 1fr; } }
+.nivel-card, .missoes-card { background: linear-gradient(135deg, rgba(255,106,43,.16), rgba(142,45,226,.14)); border: 1px solid rgba(255,255,255,.08); border-radius: 22px; padding: 18px; }
+.nivel-card { display: flex; gap: 16px; align-items: center; }
+.anel-xp { --f: 0; width: 72px; height: 72px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#FF6A2B calc(var(--f) * 360deg), rgba(255,255,255,.1) 0); position: relative; transition: --f .6s; }
+.anel-xp::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: #111; }
+.anel-xp b { position: relative; font-size: 24px; font-weight: 900; }
+.anel-xp.grande { width: 110px; height: 110px; } .anel-xp.grande b { font-size: 34px; }
+.nm-nivel { font-size: 20px; font-weight: 900; margin: 2px 0 8px; }
+.barra-xp { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; margin-bottom: 6px; }
+.barra-xp.fina { height: 4px; margin: 6px 0 0; }
+.barra-xp i { display: block; height: 100%; background: linear-gradient(90deg, #FF6A2B, #FFC94A); border-radius: inherit; transition: width .8s; }
+.missao { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.06); }
+.missao > span { font-size: 20px; } .missao small { color: var(--suave); font-weight: 700; } .missao.ok small { color: #6FCF97; } .missao.ok > div > div:first-child { text-decoration: line-through; opacity: .6; }
+.bau { font-size: 30px; background: none; border: 0; cursor: pointer; filter: grayscale(.7); opacity: .6; }
+.bau.pronto { filter: none; opacity: 1; animation: pulo 1s ease-in-out infinite; } .bau.aberto { filter: none; opacity: 1; }
+.xp-voa { position: fixed; left: 50%; top: 40%; z-index: 99; font-weight: 900; font-size: 22px; color: #FFC94A; text-shadow: 0 2px 12px #000; pointer-events: none; animation: sobe 1.4s ease-out forwards; }
+canvas.confete { position: fixed; inset: 0; z-index: 98; pointer-events: none; }
+.celebra { position: fixed; inset: 0; z-index: 97; background: rgba(0,0,0,.82); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; overflow: hidden; animation: entraCel .35s ease-out; }
+.celebra.sai { opacity: 0; transition: opacity .3s; }
+.celebra .raios { position: absolute; left: 50%; top: 42%; width: 900px; height: 900px; background: repeating-conic-gradient(rgba(255,201,74,.13) 0 10deg, transparent 10deg 20deg); border-radius: 50%; animation: raios 18s linear infinite; transform: translate(-50%, -50%); -webkit-mask: radial-gradient(closest-side, #000, transparent); mask: radial-gradient(closest-side, #000, transparent); }
+.celebra .selo-c { position: relative; width: 120px; height: 120px; display: grid; place-items: center; font-size: 54px; border-radius: 30px; transform: rotate(45deg); background: linear-gradient(135deg, #FF6A2B, #8E2DE2); box-shadow: 0 0 80px rgba(255,106,43,.6); margin-bottom: 28px; }
+.celebra h2 { position: relative; font-size: 40px; margin: 0; font-weight: 900; } .celebra p { position: relative; color: #ddd; margin: 0 0 18px; } .celebra .btn { position: relative; }
+
+/* fim de capítulo e reações */
+.fim-cine { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fim-cine .ganhos { display: flex; gap: 8px; margin-top: 10px; } .fim-cine .ganhos span { background: rgba(255,255,255,.08); border-radius: 20px; padding: 6px 12px; font-weight: 800; font-size: 13px; }
+.reacoes { display: flex; gap: 10px; justify-content: center; margin: 16px 0 6px; flex-wrap: wrap; }
+.reacao { display: flex; flex-direction: column; align-items: center; gap: 2px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 8px 14px; cursor: pointer; color: inherit; transition: transform .15s; }
+.reacao:hover { transform: translateY(-3px); } .reacao span { font-size: 26px; } .reacao small { font-weight: 800; color: var(--suave); }
+.reacao.on { background: rgba(255,106,43,.2); border-color: #FF6A2B; } .reacao.on small { color: #FF6A2B; } .reacao.pula span { animation: pulo .5s; }
+
+/* clima da cena */
+canvas.clima { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+.pilula-clima { position: fixed; right: 18px; top: 74px; z-index: 6; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; font-weight: 800; padding: 7px 12px; border-radius: 16px; opacity: 0; transform: translateY(-8px); transition: .4s; pointer-events: none; }
+.pilula-clima.on { opacity: 1; transform: none; }
+
+/* fogueira do editor */
+.fogueira { position: fixed; right: 22px; bottom: 74px; z-index: 20; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.fogueira .anel-xp { width: 58px; height: 58px; } .fogueira .anel-xp b { animation: chama .4s ease-in-out infinite; font-size: 14px; }
+.fogueira.batida .anel-xp { background: conic-gradient(#6FC2B4 360deg, transparent 0); }
+.fogueira small { font-size: 11px; font-weight: 800; color: var(--suave); background: rgba(0,0,0,.5); padding: 2px 8px; border-radius: 10px; }
+.fileira.autores { padding-top: 6px; }

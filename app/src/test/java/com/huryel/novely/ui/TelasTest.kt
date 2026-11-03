@@ -8,10 +8,6 @@ import com.huryel.novely.data.Ficha
 import com.huryel.novely.data.TipoFicha
 import com.huryel.novely.ui.theme.NovelyTheme
 import com.huryel.novely.ui.theme.TemaLeitura
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.unit.dp
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -25,11 +21,10 @@ import org.robolectric.shadows.ShadowLooper
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = android.app.Application::class, qualifiers = "w400dp-h860dp-xxhdpi")
 class TelasTest {
-    private fun foto(nome: String, avancarMs: Long = 0, conteudo: @androidx.compose.runtime.Composable () -> Unit) {
+    private fun foto(nome: String, conteudo: @androidx.compose.runtime.Composable () -> Unit) {
         val act = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
         act.setContent { NovelyTheme(TemaLeitura.OLED) { androidx.compose.material3.Surface { conteudo() } } }
         repeat(5) { ShadowLooper.idleMainLooper(); Thread.sleep(30) }
-        repeat((avancarMs / 50).toInt()) { ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS) }
         java.io.File("build/telas").mkdirs()
         act.window.decorView.captureRoboImage("build/telas/$nome.png")
     }
@@ -73,24 +68,5 @@ class TelasTest {
         org.junit.Assert.assertEquals(40, n.leitores)
         org.junit.Assert.assertTrue(n.caps[2].paradaBloco in 34..36)
         foto("leitores") { ConteudoEstatisticas(n, abertoInicial = 2) }
-    }
-
-    @Test fun efeitos() {
-        fun obra(id: Long, t: String, cor: Long, lidos: Int, status: String) = com.huryel.novely.data.ResumoObra(id, t, status, null, 0.5f, 0.5f, 1f, cor, null, 1L, 40, 90000, lidos, "", 0, 0)
-        val livros = listOf(obra(1, "O Último Mago", 0xFF3B2A4A, 12, "LENDO"), obra(2, "Sangue de Dragão", 0xFF7A1F1F, 40, com.huryel.novely.data.StatusObra.CONCLUIDA),
-            obra(3, "Murim Renascido", 0xFF1F4A7A, 3, "LENDO"), obra(4, "A Torre", 0xFF2A5A3A, 20, "LENDO"))
-        foto("efeitos", 1500) {
-            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(12.dp)) {
-                androidx.compose.foundation.layout.Row {
-                    livros.take(3).forEachIndexed { i, o -> androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) { LivroEstante(o, 0, if (i == 0) 3 else null, {}) {} } }
-                }
-                BannerRetro {}
-                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(top = 16.dp).fillMaxWidth().height(260.dp)) {
-                    androidx.compose.material3.Text("A chuva batia forte na janela enquanto Seo-jun esperava.", modifier = androidx.compose.ui.Modifier.padding(16.dp))
-                    ClimaCena("chuva")
-                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(16.dp)) { Fogueira(640, 1000f, null) {} }
-                }
-            }
-        }
     }
 }

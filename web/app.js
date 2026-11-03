@@ -6,6 +6,7 @@ import {
   salvarPerfil, escolherArquivo, comprimirArquivo, enviarImagemMinha, publicarPerfil, STATUS_NOME, salvarObra, confirmar, apagarObra, perfilPub,
   segueAutor, CONQUISTAS, colItens, getDocs, query, where, obraPub, esc as escapar, carteira, diarioMoedas,
 } from "./nucleo.js";
+import { cartaoNivelHTML, ligarBau } from "./efeitos.js";
 import "./obra.js";
 import "./leitor.js";
 import "./catalogo.js";
@@ -98,10 +99,10 @@ rota("/", async () => {
   const autores = seguidos.length ? seguidos.map((u) => [u, nomes[u] || ""]) : [...new Map(todos.filter((o) => o.autorUid !== E.usuario.uid).map((o) => [o.autorUid, o.autorNome])).entries()].slice(0, 12);
   casca("inicio", `<div class="topo"><h1>${saud}${E.perfil.nome ? ", " + esc(E.perfil.nome.split(" ")[0]) : ""}</h1></div>
     ${autores.length ? `<div class="sec" style="margin-top:6px"><h2>${seguidos.length ? "Seus autores" : "Autores no Novely"}</h2></div>
-      <div class="fileira autores">${autores.map(([u, n]) => `<a class="autor-q" href="#/autor/${esc(u)}"><span class="av quad" data-av="${esc(u)}">${esc((n || "?").slice(0, 1).toUpperCase())}</span>${ativos.has(u) ? `<i class="online"></i>` : ""}<small>${esc((n || "Autor").split(" ")[0])}</small></a>`).join("")}</div>` : ""}
-    ${cont ? `<div class="continuar vidro" onclick="location.hash='#/ler/${cont.id}/${cont.ultimoCap}'">${capaHTML(cont, cont.id, corHex(cont.corBase))}
-      <div style="flex:1;min-width:0"><div class="rotulo">Continuar lendo</div><div style="font-weight:800;font-size:19px;margin:4px 0">${esc(cont.titulo)}</div><div class="suave peq">Volta de onde você parou</div></div>
-      <span class="play">▶</span></div>` : ""}
+      <div class="fileira autores">${autores.map(([u, n]) => `<a class="autor-q ${ativos.has(u) ? "ativo" : ""}" href="#/autor/${esc(u)}"><span class="av quad" data-av="${esc(u)}">${esc((n || "?").slice(0, 1).toUpperCase())}</span>${ativos.has(u) ? `<i class="online"></i>` : ""}<small>${esc((n || "Autor").split(" ")[0])}</small></a>`).join("")}</div>` : ""}
+    ${cont ? `<div class="hero" onclick="location.hash='#/ler/${cont.id}/${cont.ultimoCap}'" style="--cor:${corHex(cont.corBase)}"><div class="hero-fundo">${capaHTML(cont, cont.id, corHex(cont.corBase))}</div>
+      <div class="hero-capa">${capaHTML(cont, cont.id, corHex(cont.corBase))}</div>
+      <div class="hero-txt"><div class="rotulo">Continuar lendo</div><h2>${esc(cont.titulo)}</h2><div class="suave">Volta de onde você parou</div><span class="btn-branco">▶ Continuar</span></div></div>` : ""}
     ${novas.length ? `<div class="sec"><h2>Saindo agora<span class="sub">capítulos que acabaram de sair</span></h2><a class="suave peq" href="#/descobrir/NOVIDADES">Ver tudo ›</a></div>
       <div class="fileira">${novas.slice(0, 12).map(posterHTML).join("")}</div>` : ""}
     ${alta.length ? `<div class="sec"><h2>Populares no Novely</h2><a class="suave peq" href="#/descobrir">Ver tudo ›</a></div><div class="grade">${alta.slice(0, 12).map((o) => cartaoPub(o)).join("")}</div>` : ""}
@@ -125,11 +126,12 @@ rota("/biblioteca(?:/(\\w+))?", async (aba = "LENDO") => {
   let l = (grupos[aba] || []).filter((o) => !col || o.colecao === col);
   l.sort(ord === "TITULO" ? (a, b) => a.titulo.localeCompare(b.titulo) : ord === "ADICIONADA" ? (a, b) => (b.criadaEm || 0) - (a.criadaEm || 0) : (a, b) => (b.lidaEm || 0) - (a.lidaEm || 0));
   casca("biblioteca", `<div class="topo"><h1>Biblioteca</h1><input class="campo" id="filtro" placeholder="Filtrar…" style="max-width:240px;border-radius:24px">
-      <select class="campo" id="ord" style="max-width:190px;border-radius:24px"><option value="RECENTE">Lidas recentemente</option><option value="TITULO">Título (A–Z)</option><option value="ADICIONADA">Adicionadas</option></select></div>
+      <button class="btn2 peq" id="modoEst" title="Estante ou grade">${local.ler("estante", true) ? "📚 Estante" : "▦ Grade"}</button><select class="campo" id="ord" style="max-width:190px;border-radius:24px"><option value="RECENTE">Lidas recentemente</option><option value="TITULO">Título (A–Z)</option><option value="ADICIONADA">Adicionadas</option></select></div>
     <div class="abas">${Object.keys(nomes).map((k) => `<a href="#/biblioteca/${k}" class="${k === aba ? "on" : ""}">${nomes[k]} · ${grupos[k].length}</a>`).join("")}</div>
     ${colecoes.length ? `<div class="chips" style="margin-bottom:18px"><span class="chip ${!col ? "on" : ""}" data-col="">Todas</span>${colecoes.map((c) => `<span class="chip ${c === col ? "on" : ""}" data-col="${esc(c)}">${esc(c)}</span>`).join("")}</div>` : ""}
-    ${l.length ? `<div class="grade" id="grade">${l.map((o) => cartao(o, o.autor ? "por " + o.autor : STATUS_NOME[o.status] || "")).join("")}</div>`
+    ${l.length ? `<div class="grade ${local.ler("estante", true) ? "estante" : ""}" id="grade">${l.map((o, i) => cartao(o, o.autor ? "por " + o.autor : STATUS_NOME[o.status] || "").replace('class="obra-c"', `class="obra-c ${o.status === "CONCLUIDA" ? "lida" : ""}" style="--i:${i % 18}"`)).join("")}</div>`
       : `<div class="card vazio"><b>Nada aqui ainda.</b><span class="suave">Encontre obras em Descobrir e toque em ♥ Seguir para elas aparecerem aqui.</span><a class="btn peq" href="#/descobrir">Descobrir</a></div>`}`);
+  $("#modoEst").onclick = () => { local.gravar("estante", !local.ler("estante", true)); desenhar(); };
   $("#ord").value = ord; $("#ord").onchange = (e) => { local.gravar("ordBib", e.target.value); desenhar(); };
   raiz.querySelectorAll("[data-col]").forEach((c) => (c.onclick = () => { local.gravar("colBib", c.dataset.col); desenhar(); }));
   $("#filtro").oninput = (e) => { const t = e.target.value.toLowerCase(); for (const a of ($("#grade")?.children || [])) a.style.display = a.textContent.toLowerCase().includes(t) ? "" : "none"; };
@@ -164,13 +166,14 @@ rota("/perfil", async () => {
   const palavras = minhas.reduce((s, o) => s + (o.palavras || 0), 0);
   casca("perfil", `<div class="perfil-topo">${banner || foto ? `<img src="${banner || foto}" alt="">` : ""}</div>
     <div class="perfil-card vidro">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="av" style="width:88px;height:88px;font-size:34px">${foto ? `<img src="${foto}">` : esc(nomeAutor().slice(0, 1).toUpperCase())}</span>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="anel-gira"><span class="av" style="width:88px;height:88px;font-size:34px">${foto ? `<img src="${foto}">` : esc(nomeAutor().slice(0, 1).toUpperCase())}</span></span>
         <div style="flex:1"></div><button class="btn peq" id="editar">Editar perfil</button><a class="btn2 peq" href="#/autor/${E.usuario.uid}">Perfil público</a><a class="btn2 peq" href="#/ajustes">Ajustes</a></div>
       <div class="rotulo" style="margin-top:16px">${minhas.length ? `Autor · ${minhas.length} ${minhas.length === 1 ? "obra" : "obras"}` : "Leitor"}</div>
       <div class="nome">${esc(nomeAutor())}</div>
       <div class="suave">${esc(E.perfil.bio || "Escreva sua bio em Editar perfil.")}</div>
       <div class="numeros"><div><b>${milhar(pub?.seguidores || 0)}</b><span>seguidores</span></div><div><b>${minhas.length}</b><span>obras</span></div><div><b>${lendo.length}</b><span>lendo</span></div><div><b>${local.ler("autoresSeguidos", []).length}</b><span>autores seguidos</span></div></div>
     </div>
+    <div class="progresso-pc" id="progresso">${cartaoNivelHTML()}</div>
     ${minhas.length ? `<div class="sec"><h2>Minhas obras</h2></div><div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : "escrevendo")).join("")}</div>` : ""}
     ${lendo.length ? `<div class="sec"><h2>Lendo agora</h2></div><div class="grade">${lendo.map((o) => cartao(o, o.autor ? "por " + o.autor : "")).join("")}</div>` : ""}
     <div id="moedas"></div><div id="conquistas"></div><div id="citacoes"></div>`);
@@ -180,7 +183,7 @@ rota("/perfil", async () => {
   carteira().then((c) => { const el = $("#moedas"); if (el) el.innerHTML = `<details class="card moedas"><summary><span style="font-size:26px">🪙</span><div><b><span data-saldo>${c.saldo}</span> moedas</b><div class="peq">Para ler capítulos antes de todo mundo · clique para ver como ganhar</div></div></summary>
     <ul><li>Abrir o Novely: +3 por dia</li><li>Terminar um capítulo de outro autor: +1 (até 10 por dia)</li><li>Comentar: +1 (até 5 por dia)</li><li>Gastar: obras com 🔒 “Antes de todo mundo” liberam capítulos agendados</li></ul><span class="peq">As moedas são grátis e não valem dinheiro. A carteira é a mesma do celular.</span></details>`; });
   $("#conquistas").innerHTML = `<div class="sec"><h2>Conquistas<span class="sub">${ganhas.size} de ${CONQUISTAS.length}${ganhas.size ? "" : " · abra o app no celular para atualizar"}</span></h2></div>
-    <div class="conquistas">${[...CONQUISTAS].sort((a, b) => ganhas.has(b[0]) - ganhas.has(a[0])).map(([id, ic, t, cor]) => `<div class="conquista ${ganhas.has(id) ? "" : "apagada"}"><span style="--c:${cor}">${ic}</span><small>${t}</small></div>`).join("")}</div>`;
+    <div class="conquistas">${[...CONQUISTAS].sort((a, b) => ganhas.has(b[0]) - ganhas.has(a[0])).map(([id, ic, t, cor]) => `<div class="conquista ${ganhas.has(id) ? "brilha" : "apagada"}"><span style="--c:${cor}">${ic}</span><small>${t}</small></div>`).join("")}</div>`;
   // citações favoritas (grifos)
   try {
     const gs = (await getDocs(query(colItens(), where("tipo", "==", "marcadores")))).docs.map((d) => ({ ...d.data().dados, obra: d.data().obra, apagado: d.data().apagado })).filter((m) => !m.apagado && (m.trecho || "").length > 20).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0)).slice(0, 12);
@@ -188,6 +191,7 @@ rota("/perfil", async () => {
     if (gs.length) $("#citacoes").innerHTML = `<div class="sec"><h2>Citações favoritas</h2></div><div class="fileira">${gs.map((m) => `<div class="citacao" style="--c:${CG[m.cor] || "#E9A65A"}"><p>“${esc(m.trecho.slice(0, 240))}”</p><small>${esc(E.obras.get(m.obra)?.titulo || "")}</small><button class="btn peq" data-copiar="${esc(m.trecho)}">Copiar</button></div>`).join("")}</div>`;
     raiz.querySelectorAll("[data-copiar]").forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.dataset.copiar); toast("Copiado"); }));
   } catch (e) { console.warn(e); }
+  const religarBau = () => { $("#progresso").innerHTML = cartaoNivelHTML(); ligarBau(religarBau); }; ligarBau(religarBau);
   $("#editar").onclick = () => editarPerfil(foto, banner);
 });
 

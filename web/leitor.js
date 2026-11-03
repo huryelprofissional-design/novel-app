@@ -1,4 +1,5 @@
 // Leitor (biblioteca e catálogo), editor e revisão.
+import { ligarClima, registrar, confete, reacoesHTML, ligarReacoes, fimHTML } from "./efeitos.js";
 import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas,
   capitulos, fichas, marcadores, salvarCapitulo, salvarObra, salvarItem, apagarItem, lerTexto, colTextos, salvarTexto, novoId, dialogo, confirmar,
@@ -32,6 +33,7 @@ function painelAjustes(aoMudar) {
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="capi" ${p.capitular ? "checked" : ""}> Primeira letra grande (capitular)</label>
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="mara" ${p.maratona ? "checked" : ""}> Maratona: próximo capítulo começa sozinho</label>
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="cobra" ${usarCorDaObra() ? "checked" : ""}> Cores da capa da obra</label>
+    <label class="troca" style="margin-top:10px"><input type="checkbox" id="clima" ${local.ler("climaCena", true) ? "checked" : ""}> Clima da cena (chuva, neve, fogo…)</label>
     <label class="rot" style="margin-top:14px">Ouvir</label>
     <label class="troca"><input type="checkbox" id="vpers" ${local.ler("vozesPersonagens", true) ? "checked" : ""}> Uma voz para cada personagem (pelo “disse Fulano”)</label>
     <select class="campo" id="narr" style="margin-top:8px"><option value="">Narrador: voz padrão</option>${speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt")).map((v) => `<option value="${esc(v.name)}" ${v.name === local.ler("narradorPC", "") ? "selected" : ""}>Narrador: ${esc(v.name)}</option>`).join("")}</select>
@@ -48,6 +50,7 @@ function painelAjustes(aoMudar) {
   $("#mara", d).onchange = (e) => grava("maratona", e.target.checked);
   $("#cobra", d).onchange = (e) => { local.gravar("corDaObra", e.target.checked); window.redesenhar(); };
   $("#vpers", d).onchange = (e) => local.gravar("vozesPersonagens", e.target.checked);
+  $("#clima", d).onchange = (e) => { local.gravar("climaCena", e.target.checked); window.redesenhar(); };
   $("#narr", d).onchange = (e) => local.gravar("narradorPC", e.target.value);
   $("#idi", d).onchange = (e) => { local.gravar("idiomaLeitura", e.target.value); d.close(); window.redesenhar(); };
   $$("[data-fonte]", d).forEach((c) => (c.onclick = () => { grava("fonte", c.dataset.fonte); $$("[data-fonte]", d).forEach((x) => x.classList.toggle("on", x === c)); }));
@@ -281,9 +284,11 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
       await salvarObra(obraId, { lidaEm: agora(), ultimoCap: capId });
     }, 1200);
   };
-  window.onscroll = () => { aoRolar(); maratona(prox && `/ler/${obraId}/${prox.id}`); }; aoRolar();
+  const fimXp = () => { if (o.minha || local.ler("xpLido/" + capId, false)) return; const alt = document.documentElement.scrollHeight - innerHeight; if (alt <= 0 || scrollY / alt < .97) return; local.gravar("xpLido/" + capId, true); registrar("ler"); confete(90); };
+  window.onscroll = () => { aoRolar(); fimXp(); maratona(prox && `/ler/${obraId}/${prox.id}`); }; aoRolar();
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/ler/${obraId}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/ler/${obraId}/${ant.id}`); };
-  E.saindo = async () => { pararVoz(); };
+  const desligarClima = ligarClima();
+  E.saindo = async () => { pararVoz(); desligarClima(); };
 });
 
 function menuParagrafo(p, bloco, obraId, capId, grifos, redesenhar) {
@@ -297,7 +302,7 @@ function menuParagrafo(p, bloco, obraId, capId, grifos, redesenhar) {
   const salvar = async (campos) => {
     const id = g?.id || novoId();
     const dados = { cap: capId, bloco, trecho: p.textContent.slice(0, 400), cor: g?.cor || "AMBAR", nota: g?.nota || "", criadoEm: g?.criadoEm || agora(), ...campos };
-    await salvarItem("marcadores", obraId, id, dados); grifos.set(bloco, { ...dados, id }); redesenhar();
+    await salvarItem("marcadores", obraId, id, dados); if (!g) registrar("grifar"); grifos.set(bloco, { ...dados, id }); redesenhar();
   };
   $$("[data-cor]", m).forEach((b) => (b.onclick = () => { m.remove(); salvar({ cor: b.dataset.cor }); }));
   $$("[data-a]", m).forEach((b) => (b.onclick = async () => {
@@ -336,7 +341,19 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   ta.value = original;
   const base = contarPalavras(original);
   let salvo = original, tituloSalvo = c.titulo || "", tempo = null, gravando = false;
-  const contar = () => { const n = contarPalavras(ta.value); cont.textContent = `${n.toLocaleString("pt-BR")} palavras · salva sozinho e aparece no celular`; $("#sessao").textContent = n !== base ? `sessão: ${n - base >= 0 ? "+" : ""}${(n - base).toLocaleString("pt-BR")}` : ""; };
+  // fogueira: anel da meta do dia + chama que cresce + XP a cada 10 palavras novas
+  const fog = document.createElement("div"); fog.className = "fogueira"; fog.title = "Meta do dia"; fog.innerHTML = `<div class="anel-xp" style="--f:0"><b>🔥</b></div><small></small>`; document.body.append(fog);
+  let ultN = null;
+  const fogueira = (n) => {
+    const d = new Date().toISOString().slice(0, 10); let h = local.ler("palavrasHoje", { d, n: 0 }); if (h.d !== d) h = { d, n: 0 };
+    if (ultN !== null && n > ultN) { const antes = h.n; h.n += n - ultN; local.gravar("palavrasHoje", h); const dez = Math.floor(h.n / 10) - Math.floor(antes / 10); if (dez > 0) registrar("escrever", dez * 10); }
+    ultN = n;
+    const meta = local.ler("metaDiaria", 1000), f = Math.min(1, h.n / meta);
+    fog.querySelector(".anel-xp").style.setProperty("--f", f); fog.querySelector("b").style.fontSize = 14 + 16 * f + "px"; fog.classList.toggle("batida", f >= 1);
+    fog.querySelector("small").textContent = `${h.n}/${meta}`;
+  };
+  fog.onclick = async () => { const r = await perguntar("Meta diária de palavras", String(local.ler("metaDiaria", 1000)), "1000"); const v = parseInt(r); if (v > 0) { local.gravar("metaDiaria", v); fogueira(contarPalavras(ta.value)); } };
+  const contar = () => { const n = contarPalavras(ta.value); fogueira(n); cont.textContent = `${n.toLocaleString("pt-BR")} palavras · salva sozinho e aparece no celular`; $("#sessao").textContent = n !== base ? `sessão: ${n - base >= 0 ? "+" : ""}${(n - base).toLocaleString("pt-BR")}` : ""; };
   const salvar = async () => {
     if (gravando || (ta.value === salvo && ti.value === tituloSalvo)) return;
     gravando = true; est.textContent = "Salvando…"; est.style.color = "var(--amb)";
@@ -411,7 +428,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   };
   contar(); ta.focus();
   window.onbeforeunload = (e) => { if (ta.value !== salvo) { salvar(); e.preventDefault(); } };
-  E.saindo = async () => { window.onbeforeunload = null; document.body.classList.remove("foco"); clearTimeout(tempo); await salvar(); };
+  E.saindo = async () => { fog.remove(); window.onbeforeunload = null; document.body.classList.remove("foco"); clearTimeout(tempo); await salvar(); };
 });
 
 // ───────── LEITOR DO CATÁLOGO ─────────
@@ -433,7 +450,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
     <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo)}</h1><div class="suave peq">por <a href="#/autor/${esc(o.autorUid)}" style="text-decoration:underline">${esc(o.autorNome)}</a> · ${palavrasFmt(c.palavras)} palavras</div></div>
     ${cartaoAnterior(ant)}
     <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fichasLista), new Map(), { enfeite: o.enfeite, coms: porTrecho })}</div>
-    <div class="fim"><div class="losango" style="width:14px;height:14px"></div>
+    <div class="fim">${fimHTML(i + 1, caps.length, i + 1)}${await reacoesHTML(pid, cid)}
       <div class="social"><button class="btn2 ${gostei ? "on" : ""}" id="curtir">${gostei ? "♥" : "♡"} <span id="nc">${c.curtidas || 0}</span></button><span class="suave">💬 ${coms.length}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${ant ? `<a class="btn2" href="#/publer/${pid}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/publer/${pid}/${prox.id}">Próximo ›</a>` : `<span class="suave">Último capítulo publicado.</span>`}</div></div>
     <div class="comentarios vidro"><h3 style="margin-top:0">Comentários</h3>
@@ -445,7 +462,8 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   $("#aj").onclick = () => painelAjustes(() => $(".leitor").setAttribute("style", estiloLeitura()));
   $("#lcaps").onclick = () => painelCapitulos(caps, cid, (x) => `#/publer/${pid}/${x.id}`);
   $("#curtir").onclick = async (e) => { const b = e.currentTarget; const sim = !b.classList.contains("on"); b.classList.toggle("on", sim); b.firstChild.textContent = sim ? "♥ " : "♡ "; $("#nc").textContent = (+$("#nc").textContent) + (sim ? 1 : -1); try { await curtir(pid, cid, sim); } catch (_) {} };
-  $("#enviar").onclick = async () => { const t = $("#com").value.trim(); if (!t) return; await comentar(pid, cid, t); toast("Comentário enviado"); window.redesenhar(); };
+  $("#enviar").onclick = async () => { const t = $("#com").value.trim(); if (!t) return; await comentar(pid, cid, t); registrar("comentar"); toast("Comentário enviado"); window.redesenhar(); };
+  ligarReacoes();
   $$("[data-ac]").forEach((b) => (b.onclick = async () => { if (await confirmar("Apagar comentário?", "", "Apagar", true)) { await apagarComentario(pid, cid, b.dataset.ac); window.redesenhar(); } }));
   scrollTo(0, 0);
   contarLeitura(pid, cid);
@@ -455,7 +473,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   if (naBib) salvarObra(naBib[0], { lidaEm: agora() });
   let ganhou = false;
   const aoRolar = () => { const alt = document.documentElement.scrollHeight - innerHeight; const fr = alt > 0 ? Math.min(1, scrollY / alt) : 1; const b = $("#prog"); if (b) b.style.width = fr * 100 + "%"; maratona(prox && `/publer/${pid}/${prox.id}`);
-    if (fr > 0.97 && !ganhou && o.autorUid !== E.usuario.uid) { ganhou = true; ganharMoedas(1, "leitura", 10, pid + "/" + cid).then((n) => n && toast("🪙 +1 moeda por terminar o capítulo")); } };
+    if (fr > 0.97 && !ganhou && o.autorUid !== E.usuario.uid) { ganhou = true; if (!local.ler("xpLido/" + cid, false)) { local.gravar("xpLido/" + cid, true); registrar("ler"); confete(90); } ganharMoedas(1, "leitura", 10, pid + "/" + cid).then((n) => n && toast("🪙 +1 moeda por terminar o capítulo")); } };
   // estatística para o autor: parágrafo mais longe que a pessoa chegou e tempo na página
   const blocos = $$("#texto [data-b]"); const totalB = blocos.length ? +blocos[blocos.length - 1].dataset.b + 1 : 0;
   let maxB = -1, inicio = Date.now();
@@ -466,7 +484,8 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   medir();
   window.onscroll = () => { aoRolar(); medir(); };
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/publer/${pid}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/publer/${pid}/${ant.id}`); };
-  E.saindo = async () => { document.removeEventListener("visibilitychange", aoEsconder); enviar(); pararVoz(); };
+  const desligarClima = ligarClima();
+  E.saindo = async () => { document.removeEventListener("visibilitychange", aoEsconder); enviar(); pararVoz(); desligarClima(); };
 });
 
 // ───────── REVISÃO (notas de revisores) ─────────
