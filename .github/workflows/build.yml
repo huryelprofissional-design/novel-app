@@ -44,11 +44,12 @@ jobs:
 
       - name: Fotos das telas (testes)
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: telas
-          path: app/build/telas/*.png
-          if-no-files-found: ignore
+        run: |
+          [ -d app/build/telas ] || exit 0
+          cd app/build/telas
+          git init -q && git checkout -q -b telas && git add *.png
+          git -c user.name=novely-ci -c user.email=ci@novely commit -qm "telas do build ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" telas
 
       - name: Publicar APK
         uses: softprops/action-gh-release@v2
