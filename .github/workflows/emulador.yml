@@ -1,0 +1,70 @@
+name: Teste no emulador
+
+# Depois de cada APK: instala num Android de verdade (emulador), abre, cutuca a tela
+# e mede travadas. Não atrasa a publicação do APK.
+on:
+  workflow_run:
+    workflows: ["Gerar APK"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  testar:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Liberar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+
+      - name: Baixar o APK publicado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh api repos/${{ github.repository }}/releases?per_page=1 --jq '.[0].tag_name')
+          echo "Testando $TAG"; echo "TAG=$TAG" >> $GITHUB_ENV
+          gh release download "$TAG" -R ${{ github.repository }} -p "*.apk" -O novely.apk
+
+      - name: Abrir e cutucar no emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r novely.apk
+            adb logcat -c
+            adb shell am start -W -n com.huryel.novely/.MainActivity | tee inicio.txt
+            sleep 8
+            adb shell pidof com.huryel.novely > /dev/null && echo "ABRIU" || echo "NAO_ABRIU"
+            adb shell monkey -p com.huryel.novely --throttle 120 --pct-syskeys 0 -s 42 600 > monkey.txt 2>&1 || true
+            sleep 2
+            adb shell dumpsys gfxinfo com.huryel.novely > gfx.txt || true
+            adb logcat -d > logcat.txt
+            grep -E "TotalTime|WaitTime" inicio.txt || true
+
+      - name: Resultado
+        if: always()
+        run: |
+          T=$(grep -oP "TotalTime: \K\d+" inicio.txt 2>/dev/null || echo "?")
+          echo "::notice title=Abertura::$TAG abriu em ${T} ms (emulador sem GPU, no celular é mais rápido)"
+          J=$(grep -E "Janky frames:" gfx.txt | head -1 | sed 's/^ *//')
+          [ -n "$J" ] && echo "::notice title=Fluidez::$J"
+          if grep -qE "FATAL EXCEPTION|ANR in com.huryel.novely|// CRASH: com.huryel.novely" logcat.txt monkey.txt; then
+            grep -A25 -E "FATAL EXCEPTION|ANR in com.huryel.novely|// CRASH" logcat.txt monkey.txt | head -60 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+            exit 1
+          fi
+          echo "::notice title=Estabilidade::Sem fechamentos nem travamentos em 600 toques aleatórios"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teste-emulador
+          path: |
+            logcat.txt
+            monkey.txt
+            gfx.txt
