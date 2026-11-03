@@ -83,7 +83,7 @@ fun AnelProgresso(fracao: Float, tamanho: Dp, cor: Color, espessura: Dp = 5.dp, 
     }
 }
 
-private data class Pedaco(val x: Float, val vx: Float, val vy: Float, val rot: Float, val vr: Float, val cor: Color, val w: Float, val h: Float, val atraso: Float)
+private data class Papelzinho(val x: Float, val vx: Float, val vy: Float, val rot: Float, val vr: Float, val cor: Color, val w: Float, val h: Float, val atraso: Float)
 private val CORES_CONFETE = listOf(LARANJA_FX, ROXO_FX, AZUL_FX, OURO_FX, Color(0xFFF07AAE), Color(0xFF6FCF97))
 
 /** Chuva de confete (dura ~2,5 s). Mude [chave] para soltar de novo. */
@@ -92,7 +92,7 @@ fun Confete(chave: Any, modifier: Modifier = Modifier.fillMaxSize(), quantidade:
     val tempo = remember(chave) { Animatable(0f) }
     val pedacos = remember(chave) {
         val r = Random(chave.hashCode())
-        List(quantidade) { Pedaco(r.nextFloat(), (r.nextFloat() - 0.5f) * 0.25f, 0.55f + r.nextFloat() * 0.7f, r.nextFloat() * 360, (r.nextFloat() - 0.5f) * 900,
+        List(quantidade) { Papelzinho(r.nextFloat(), (r.nextFloat() - 0.5f) * 0.25f, 0.55f + r.nextFloat() * 0.7f, r.nextFloat() * 360, (r.nextFloat() - 0.5f) * 900,
             CORES_CONFETE[it % CORES_CONFETE.size], 6f + r.nextFloat() * 6, 9f + r.nextFloat() * 8, r.nextFloat() * 0.35f) }
     }
     LaunchedEffect(chave) { tempo.animateTo(1f, tween(2600, easing = LinearEasing)) }
