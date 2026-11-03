@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowLooper
 
-/** Fotografa telas com dados de exemplo (build/telas/*.png) para conferir o visual sem celular. */
+// Fotografa telas com dados de exemplo (PNG em build/telas) para conferir o visual sem celular.
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = android.app.Application::class, qualifiers = "w400dp-h860dp-xxhdpi")
