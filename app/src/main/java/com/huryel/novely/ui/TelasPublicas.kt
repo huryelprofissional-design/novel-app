@@ -123,6 +123,17 @@ fun TelaDescobrirCatalogo(nav: NavHostController) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 120.dp)) {
         item { TopoAba("Descobrir", nav) }
         item {
+            Row(Modifier.padding(horizontal = 18.dp).padding(bottom = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF1B1B2F), Color(0xFF3B2A4A), Color(0xFFFF6A2B).copy(alpha = 0.6f))))
+                .brilho(3400).clickable { nav.navigate("feed") }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("▶", fontSize = 22.sp, color = Color.White)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text("Primeiras linhas", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color.White)
+                    Text("Deslize por inícios de histórias e ache a próxima", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                }
+            }
+        }
+        item {
             OutlinedTextField(busca, { busca = it }, placeholder = { Text("Obras, autores, tags…") }, singleLine = true, shape = RoundedCornerShape(14.dp),
                 leadingIcon = { Icon(Icones.lupa, null, tint = p.textoSuave, modifier = Modifier.size(18.dp)) },
                 colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = p.superficie, focusedContainerColor = p.superficie, unfocusedBorderColor = p.borda, focusedBorderColor = p.destaque),

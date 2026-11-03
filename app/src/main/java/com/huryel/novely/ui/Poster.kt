@@ -60,9 +60,11 @@ fun PerfilPoster(
                 .padding(horizontal = 20.dp, vertical = 20.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                AnelGirando(92.dp, 3.dp, true) {
                 Box(Modifier.size(80.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(0xFFFF6A2B), Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
                     if (foto != null) Image(foto, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     else Text(nome.trim().take(1).uppercase().ifEmpty { "?" }, fontWeight = FontWeight.Black, fontSize = 30.sp, color = Color.White)
+                }
                 }
                 Spacer(Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = botoes)

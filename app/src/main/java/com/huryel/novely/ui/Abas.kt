@@ -644,6 +644,7 @@ fun TelaPerfilAba(nav: NavHostController) {
             PilulaContorno("Meu perfil público") { nav.navigate("autor/${app.pub.meuUid}") }
             PilulaContorno("Conta e nuvem") { nav.navigate("ajustes/conta") }
         }
+        BannerRetro { nav.navigate("retro") }
         Spacer(Modifier.height(10.dp))
         CartaoNivel()
         CartaoMissoes()

@@ -186,10 +186,11 @@ fun SecaoConquistas() {
     Text("Conquistas", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White, modifier = Modifier.padding(top = 22.dp))
     Text("${l.count { it.ganhou }} de ${l.size}", fontSize = 12.sp, color = p.textoSuave)
     Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        l.sortedByDescending { it.ganhou }.forEach { c ->
+        l.sortedByDescending { it.ganhou }.forEachIndexed { k, c ->
             Column(Modifier.width(84.dp).alpha(if (c.ganhou) 1f else 0.4f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(58.dp).then(if (c.ganhou) Modifier.shadow(14.dp, CircleShape, ambientColor = c.cor, spotColor = c.cor) else Modifier).clip(CircleShape)
-                    .background(if (c.ganhou) Brush.radialGradient(listOf(c.cor, c.cor.copy(alpha = 0.45f))) else Brush.linearGradient(listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.04f)))),
+                    .background(if (c.ganhou) Brush.radialGradient(listOf(c.cor, c.cor.copy(alpha = 0.45f))) else Brush.linearGradient(listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.04f))))
+                    .then(if (c.ganhou) Modifier.brilho(2800, k * 260) else Modifier),
                     contentAlignment = Alignment.Center) { Text(c.icone, fontSize = 22.sp, color = Color.White) }
                 Text(c.titulo, fontSize = 10.5.sp, lineHeight = 13.sp, color = Color(0xFFCCCCCC), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
             }
