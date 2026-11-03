@@ -24,7 +24,7 @@ data class CapImport(val titulo: String, val palavras: Int, val arquivo: File, v
 data class PreviaImport(
     val uri: Uri,
     val nomeArquivo: String,
-    val tipo: String, // TXT | EPUB
+    val tipo: String, // TXT | EPUB | DOCX
     val titulo: String,
     val capitulos: List<CapImport>,
     val modo: String, // AUTO | UM | PREFIXO
@@ -66,10 +66,15 @@ class Importador(private val ctx: Context, private val repo: Repositorio) {
         try {
             pastaTemp.deleteRecursively()
             val nome = nomeDe(uri)
-            val ehEpub = nome.endsWith(".epub", true) ||
-                ctx.contentResolver.getType(uri)?.contains("epub") == true
+            val tipoMime = ctx.contentResolver.getType(uri) ?: ""
+            val ehEpub = nome.endsWith(".epub", true) || tipoMime.contains("epub")
+            val ehDocx = nome.endsWith(".docx", true) || tipoMime.contains("wordprocessingml")
             _estado.value = EstadoImport.Lendo("Lendo $nome…")
-            val previa = if (ehEpub) lerEpub(uri, nome) else lerTxt(uri, nome, modo, prefixo)
+            val previa = when {
+                ehEpub -> lerEpub(uri, nome)
+                ehDocx -> lerTxt(Uri.fromFile(docxParaTexto(uri)), nome, modo, prefixo).copy(uri = uri, tipo = "DOCX")
+                else -> lerTxt(uri, nome, modo, prefixo)
+            }
             if (previa.capitulos.isEmpty()) {
                 _estado.value = EstadoImport.Erro("Não encontrei texto nesse arquivo. Ele pode estar vazio, protegido (DRM) ou em um formato diferente.")
             } else _estado.value = EstadoImport.Previa(previa)
@@ -120,6 +125,63 @@ class Importador(private val ctx: Context, private val repo: Repositorio) {
             total += r
         }
         return total
+    }
+
+    /** Word (.docx): pega o texto dos parágrafos, com itálico/negrito, e salva como TXT temporário. */
+    private fun docxParaTexto(uri: Uri): File {
+        var xml = ""
+        ctx.contentResolver.openInputStream(uri)!!.use { ins ->
+            java.util.zip.ZipInputStream(ins).use { z ->
+                var e = z.nextEntry
+                while (e != null) { if (e.name == "word/document.xml") { xml = z.readBytes().toString(Charsets.UTF_8); break }; e = z.nextEntry }
+            }
+        }
+        if (xml.isEmpty()) error("não achei o texto dentro do Word")
+        fun desfazer(t: String) = t.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
+        val rxRun = Regex("<w:r[ >].*?</w:r>", RegexOption.DOT_MATCHES_ALL)
+        val rxT = Regex("<w:t(?: [^>]*)?>(.*?)</w:t>|<w:tab/>|<w:br/>", RegexOption.DOT_MATCHES_ALL)
+        val saida = File(pastaTemp.apply { mkdirs() }, "word.txt")
+        saida.bufferedWriter().use { w ->
+            xml.split("</w:p>").forEach { par ->
+                val titulo = Regex("<w:pStyle w:val=\"(Heading|T[ií]tulo|Title)").containsMatchIn(par)
+                val sb = StringBuilder()
+                rxRun.findAll(par).forEach { r ->
+                    val run = r.value
+                    val texto = rxT.findAll(run).joinToString("") { m -> when { m.value == "<w:tab/>" -> " "; m.value == "<w:br/>" -> "\n"; else -> desfazer(m.groupValues[1]) } }
+                    if (texto.isBlank()) { sb.append(texto); return@forEach }
+                    val ital = Regex("<w:i(?: w:val=\"(?:1|true)\")?/>").containsMatchIn(run)
+                    val neg = Regex("<w:b(?: w:val=\"(?:1|true)\")?/>").containsMatchIn(run)
+                    sb.append(if (titulo) texto else if (neg) "**$texto**" else if (ital) "*$texto*" else texto)
+                }
+                val linha = sb.toString().replace("****", "").replace(Regex("(?<!\\*)\\*\\*(?!\\*)"), "").trim()
+                if (linha.isNotEmpty()) { w.write(if (titulo && !Texto.ehTituloCapitulo(linha)) "# $linha" else linha); w.write("\n\n") }
+            }
+        }
+        return saida
+    }
+
+    /**
+     * Importa de um link: Google Docs ("qualquer pessoa com o link"), ou link direto de .txt/.epub/.docx.
+     */
+    suspend fun analisarLink(link: String) = withContext(Dispatchers.IO) {
+        try {
+            pastaTemp.deleteRecursively(); pastaTemp.mkdirs()
+            val docs = Regex("docs\\.google\\.com/document/(?:u/\\d+/)?d/([\\w-]+)").find(link)?.groupValues?.get(1)
+            val url = if (docs != null) "https://docs.google.com/document/d/$docs/export?format=docx" else link.trim()
+            val nome = if (docs != null) "Documento do Google.docx" else link.substringAfterLast('/').substringBefore('?').ifBlank { "link.txt" }
+            _estado.value = EstadoImport.Lendo("Baixando…")
+            val con = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            con.instanceFollowRedirects = true; con.connectTimeout = 20000; con.readTimeout = 60000
+            if (con.responseCode !in 200..299) error("o link respondeu ${con.responseCode}")
+            val tipo = con.contentType ?: ""
+            if (tipo.contains("html")) error(if (docs != null) "o documento não está aberto. No Google Docs: Compartilhar › Qualquer pessoa com o link." else "esse link é uma página, não um arquivo (.txt, .epub ou .docx)")
+            val f = File(pastaTemp, nome)
+            con.inputStream.use { i -> f.outputStream().use { i.copyTo(it) } }
+            val destinoFinal = File(ctx.cacheDir, "link-" + nome).also { f.copyTo(it, overwrite = true) }
+            analisar(Uri.fromFile(destinoFinal))
+        } catch (e: Exception) {
+            _estado.value = EstadoImport.Erro("Não consegui baixar: ${e.message ?: e.javaClass.simpleName}")
+        }
     }
 
     private fun lerTxt(uri: Uri, nome: String, modo: String, prefixo: String): PreviaImport {

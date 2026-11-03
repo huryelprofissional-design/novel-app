@@ -49,6 +49,16 @@ fun TelaImportar(nav: NavHostController, destino: Long?) {
             is EstadoImport.Concluido -> Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Pronto!", style = MaterialTheme.typography.displaySmall)
                 Text("${e.capitulos} capítulos importados.", color = p.textoSuave)
+                var fichas by remember { mutableStateOf<String?>(null) }
+                OutlinedButton(onClick = {
+                    fichas = "Procurando nomes…"
+                    app.escopo.launch {
+                        val nomes = app.repo.nomesSemFicha(e.obraId).filter { it.second >= 6 }.take(30)
+                        nomes.forEach { (n, _) -> app.repo.salvarFicha(com.huryel.novely.data.Ficha(obraId = e.obraId, nome = n)) }
+                        fichas = if (nomes.isEmpty()) "Não achei nomes que se repetem bastante." else "${nomes.size} fichas criadas: ${nomes.take(6).joinToString { it.first }}${if (nomes.size > 6) "…" else ""}. Confira em Personagens (dá para juntar e trocar para Lugar)."
+                    }
+                }, enabled = fichas == null, modifier = Modifier.fillMaxWidth()) { Text("☺ Criar fichas dos personagens pelos nomes") }
+                fichas?.let { Text(it, fontSize = 13.sp, color = p.textoSuave) }
                 Button(onClick = { imp.limpar(); nav.navigate("obra/${e.obraId}") { popUpTo("inicio") } },
                     colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text("Abrir obra", fontWeight = FontWeight.Bold)
@@ -72,7 +82,16 @@ private fun Inicio(destino: Long?, abrir: (Array<String>) -> Unit, nav: NavHostC
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CartaoFormato("EPUB", "Livro digital", p.destaque, Modifier.weight(1f)) { abrir(arrayOf("application/epub+zip", "application/octet-stream")) }
             CartaoFormato("TXT", "Texto simples", Color(0xFF6FC2B4), Modifier.weight(1f)) { abrir(arrayOf("text/plain", "text/markdown", "application/octet-stream")) }
+            CartaoFormato("WORD", ".docx", Color(0xFF5B8CFF), Modifier.weight(1f)) { abrir(arrayOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/octet-stream")) }
         }
+        var link by remember { mutableStateOf("") }
+        Text("Ou cole um link", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(link, { link = it }, placeholder = { Text("Google Docs ou link de .txt/.epub/.docx") }, singleLine = true, modifier = Modifier.weight(1f))
+            Button(onClick = { val l = link.trim(); com.huryel.novely.NovelyApp.instancia.escopo.launch { com.huryel.novely.NovelyApp.instancia.importador.analisarLink(l) } },
+                enabled = link.startsWith("http"), colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque)) { Text("Ir") }
+        }
+        Text("Google Docs: deixe em Compartilhar › “Qualquer pessoa com o link”.", color = p.textoSuave, fontSize = 12.sp)
         Text("Dica: em TXT, capítulos são detectados por linhas como “Capítulo 12”, “Chapter 12”, “Prólogo” ou “# Título”.",
             color = p.textoSuave, fontSize = 13.sp)
         if (destino == null) {
