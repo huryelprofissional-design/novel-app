@@ -942,7 +942,7 @@ private fun CartaoMoedas() {
 /** Livro na prateleira: entra girando, barra de progresso enchendo, selo de capítulo novo pulando e lombada dourada nas lidas. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LivroEstante(o: ResumoObra, idx: Int, novos: Int?, segurar: () -> Unit, abrir: () -> Unit) {
+internal fun LivroEstante(o: ResumoObra, idx: Int, novos: Int?, segurar: () -> Unit, abrir: () -> Unit) {
     val p = LocalPaleta.current
     val entrada = remember(o.id) { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(o.id) { kotlinx.coroutines.delay((idx % 12) * 70L); entrada.animateTo(1f, androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
