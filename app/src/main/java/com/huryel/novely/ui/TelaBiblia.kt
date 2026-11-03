@@ -41,7 +41,7 @@ private val COR_ATENCAO = Color(0xFFFF9A3C)
 private val COR_DICA = Color(0xFF4DA3FF)
 private fun corNivel(n: Biblia.Nivel) = when (n) { Biblia.Nivel.FURO -> COR_FURO; Biblia.Nivel.ATENCAO -> COR_ATENCAO; Biblia.Nivel.DICA -> COR_DICA }
 private fun nomeNivel(n: Biblia.Nivel) = when (n) { Biblia.Nivel.FURO -> "FURO"; Biblia.Nivel.ATENCAO -> "ATENÇÃO"; Biblia.Nivel.DICA -> "DICA" }
-private fun corRelacao(t: String) = when (t) { "família" -> Color(0xFF6FCF97); "romance" -> Color(0xFFFF6FA8); "rivais" -> COR_FURO; "aliados" -> COR_DICA; else -> Color(0xFF9A9A9A) }
+internal fun corRelacao(t: String) = when (t) { "família" -> Color(0xFF6FCF97); "romance" -> Color(0xFFFF6FA8); "rivais" -> COR_FURO; "aliados" -> COR_DICA; else -> Color(0xFF9A9A9A) }
 
 /** Bíblia viva: furos, retrato de cada personagem e relações — tudo lido dos capítulos, no aparelho. */
 @Composable
@@ -51,8 +51,6 @@ fun TelaBiblia(obraId: Long, nav: NavHostController, abaInicial: String = "ALERT
     val ignorados by app.prefs.bibliaIgnorados.estado.collectAsState()
     val fichasFluxo by remember(obraId) { app.repo.fichas(obraId) }.collectAsState(initial = null)
     var r by remember { mutableStateOf<Biblia.Resultado?>(null) }
-    var aba by remember { mutableStateOf(abaInicial) }
-    var aberto by remember { mutableStateOf<Long?>(null) }
     val escopo = rememberCoroutineScope()
     LaunchedEffect(obraId, ignorados, fichasFluxo) { r = app.repo.biblia(obraId, ignorados) }
 
@@ -66,11 +64,25 @@ fun TelaBiblia(obraId: Long, nav: NavHostController, abaInicial: String = "ALERT
             }
             return@Column
         }
+        ConteudoBiblia(res, abaInicial, abrirCap = { nav.navigate("editor/$it") }, ignorar = { app.prefs.ignorarAlerta(it) },
+            porNaFicha = { f, fato -> escopo.launch { gravarNaFicha(f, fato) } })
+    }
+}
+
+/** O conteúdo da Bíblia (sem carregar nada): separado para dar para testar e fotografar a tela. */
+@Composable
+fun ConteudoBiblia(res: Biblia.Resultado, abaInicial: String, abrirCap: (Long) -> Unit, ignorar: (String) -> Unit,
+                   porNaFicha: (com.huryel.novely.data.Ficha, Biblia.Fato) -> Unit) {
+    val p = LocalPaleta.current
+    var aba by remember { mutableStateOf(abaInicial) }
+    var aberto by remember { mutableStateOf<Long?>(null) }
+    Column(Modifier.fillMaxSize()) {
         Text("Lida agora dos ${res.caps.size} capítulos, aqui no celular. São pistas, não regras: você decide.",
             fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(horizontal = 20.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Alertas · ${res.alertas.size}", aba == "ALERTAS") { aba = "ALERTAS" }
             Chip("Personagens", aba == "PESSOAS") { aba = "PESSOAS" }
+            Chip("Mapa", aba == "MAPA") { aba = "MAPA" }
             Chip("Relações · ${res.relacoes.size}", aba == "RELACOES") { aba = "RELACOES" }
         }
         when (aba) {
@@ -96,18 +108,16 @@ fun TelaBiblia(obraId: Long, nav: NavHostController, abaInicial: String = "ALERT
                         if (a.frase.isNotBlank()) Text("“${a.frase}”", fontSize = 13.sp, fontStyle = FontStyle.Italic, lineHeight = 19.sp,
                             modifier = Modifier.fillMaxWidth().clip(forma(10.dp)).background(p.fundo.copy(alpha = 0.6f)).padding(10.dp))
                         Row {
-                            res.caps.getOrNull(a.cap)?.let { c -> TextButton(onClick = { nav.navigate("editor/${c.id}") }) { Text("Abrir capítulo", color = p.destaque) } }
+                            res.caps.getOrNull(a.cap)?.let { c -> TextButton(onClick = { abrirCap(c.id) }) { Text("Abrir capítulo", color = p.destaque) } }
                             Spacer(Modifier.weight(1f))
-                            TextButton(onClick = { app.prefs.ignorarAlerta(a.chave) }) { Text("Está certo, ignorar", color = p.textoSuave) }
+                            TextButton(onClick = { ignorar(a.chave) }) { Text("Está certo, ignorar", color = p.textoSuave) }
                         }
                     }
                 }
             }
             "PESSOAS" -> LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val lista = res.retratos.filter { it.ficha.tipo != TipoFicha.LUGAR }
-                items(lista, key = { it.ficha.id }) { rt -> Retrato(rt, res, aberto == rt.ficha.id, { aberto = if (aberto == rt.ficha.id) null else rt.ficha.id }) { fato ->
-                    escopo.launch { porNaFicha(rt.ficha, fato) }
-                } }
+                items(lista, key = { it.ficha.id }) { rt -> Retrato(rt, res, aberto == rt.ficha.id, { aberto = if (aberto == rt.ficha.id) null else rt.ficha.id }) { fato -> porNaFicha(rt.ficha, fato) } }
                 val lugares = res.retratos.filter { it.ficha.tipo == TipoFicha.LUGAR && it.total > 0 }
                 if (lugares.isNotEmpty()) item { Text("LUGARES", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = p.destaque, modifier = Modifier.padding(top = 10.dp)) }
                 items(lugares, key = { "l" + it.ficha.id }) { rt ->
@@ -120,6 +130,7 @@ fun TelaBiblia(obraId: Long, nav: NavHostController, abaInicial: String = "ALERT
                     }
                 }
             }
+            "MAPA" -> MapaRelacoes(res)
             else -> LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (res.relacoes.isEmpty()) item { Text("Ainda não há personagens dividindo cenas (duas cenas juntos ou mais).", color = p.textoSuave, modifier = Modifier.padding(10.dp)) }
                 item { Legenda() }
@@ -222,7 +233,7 @@ private fun Retrato(rt: Biblia.Retrato, res: Biblia.Resultado, aberto: Boolean, 
 }
 
 /** Leva um fato do texto para a ficha (sem apagar o que já está lá). */
-private suspend fun porNaFicha(f0: com.huryel.novely.data.Ficha, fato: Biblia.Fato) {
+private suspend fun gravarNaFicha(f0: com.huryel.novely.data.Ficha, fato: Biblia.Fato) {
     val repo = NovelyApp.instancia.repo
     val f = repo.dao.fichasAgora(f0.obraId).firstOrNull { it.id == f0.id } ?: return
     fun junta(atual: String, novo: String) = if (atual.contains(novo, true)) atual else listOf(atual.trim().trimEnd('.'), novo).filter { it.isNotBlank() }.joinToString(". ")

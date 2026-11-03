@@ -42,6 +42,14 @@ jobs:
             while IFS= read -r l; do echo "::notice title=Desempenho::$l"; done < app/build/desempenho.txt
           fi
 
+      - name: Fotos das telas (testes)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telas
+          path: app/build/telas/*.png
+          if-no-files-found: ignore
+
       - name: Publicar APK
         uses: softprops/action-gh-release@v2
         with:

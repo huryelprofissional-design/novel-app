@@ -21,7 +21,7 @@ object Biblia {
     data class Alerta(
         val nivel: Nivel, val titulo: String, val detalhe: String, val cap: Int, val fichaId: Long?, val frase: String, val chave: String,
     )
-    data class Relacao(val a: Long, val b: Long, val cenas: Int, val primeiro: Int, val ultimo: Int, val tipo: String)
+    data class Relacao(val a: Long, val b: Long, val cenas: Int, val primeiro: Int, val ultimo: Int, val tipo: String, val porCap: IntArray = IntArray(0))
     data class Retrato(
         val ficha: Ficha, val porCap: IntArray, val falas: Int, val fatos: List<Fato>, val lugares: List<Pair<Long, Int>>,
     ) {
@@ -123,7 +123,7 @@ object Biblia {
         val falasPorCap = HashMap<Long, MutableSet<Int>>()
         val fatos = ArrayList<Fato>()
         val lugares = HashMap<Long, HashMap<Long, Int>>()
-        data class Par(var cenas: Int = 0, var primeiro: Int = -1, var ultimo: Int = -1, var fam: Int = 0, var rom: Int = 0, var riv: Int = 0, var ali: Int = 0)
+        data class Par(val porCap: IntArray, var cenas: Int = 0, var primeiro: Int = -1, var ultimo: Int = -1, var fam: Int = 0, var rom: Int = 0, var riv: Int = 0, var ali: Int = 0)
         val pares = HashMap<Pair<Long, Long>, Par>()
         val alertas = ArrayList<Alerta>()
         if (nomes.isEmpty()) return Resultado(caps, emptyList(), emptyList(), emptyList())
@@ -206,8 +206,8 @@ object Biblia {
                 // cena pequena: as palavras da cena falam dessas pessoas (contadas uma vez por cena)
                 val pal = if (ps.size <= 4) textosCena[k].lowercase().let { tx -> intArrayOf(FAMILIA.findAll(tx).count(), ROMANCE.findAll(tx).count(), RIVAL.findAll(tx).count(), ALIADO.findAll(tx).count()) } else null
                 for (i in ps.indices) for (j in i + 1 until ps.size) {
-                    val p = pares.getOrPut(ps[i] to ps[j]) { Par() }
-                    p.cenas++; if (p.primeiro < 0) p.primeiro = ci; p.ultimo = ci
+                    val p = pares.getOrPut(ps[i] to ps[j]) { Par(IntArray(n)) }
+                    p.cenas++; p.porCap[ci]++; if (p.primeiro < 0) p.primeiro = ci; p.ultimo = ci
                     if (pal != null) { p.fam += pal[0]; p.rom += pal[1]; p.riv += pal[2]; p.ali += pal[3] }
                 }
             }
@@ -301,7 +301,7 @@ object Biblia {
         val relacoes = pares.filter { it.value.cenas >= 2 }.map { (k, p) ->
             val tipos = listOf("família" to p.fam * 1.4, "romance" to p.rom * 1.6, "rivais" to p.riv * 0.8, "aliados" to p.ali * 1.0)
             val melhor = tipos.maxByOrNull { it.second }!!
-            Relacao(k.first, k.second, p.cenas, p.primeiro, p.ultimo, if (melhor.second >= 3 * p.cenas.coerceAtMost(4) / 2.0) melhor.first else "convivem")
+            Relacao(k.first, k.second, p.cenas, p.primeiro, p.ultimo, if (melhor.second >= 3 * p.cenas.coerceAtMost(4) / 2.0) melhor.first else "convivem", p.porCap)
         }.sortedByDescending { it.cenas }
         val ordem = alertas.sortedWith(compareBy<Alerta> { it.nivel.ordinal }.thenBy { it.cap })
         return Resultado(caps, retratos, relacoes, ordem)
