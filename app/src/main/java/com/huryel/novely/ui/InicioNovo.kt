@@ -134,7 +134,9 @@ fun TileGenero(g: String, modifier: Modifier = Modifier, aoTocar: () -> Unit) {
 fun Esqueleto(largura: Dp, altura: Dp, raio: Dp = 12.dp) {
     val t = rememberInfiniteTransition(label = "esq")
     val a by t.animateFloat(0.35f, 0.75f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "a")
-    Box(Modifier.width(largura).height(altura).clip(RoundedCornerShape(raio)).background(LocalPaleta.current.superficie.copy(alpha = a)))
+    val cor = LocalPaleta.current.superficie
+    // a animação só redesenha (não recompõe): esqueletos não pesam enquanto carrega
+    Box(Modifier.width(largura).height(altura).clip(RoundedCornerShape(raio)).drawBehind { drawRect(cor.copy(alpha = a)) })
 }
 
 @Composable

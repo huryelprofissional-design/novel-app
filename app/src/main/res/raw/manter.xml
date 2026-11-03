@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lidos por nome (getIdentifier): o encolhedor de recursos não pode apagar. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/default_web_client_id,@mipmap/ic_launcher*,@drawable/fundo_icone_*" />

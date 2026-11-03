@@ -20,19 +20,23 @@ import kotlinx.coroutines.withContext
  * Sem capa (ou capa cinza), usa a cor base da obra.
  */
 object CorDaObra {
-    private val cache = HashMap<String, Int>()
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private val cacheBytes = java.util.Collections.synchronizedMap(java.util.WeakHashMap<ByteArray, Int>())
 
     fun deBytes(b: ByteArray?): Int? {
         if (b == null) return null
+        cacheBytes[b]?.let { return it }
         val o = BitmapFactory.Options().apply { inSampleSize = 8 }
-        return try { BitmapFactory.decodeByteArray(b, 0, b.size, o)?.let { calcular(it) } } catch (_: Exception) { null }
+        val c = try { BitmapFactory.decodeByteArray(b, 0, b.size, o)?.let { bmp -> calcular(bmp).also { bmp.recycle() } } } catch (_: Exception) { null }
+        if (c != null) cacheBytes[b] = c
+        return c
     }
 
     fun deArquivo(caminho: String?): Int? {
         if (caminho.isNullOrEmpty()) return null
         cache[caminho]?.let { return it }
         val o = BitmapFactory.Options().apply { inSampleSize = 16 }
-        val c = try { BitmapFactory.decodeFile(caminho, o)?.let { calcular(it) } } catch (_: Exception) { null }
+        val c = try { BitmapFactory.decodeFile(caminho, o)?.let { bmp -> calcular(bmp).also { bmp.recycle() } } } catch (_: Exception) { null }
         if (c != null) cache[caminho] = c
         return c
     }
@@ -74,8 +78,8 @@ object CorDaObra {
 @Composable
 fun rememberCorObra(capa: String?, corBase: Long): Color? {
     val ligado by NovelyApp.instancia.prefs.corDaObra.estado.collectAsState()
-    val cor by produceState<Int?>(null, capa, corBase) {
-        value = withContext(Dispatchers.IO) { CorDaObra.deArquivo(capa) ?: CorDaObra.realcar(corBase.toInt()) }
+    val cor by produceState<Int?>(null, capa, corBase, ligado) {
+        if (ligado) value = withContext(Dispatchers.IO) { CorDaObra.deArquivo(capa) ?: CorDaObra.realcar(corBase.toInt()) }
     }
     return if (ligado) cor?.let { Color(it) } else null
 }
@@ -83,7 +87,7 @@ fun rememberCorObra(capa: String?, corBase: Long): Color? {
 @Composable
 fun rememberCorBytes(b: ByteArray?): Color? {
     val ligado by NovelyApp.instancia.prefs.corDaObra.estado.collectAsState()
-    val cor by produceState<Int?>(null, b) { value = withContext(Dispatchers.IO) { CorDaObra.deBytes(b) } }
+    val cor by produceState<Int?>(null, b, ligado) { if (ligado) value = withContext(Dispatchers.Default) { CorDaObra.deBytes(b) } }
     return if (ligado) cor?.let { Color(it) } else null
 }
 

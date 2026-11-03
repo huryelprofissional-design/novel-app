@@ -54,8 +54,30 @@ import java.util.Locale
 
 // ───────────────────────── peças ─────────────────────────
 
+/** Imagens do catálogo já abertas (chave = o próprio array de bytes, que fica guardado no cache de capas). */
+private val cacheBytes = object : android.util.LruCache<ByteArray, ImageBitmap>((Runtime.getRuntime().maxMemory() / 16 / 1024).toInt()) {
+    override fun sizeOf(key: ByteArray, value: ImageBitmap) = (value.width * value.height * 4 / 1024).coerceAtLeast(1)
+}
+
+/** Abre a imagem fora da thread principal, já reduzida, e guarda no cache: a rolagem não engasga. */
 @Composable
-fun imagemDeBytes(b: ByteArray?): ImageBitmap? = remember(b) { b?.let { try { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } catch (_: Exception) { null } } }
+fun imagemDeBytes(b: ByteArray?, ladoMax: Int = 900): ImageBitmap? {
+    val img by produceState(b?.let { cacheBytes.get(it) }, b) {
+        if (b == null) { value = null; return@produceState }
+        cacheBytes.get(b)?.let { value = it; return@produceState }
+        value = withContext(Dispatchers.Default) {
+            try {
+                val lim = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(b, 0, b.size, lim)
+                var amostra = 1
+                while (lim.outWidth / (amostra * 2) >= ladoMax || lim.outHeight / (amostra * 2) >= ladoMax) amostra *= 2
+                BitmapFactory.decodeByteArray(b, 0, b.size, BitmapFactory.Options().apply { inSampleSize = amostra })
+                    ?.asImageBitmap()?.also { it.prepareToDraw(); cacheBytes.put(b, it) }
+            } catch (_: Throwable) { null }
+        }
+    }
+    return img
+}
 
 @Composable
 fun CapaPublica(o: ObraPublica, modifier: Modifier, tamanhoTitulo: Int = 11) {

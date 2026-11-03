@@ -296,7 +296,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         Box(Modifier.fillMaxSize().background(p.fundo), contentAlignment = Alignment.Center) {
             val pulso = androidx.compose.animation.core.rememberInfiniteTransition(label = "abrindo")
             val a by pulso.animateFloat(0.25f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "a")
-            Text("◆", color = p.destaque.copy(alpha = a), fontSize = 30.sp)
+            Text("◆", color = p.destaque, fontSize = 30.sp, modifier = Modifier.graphicsLayer { alpha = a })
         }
         return
     }
@@ -487,7 +487,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     // maratona: no fim do capítulo, o próximo começa sozinho
     val maratona by prefs.maratona.estado.collectAsState()
     var contagem by remember(c.id) { mutableIntStateOf(-1) }
-    val noFim = progresso >= 0.995f
+    val noFim by remember { derivedStateOf { progresso >= 0.995f } }
     LaunchedEffect(noFim, maratona, c.id) {
         if (!maratona || !noFim || proximo == null || contagem != -1) return@LaunchedEffect
         for (sgs in 5 downTo 1) { contagem = sgs; kotlinx.coroutines.delay(1000); if (contagem < 0) return@LaunchedEffect }
@@ -684,8 +684,11 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         if (luzQuente > 0.01f) Box(Modifier.fillMaxSize().background(Color(0xFFFF8A2A).copy(alpha = luzQuente * 0.28f)))
 
         // barra de progresso fininha no topo
-        Box(Modifier.align(Alignment.TopStart).fillMaxWidth(progresso).height(3.dp)
-            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.35f), p.destaque))))
+        // lido só na hora de desenhar: rolar o texto não recompõe a tela do leitor
+        Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(3.dp).drawBehind {
+            val w = size.width * progresso
+            if (w > 0f) drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.35f), p.destaque), endX = w), size = androidx.compose.ui.geometry.Size(w, size.height))
+        })
 
         AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
             Box(Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp).vidroLiquido(vidro, 26.dp)) {
@@ -757,9 +760,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             Text("Próximo capítulo em $contagem…", fontWeight = FontWeight.Bold, color = Color.White)
             TextButton(onClick = { contagem = -3 }) { Text("Cancelar", color = p.destaque) }
         }
-        if (!controles) {
-            Text("${(progresso * 100).toInt()}%", fontSize = 11.sp, color = p.textoSuave.copy(alpha = 0.6f),
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(12.dp))
+        if (!controles) Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(12.dp)) {
+            PorcentagemLeitura { progresso }
         }
     }
 
@@ -1025,7 +1027,7 @@ private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, obra: com.huryel.nov
         social?.let { (pid, cid) -> SocialCapitulo(pid, cid) }
         val pulso = androidx.compose.animation.core.rememberInfiniteTransition(label = "fim")
         val brilho by pulso.animateFloat(0.45f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "brilho")
-        Text("◆", color = p.destaque.copy(alpha = brilho), fontSize = 26.sp)
+        Text("◆", color = p.destaque, fontSize = 26.sp, modifier = Modifier.graphicsLayer { alpha = brilho })
         Text(if (proximo == null) "FIM" else "FIM DO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, letterSpacing = 4.sp)
         if (total > 0) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(p.superficie).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row {
@@ -1315,4 +1317,11 @@ private fun CabecalhoPagina(c: Capitulo, obra: com.huryel.novely.data.Obra?, num
         Spacer(Modifier.height(14.dp))
         Text("◆   ◆   ◆", color = p.destaque.copy(alpha = 0.7f), fontSize = 10.sp)
     }
+}
+
+/** Isolado: a porcentagem muda ao rolar sem recompor o leitor inteiro. */
+@Composable
+private fun PorcentagemLeitura(progresso: () -> Float) {
+    val pct by remember { derivedStateOf { (progresso() * 100).toInt() } }
+    Text("$pct%", fontSize = 11.sp, color = LocalPaleta.current.textoSuave.copy(alpha = 0.6f))
 }

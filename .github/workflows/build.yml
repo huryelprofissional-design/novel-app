@@ -26,7 +26,7 @@ jobs:
       - name: Compilar
         run: |
           set -o pipefail
-          gradle assembleDebug testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee build.log
+          gradle assembleRelease testReleaseUnitTest --no-daemon --stacktrace 2>&1 | tee build.log
 
       - name: Mostrar erros
         if: failure()
@@ -51,4 +51,4 @@ jobs:
             ${{ github.event.head_commit.message }}
 
             APK gerado automaticamente. Baixe o arquivo .apk abaixo e instale.
-          files: app/build/outputs/apk/debug/*.apk
+          files: app/build/outputs/apk/release/*.apk

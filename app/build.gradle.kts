@@ -31,6 +31,14 @@ android {
     }
     buildTypes {
         getByName("debug") { signingConfig = signingConfigs.getByName("debug") }
+        // O APK publicado é o "release": código otimizado pelo R8 e perfis de inicialização do Compose.
+        // Fica bem mais leve e fluido que o debug. Mesma chave, então instala por cima sem perder nada.
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
     }
 
     compileOptions {
@@ -59,6 +67,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     testImplementation("junit:junit:4.13.2")
 
     val room = "2.6.1"
