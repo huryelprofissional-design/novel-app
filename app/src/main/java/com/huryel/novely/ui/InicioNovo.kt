@@ -6,6 +6,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -288,12 +290,9 @@ private fun FileiraAutores(autores: List<Pair<String, String>>, ativos: Set<Stri
     val p = LocalPaleta.current
     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(autores, key = { it.first }) { (uid, nome) ->
-            Column(Modifier.width(60.dp).clickable { nav.navigate("autor/$uid") }, horizontalAlignment = Alignment.CenterHorizontally) {
-                Box {
-                    AvatarAutor(uid, nome, 58.dp, quadrado = true)
-                    if (uid in ativos) Box(Modifier.align(Alignment.BottomEnd).offset(2.dp, 2.dp).size(15.dp).clip(CircleShape).background(p.fundo).padding(2.5.dp)
-                        .clip(CircleShape).background(com.huryel.novely.ui.theme.VerdeOnline))
-                }
+            Column(Modifier.width(66.dp).clickable { if (uid in ativos) nav.navigate("stories/$uid") else nav.navigate("autor/$uid") }, horizontalAlignment = Alignment.CenterHorizontally) {
+                // anel girando = autor com capítulo novo (toque abre o story)
+                AnelGirando(64.dp, 2.5.dp, uid in ativos) { AvatarAutor(uid, nome, 56.dp) }
                 Text(nome.substringBefore(' ').ifBlank { "Autor" }, fontSize = 11.sp, color = p.textoSuave, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
             }
         }
@@ -459,6 +458,7 @@ fun TelaInicioNova(nav: NavHostController) {
                 FileiraAutores(autores, ativos, nav)
             }
         }
+        if ("CONT" in secoes && continuar != null) item { HeroContinuar(continuar) { nav.navigate("leitor/${continuar.ultimoCapituloId}") } }
         if ("DESTAQUES" in secoes) item {
             val d = novas
             when {
@@ -476,10 +476,7 @@ fun TelaInicioNova(nav: NavHostController) {
                 }
             }
         }
-        if ("CONT" in secoes && continuar != null) item {
-            CabSecao("Continuar lendo")
-            FaixaContinuarNova(continuar) { nav.navigate("leitor/${continuar.ultimoCapituloId}") }
-        }
+
         if ("NOVOSCAPS" in secoes && novosCaps.isNotEmpty()) item {
             CabSecao("Capítulos novos", "das obras que você segue", "Avisos ›") { nav.navigate("avisos") }
             LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -657,6 +654,42 @@ fun TelaGenero(g: String, nav: NavHostController) {
                     linha.forEach { o -> Box(Modifier.weight(1f)) { CartaoPublico(o, null) { nav.navigate("pub/${o.id}") } } }
                     repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
                 }
+            }
+        }
+    }
+}
+
+/** Continuar lendo "cinema": capa em tela grande com a cor dela no fundo se mexendo devagar, anel do capítulo enchendo e brilho no botão. */
+@Composable
+private fun HeroContinuar(o: ResumoObra, abrir: () -> Unit) {
+    val p = LocalPaleta.current
+    val cap by remember(o.ultimoCapituloId) { NovelyApp.instancia.repo.capitulo(o.ultimoCapituloId ?: -1) }.collectAsState(initial = null)
+    val cor = rememberCorObra(o.capa, o.corBase) ?: Color(o.corBase)
+    val t = rememberInfiniteTransition(label = "hero")
+    val zoom by t.animateFloat(1.25f, 1.45f, infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse), label = "zoom")
+    val respira by t.animateFloat(0.35f, 0.75f, infiniteRepeatable(tween(2600), RepeatMode.Reverse), label = "resp")
+    Box(Modifier.padding(top = 14.dp).fillMaxWidth().height(470.dp).clipToBounds()) {
+        Box(Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom; alpha = 0.8f }.blur(28.dp)) {
+            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxSize(), 1.sp)
+        }
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.1f), p.fundo))))
+        Column(Modifier.fillMaxSize().padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(18.dp))
+            Box(Modifier.drawBehind { drawRoundRect(cor.copy(alpha = respira * 0.6f), topLeft = androidx.compose.ui.geometry.Offset(-24f, -24f),
+                size = androidx.compose.ui.geometry.Size(size.width + 48f, size.height + 48f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(60f)) }) {
+                Apertavel(Modifier, abrir) { CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.width(158.dp).height(228.dp).shadow(24.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)), 12.sp) }
+            }
+            Text("CONTINUE DE ONDE PAROU", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp, color = cor, modifier = Modifier.padding(top = 22.dp))
+            Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 30.sp, lineHeight = 30.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp))
+            val c = cap
+            if (c != null) Text("${c.titulo.ifEmpty { "Capítulo" }} · faltam ${((1f - c.progresso) * c.palavras / 230f).toInt().coerceAtLeast(1)} min", fontSize = 12.5.sp,
+                color = Color(0xFFBBBBBB), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+            Row(Modifier.padding(top = 16.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.weight(1f).height(54.dp).clip(RoundedCornerShape(27.dp)).background(Color.White).brilho(2800).clickable(onClick = abrir), contentAlignment = Alignment.Center) {
+                    Text("▶  Continuar", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+                AnelProgresso(c?.progresso ?: 0f, 54.dp, cor, 4.dp) { f -> Text("${(f * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             }
         }
     }

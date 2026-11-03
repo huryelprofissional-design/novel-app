@@ -1028,21 +1028,33 @@ private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, obra: com.huryel.nov
     Column(Modifier.fillMaxWidth().padding(top = 36.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (vazio) Text("Este capítulo ainda está vazio.", color = p.textoSuave)
         social?.let { (pid, cid) -> SocialCapitulo(pid, cid) }
-        val pulso = androidx.compose.animation.core.rememberInfiniteTransition(label = "fim")
-        val brilho by pulso.animateFloat(0.45f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "brilho")
-        Text("◆", color = p.destaque, fontSize = 26.sp, modifier = Modifier.graphicsLayer { alpha = brilho })
-        Text(if (proximo == null) "FIM" else "FIM DO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, letterSpacing = 4.sp)
-        if (total > 0) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(p.superficie).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row {
-                Text("Progresso na obra", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.weight(1f))
-                Text("${lidos * 100 / total}%", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = p.destaque)
+        // fim de capítulo de cinema: confete, anel da obra enchendo, o que ganhou e reações
+        val prefsF = NovelyApp.instancia.prefs
+        val seqF by prefsF.sequencia.estado.collectAsState()
+        val deOutro = obra != null && !obra.minha
+        Box(Modifier.fillMaxWidth().height(250.dp), contentAlignment = Alignment.Center) {
+            Confete(posicao, Modifier.fillMaxWidth().height(250.dp), 45)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (total > 0) AnelProgresso(lidos.toFloat() / total, 140.dp, p.destaque, 9.dp, 1600) { f ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${(f * 100).toInt()}%", fontWeight = FontWeight.Black, fontSize = 30.sp)
+                        Text("da obra", fontSize = 11.sp, color = p.textoSuave)
+                    }
+                }
+                Text(if (proximo == null) "FIM" else "FIM DO CAPÍTULO $posicao", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, letterSpacing = 4.sp,
+                    modifier = Modifier.padding(top = 14.dp))
+                if (total > 0) Text("$lidos de $total capítulos lidos", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 4.dp))
             }
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(p.borda)) {
-                Box(Modifier.fillMaxWidth(lidos.toFloat() / total).fillMaxHeight().clip(RoundedCornerShape(3.dp))
-                    .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.5f), p.destaque))))
-            }
-            Text("$lidos de $total capítulos lidos · você está no $posicao", fontSize = 12.sp, color = p.textoSuave)
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (deOutro && social != null) Text("🪙 +1", fontWeight = FontWeight.ExtraBold, color = OURO_FX, fontSize = 13.sp,
+                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(OURO_FX.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 7.dp))
+            if (deOutro) Text("⚡ +20 XP", fontWeight = FontWeight.ExtraBold, color = Color(0xFFD99BFF), fontSize = 13.sp,
+                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(ROXO_FX.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 7.dp))
+            if (seqF > 0) Text("🔥 $seqF ${if (seqF == 1L) "dia" else "dias"}", fontWeight = FontWeight.ExtraBold, color = LARANJA_FX, fontSize = 13.sp,
+                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(LARANJA_FX.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 7.dp))
+        }
+        social?.let { (pid, cid) -> if (deOutro || obra?.publicada == true) Reacoes(pid, cid) }
         if (proximo != null) {
             Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(22.dp)).clickable { ir(proximo) }
                 .border(1.dp, p.destaque.copy(alpha = 0.45f), RoundedCornerShape(22.dp))) {
@@ -1388,4 +1400,38 @@ private fun CabecalhoPagina(c: Capitulo, obra: com.huryel.novely.data.Obra?, num
 private fun PorcentagemLeitura(progresso: () -> Float) {
     val pct by remember { derivedStateOf { (progresso() * 100).toInt() } }
     Text("$pct%", fontSize = 11.sp, color = LocalPaleta.current.textoSuave.copy(alpha = 0.6f))
+}
+
+private val REACOES = listOf("chorei" to "😭", "fogo" to "🔥", "choque" to "😱", "risada" to "😂", "mente" to "🤯")
+
+/** Reações rápidas do fim do capítulo (obra do catálogo): toque para reagir, toque de novo para tirar. */
+@Composable
+private fun Reacoes(pid: String, cid: String) {
+    val p = LocalPaleta.current
+    val pub = NovelyApp.instancia.pub
+    var contas by remember(cid) { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    var minha by remember(cid) { mutableStateOf<String?>(null) }
+    val escopo = rememberCoroutineScope()
+    LaunchedEffect(cid) { try { val (c, m) = pub.reacoes(pid, cid); contas = c; minha = m } catch (_: Exception) {} }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.superficie).padding(14.dp)) {
+        Text("O que achou?", fontSize = 12.sp, color = p.textoSuave, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            REACOES.forEach { (k, e) ->
+                val eu = minha == k
+                val escala by androidx.compose.animation.core.animateFloatAsState(if (eu) 1.15f else 1f, androidx.compose.animation.core.spring(dampingRatio = 0.35f, stiffness = 500f), label = "r")
+                Column(Modifier.graphicsLayer { scaleX = escala; scaleY = escala }.clip(RoundedCornerShape(16.dp))
+                    .background(if (eu) LARANJA_FX.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.06f))
+                    .border(if (eu) 1.5.dp else 0.dp, if (eu) LARANJA_FX else Color.Transparent, RoundedCornerShape(16.dp))
+                    .clickable {
+                        val antiga = minha; val nova = if (eu) null else k
+                        minha = nova
+                        contas = contas.toMutableMap().apply { antiga?.let { this[it] = ((this[it] ?: 1) - 1).coerceAtLeast(0) }; nova?.let { this[it] = (this[it] ?: 0) + 1 } }
+                        escopo.launch { try { pub.reagir(pid, cid, nova, antiga) } catch (_: Exception) {} }
+                    }.padding(horizontal = 10.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(e, fontSize = 26.sp)
+                    Text("${contas[k] ?: 0}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.textoSuave)
+                }
+            }
+        }
+    }
 }

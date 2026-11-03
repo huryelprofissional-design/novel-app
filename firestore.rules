@@ -38,8 +38,12 @@ service cloud.firestore {
         allow create: if dono(pid);
         allow delete: if dono(pid) || admin();
         allow update: if dono(pid)
-          || (logado() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['curtidas', 'comentarios', 'leituras']));
+          || (logado() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['curtidas', 'comentarios', 'leituras', 'reacoes']));
         match /curtidas/{uid} {
+          allow read: if logado();
+          allow write: if logado() && request.auth.uid == uid;
+        }
+        match /reacoes/{uid} {
           allow read: if logado();
           allow write: if logado() && request.auth.uid == uid;
         }

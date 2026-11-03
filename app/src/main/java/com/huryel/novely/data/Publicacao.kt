@@ -295,6 +295,15 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         } catch (_: Exception) { "" }
     }
 
+    /** Último capítulo publicado e o primeiro trecho dele (para o story de capítulo novo). */
+    suspend fun ultimoComTrecho(pid: String): Pair<CapPublico, String>? = withContext(Dispatchers.IO) {
+        try {
+            val c = capitulos(pid).maxByOrNull { it.publicadoEm } ?: return@withContext null
+            val t = col.document(pid).collection("textos").document(c.id).get().await().getString("texto") ?: ""
+            c to (Marcas.limpar(t).lineSequence().map { it.trim() }.filter { it.length > 30 && !it.startsWith("#") && !it.startsWith("*") }.firstOrNull()?.take(260) ?: "")
+        } catch (_: Exception) { null }
+    }
+
     suspend fun seguindo(pid: String): Boolean = try { col.document(pid).collection("seguidores").document(uid).get().await().exists() } catch (_: Exception) { false }
 
     suspend fun seguir(pid: String, sim: Boolean) = withContext(Dispatchers.IO) {
@@ -357,6 +366,22 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             Leitura(d.getString("uid") ?: return@mapNotNull null, d.getString("cap") ?: return@mapNotNull null, (d.getLong("bloco") ?: 0).toInt(),
                 (d.getLong("total") ?: 1).toInt(), d.getLong("segundos") ?: 0, d.getLong("sessoes") ?: 1, d.getLong("em") ?: 0, d.getString("plataforma") ?: "")
         }
+    }
+
+    /** Reações do fim do capítulo: contagem por tipo e a minha. */
+    suspend fun reacoes(pid: String, cid: String): Pair<Map<String, Long>, String?> = withContext(Dispatchers.IO) {
+        val cap = col.document(pid).collection("caps").document(cid)
+        val c = (cap.get().await().get("reacoes") as? Map<*, *>)?.mapNotNull { (k, v) -> (k as? String)?.let { it to ((v as? Number)?.toLong() ?: 0L) } }?.toMap() ?: emptyMap()
+        val m = try { cap.collection("reacoes").document(uid).get().await().getString("r") } catch (_: Exception) { null }
+        c to m
+    }
+    suspend fun reagir(pid: String, cid: String, nova: String?, antiga: String?) = withContext(Dispatchers.IO) {
+        val cap = col.document(pid).collection("caps").document(cid)
+        val mud = HashMap<String, Any>()
+        antiga?.let { mud["reacoes.$it"] = FieldValue.increment(-1) }
+        nova?.let { mud["reacoes.$it"] = FieldValue.increment(1) }
+        if (nova != null) cap.collection("reacoes").document(uid).set(mapOf("r" to nova)).await() else cap.collection("reacoes").document(uid).delete().await()
+        if (mud.isNotEmpty()) cap.update(mud as Map<String, Any>).await()
     }
 
     suspend fun curtiu(pid: String, cid: String): Boolean = try { col.document(pid).collection("caps").document(cid).collection("curtidas").document(uid).get().await().exists() } catch (_: Exception) { false }
