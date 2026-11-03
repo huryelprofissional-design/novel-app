@@ -32,7 +32,7 @@ class Colaboracao(private val repo: Repositorio, private val prefs: Preferencias
 
     val meuUid get() = uid
 
-    private suspend fun garantir(o: Obra) {
+    suspend fun garantir(o: Obra) {
         col.document(o.nuvemId).set(mapOf("autorUid" to uid, "titulo" to o.titulo, "autorNome" to meuNome), SetOptions.merge()).await()
     }
 

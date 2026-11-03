@@ -66,9 +66,10 @@ fun TelaColaboracao(obraId: Long, nav: NavHostController) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
         item { Topo("Colaboração", nav) }
+        item { SalasAoVivo(o.nuvemId, nav, autor = true) }
         item {
             Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Convide alguém para revisar ou escrever junto. Ninguém mexe no seu texto: revisores deixam notas; coautores mandam capítulos que você aceita ou não.",
+                Text("Convide alguém para revisar ou escrever junto. Revisores deixam notas; coautores mandam capítulos ou escrevem com você ao vivo (no editor: ⋮ › Escrever junto ao vivo). Seu texto só muda quando você aceita.",
                     fontSize = 13.sp, color = p.textoSuave, lineHeight = 19.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = { rodar { codigo = colab.convidar(o, "REVISOR") to "REVISOR" } }, enabled = !trabalhando, modifier = Modifier.weight(1f),
@@ -227,6 +228,7 @@ fun TelaColabObra(pid: String, nav: NavHostController) {
                 erro?.let { Text(it, color = Color(0xFFE57373), fontSize = 13.sp) }
             }
         }
+        item { SalasAoVivo(pid, nav, autor = false) }
         item { Titulo2("Capítulos para revisar") }
         val l = caps
         if (l == null) item { CircularProgressIndicator(color = p.destaque, modifier = Modifier.padding(18.dp)) }

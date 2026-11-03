@@ -694,6 +694,7 @@ private fun MenuEditor(
 ) {
     DropdownMenu(aberto, fechar) {
         cap?.let { c -> DropdownMenuItem(text = { Text("✨ Estúdio de IA") }, onClick = { fechar(); nav.navigate("ia/${c.obraId}?cap=${c.id}") }) }
+        cap?.let { c -> DropdownMenuItem(text = { Text("👥 Escrever junto ao vivo") }, onClick = { fechar(); nav.navigate("vivo/${c.id}") }) }
         DropdownMenuItem(text = { Text("◷ Sessão de escrita (cronômetro)") }, onClick = { fechar(); aoDialogo("sessao") })
         DropdownMenuItem(text = { Text("Modo foco") }, onClick = { fechar(); aoFoco() })
         DropdownMenuItem(text = { Text("Mapa do capítulo") }, onClick = { fechar(); aoMapa() })
