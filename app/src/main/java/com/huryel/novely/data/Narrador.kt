@@ -260,7 +260,7 @@ object Narrador {
         val e = _estado.value
         if (!e.tocando || b != e.bloco || k != n - 1) return
         val prox = proximoFalavel(b + 1)
-        if (prox == null) fim() else { _estado.value = e.copy(bloco = prox); falarAtual() }
+        if (prox == null) { Progresso.registrar("ouvir"); fim() } else { _estado.value = e.copy(bloco = prox); falarAtual() }
     }
 
     private fun fim() { _estado.value = _estado.value.copy(tocando = false, bloco = -1); ServicoVoz.atualizar(ctxApp) }

@@ -93,6 +93,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     val ctxMoedas = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(usuario?.uid) {
         com.huryel.novely.data.Moedas.carregarDaNuvem()
+        try { com.huryel.novely.data.Progresso.conferirConquistas(calcularConquistas().filter { it.ganhou }.map { Triple(it.id, it.icone, it.titulo to (it.cor.value.toLong() ushr 32)) }) } catch (_: Exception) {}
         val g = com.huryel.novely.data.Moedas.diario()
         if (g > 0) android.widget.Toast.makeText(ctxMoedas, "🪙 +$g moedas de hoje" + if (g > 3) " (7 dias seguidos!)" else "", android.widget.Toast.LENGTH_SHORT).show()
     }
@@ -101,6 +102,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             app.sinc.sincronizar()
             try { app.pub.atualizarSeguidas() } catch (_: Exception) {}
             try { app.pub.novasDeAutores(); app.pub.publicarPerfilSePreciso() } catch (_: Exception) {}
+            com.huryel.novely.data.Progresso.publicar()
             kotlinx.coroutines.delay(180_000)
         }
     }
@@ -212,6 +214,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             BarraTema(abas.map { Triple(it.rota, it.rotulo, it.icone) }, rota, vidroApp) { r -> irAba(nav, r) }
         }
         AvisosGlobais(nav, rota)
+        Celebracoes()
         // notificação tocada → avisos; e pedir permissão de notificação uma vez (Android 13+)
         val abrirTela by app.abrirTela.collectAsState()
         LaunchedEffect(abrirTela) {

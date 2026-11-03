@@ -467,6 +467,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     LaunchedEffect(noFim, social) {
         val sc = social
         if (noFim && sc != null && obra?.minha != true) com.huryel.novely.data.Moedas.ganhar(1, "leitura", 10, "${sc.first}/${sc.second}")
+        // missão "ler" e XP: um por capítulo de obra que não é sua
+        if (noFim && obra != null && obra?.minha != true && !prefs.jaContado("xp/lido/${c.id}")) { prefs.marcarContado("xp/lido/${c.id}"); com.huryel.novely.data.Progresso.registrar("ler") }
     }
     LaunchedEffect(noFim, maratona, c.id) {
         if (!maratona || !noFim || proximo == null || contagem != -1) return@LaunchedEffect

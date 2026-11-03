@@ -635,6 +635,9 @@ fun TelaPerfilAba(nav: NavHostController) {
             PilulaContorno("Meu perfil público") { nav.navigate("autor/${app.pub.meuUid}") }
             PilulaContorno("Conta e nuvem") { nav.navigate("ajustes/conta") }
         }
+        Spacer(Modifier.height(10.dp))
+        CartaoNivel()
+        CartaoMissoes()
         if (minhas.isNotEmpty()) {
             Text("Minhas obras", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White, modifier = Modifier.padding(top = 22.dp, bottom = 10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -647,6 +650,7 @@ fun TelaPerfilAba(nav: NavHostController) {
                 items(lendo, key = { it.id }) { o -> CapaPerfil(o) { nav.navigate("obra/${o.id}") } }
             }
         }
+        RankingSemana()
         CartaoMoedas()
         SecaoConquistas()
         SecaoCitacoes()

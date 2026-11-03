@@ -223,7 +223,7 @@ class Repositorio(ctx: Context) {
     // ── Marcadores / grifos ──
     fun marcadoresCap(capId: Long) = dao.marcadoresCap(capId)
     fun marcadoresObra(obraId: Long) = dao.marcadoresObra(obraId)
-    suspend fun salvarMarcador(m: Marcador) = if (m.id == 0L) dao.inserirMarcador(m) else { dao.atualizarMarcador(m); m.id }
+    suspend fun salvarMarcador(m: Marcador) = if (m.id == 0L) dao.inserirMarcador(m).also { Progresso.registrar("grifar") } else { dao.atualizarMarcador(m); m.id }
     suspend fun excluirMarcador(m: Marcador) = dao.excluirMarcador(m)
 
     // ── Linha do tempo ──
@@ -511,6 +511,7 @@ class Preferencias(ctx: Context) {
             val horas = escritaHoras().toMutableList(); val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY); horas[h] += n
             escritaHorasP.definir(horas.joinToString(","))
             totalEscrito.definir(totalEscrito.valor + n)
+            Progresso.registrar("escrever", n)
         }
         if (antes < metaDiaria.valor && antes + n >= metaDiaria.valor && ultimoDiaBatido.valor != hoje()) {
             ultimoDiaBatido.definir(hoje()); sequencia.definir(sequencia.valor + 1)
@@ -543,6 +544,16 @@ class Preferencias(ctx: Context) {
     val idiomaLeitura = texto("idiomaLeitura", "")
     /** Editor no modo máquina de escrever (papel, letra de máquina, som e linha sempre no meio). */
     val maquina = bool("maquina", false)
+    // jogo: XP, semana, missões do dia, baú, conquistas já comemoradas
+    val xp = longo("xp", 0L)
+    val xpSemana = longo("xpSemana", 0L)
+    val xpSemanaId = texto("xpSemanaId", "")
+    val missoesDia = texto("missoesDia", "")
+    val bauDia = texto("bauDia", "")
+    val conquistasVistas = texto("conquistasVistas", "")
+    /** Leitor: clima da cena (chuva, neve, fogo…) e som ambiente. */
+    val climaCena = bool("climaCena", true)
+    val somCena = bool("somCena", false)
     // moedas (grátis): saldo, ganhos do dia, presente diário, capítulos liberados cedo
     val moedas = longo("moedas", 0L)
     val moedasDia = texto("moedasDia", "")

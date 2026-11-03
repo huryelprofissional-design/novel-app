@@ -386,6 +386,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             "texto" to texto.trim().take(2000), "em" to System.currentTimeMillis(), "bloco" to bloco, "trecho" to trecho.take(300))).await()
         cap.update("comentarios", FieldValue.increment(1)).await()
         prefs.comentou.definir(true)
+        Progresso.registrar("comentar")
         Moedas.ganhar(1, "comentario", 5)
     }
 
