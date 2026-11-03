@@ -439,3 +439,16 @@ body.foco .conteudo { max-width: none; }
 .linha-ant { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.08); }
 .btn-ant { border: 0; border-radius: 14px; padding: 7px 14px; font: 800 13px Inter; background: #FFC94A; color: #000; cursor: pointer; }
 .moedas summary { display: flex; gap: 12px; align-items: center; cursor: pointer; list-style: none; } .moedas b { color: #FFC94A; font-size: 18px; } .moedas ul { margin: 10px 0 6px; padding-left: 20px; }
+
+/* Escrever junto ao vivo */
+.salas { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; } .sala { display: flex; align-items: center; gap: 10px; }
+.gente { display: flex; margin-left: auto; } .av-vivo { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #000; font-weight: 900; margin-left: -6px; border: 2px solid var(--fundo); }
+.vivo { max-width: 820px; } .pars-vivo { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.par-vivo { border-left: 3px solid var(--cor, var(--borda)); padding: 6px 12px; border-radius: 0 8px 8px 0; cursor: text; }
+.par-vivo:hover { background: rgba(255,255,255,.03); } .par-vivo p { margin: 0; font: 18px/1.6 Newsreader, Georgia, serif; }
+.par-vivo.travado p { opacity: .55; } .par-vivo .quem { font-size: 11px; font-weight: 800; }
+.par-vivo textarea { width: 100%; background: var(--sup); color: var(--tx); border: 0; outline: 1px solid var(--acento, var(--amb)); border-radius: 8px; padding: 6px 8px; font: 18px/1.6 Newsreader, Georgia, serif; resize: none; overflow: hidden; }
+.chat-vivo { position: fixed; right: 22px; bottom: 22px; width: 340px; max-height: 60vh; display: flex; flex-direction: column; gap: 8px; z-index: 30; }
+.chat-vivo .msgs { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 6px; max-height: 40vh; }
+.msg { display: flex; flex-direction: column; align-items: flex-start; } .msg span { background: var(--borda); padding: 6px 11px; border-radius: 14px; }
+.msg.minha { align-items: flex-end; } .msg.minha span { background: var(--acento, var(--amb)); color: #000; } .msg b { font-size: 11px; }

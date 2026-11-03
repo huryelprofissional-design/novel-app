@@ -15,7 +15,7 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
 export { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut };
-export { collection, doc, getDoc, getDocs, setDoc, onSnapshot, query, where, orderBy, limit };
+export { collection, doc, getDoc, getDocs, setDoc, onSnapshot, query, where, orderBy, limit, updateDoc, addDoc, deleteDoc };
 
 export const EMAIL_DONO = "huryelprofissional@gmail.com";
 
@@ -490,7 +490,7 @@ export async function seguirAutor(uid, sim) {
 // ───────── colaboração (coautor / revisor) ─────────
 const LETRAS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const colColabs = () => collection(db, "colabs");
-async function garantirColab(id) { const o = E.obras.get(id); await setDoc(doc(colColabs(), id), { autorUid: E.usuario.uid, titulo: o.titulo, autorNome: nomeAutor() }, { merge: true }); }
+export async function garantirColab(id) { const o = E.obras.get(id); await setDoc(doc(colColabs(), id), { autorUid: E.usuario.uid, titulo: o.titulo, autorNome: nomeAutor() }, { merge: true }); }
 export async function convidar(id, papel) {
   await garantirColab(id);
   const codigo = Array.from({ length: 6 }, () => LETRAS[Math.floor(Math.random() * LETRAS.length)]).join("");

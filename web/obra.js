@@ -363,10 +363,12 @@ rota("/colaboracao/(\\w+)", async (id) => {
   carregando("escrever");
   const [ms, rev, sug, caps] = await Promise.all([membros(id), capsRevisao(id).catch(() => []), sugestoes(id), capitulos(id)]);
   const PAPEL = { COAUTOR: "Coautor", REVISOR: "Revisor" };
+  const vivo = await import("./aovivo.js"); const salas = await vivo.salasAbertas(id);
   casca("escrever", `<div class="topo"><a class="voltar vidro" href="#/obra/${id}">←</a><h1>Colaboração · ${esc(o.titulo)}</h1></div>
+    ${vivo.htmlSalas(salas, true)}
     <div class="duas-colunas">
       <div class="card"><h3 style="margin-top:0">Pessoas</h3>
-        <p class="suave peq">Gere um código e mande para a pessoa. Ela entra em Colaboração › Entrar com código. Coautores sugerem capítulos; revisores deixam notas. Nada muda seu texto sem você aceitar.</p>
+        <p class="suave peq">Gere um código e mande para a pessoa. Ela entra em Colaboração › Entrar com código. Coautores sugerem capítulos ou escrevem com você ao vivo (no editor: 👥 Ao vivo); revisores deixam notas. Nada muda seu texto sem você aceitar.</p>
         <div class="linha-botoes" style="justify-content:flex-start"><button class="btn2 peq" data-conv="COAUTOR">+ Convidar coautor</button><button class="btn2 peq" data-conv="REVISOR">+ Convidar revisor</button></div>
         ${ms.length ? ms.map((m) => `<div class="linha-item"><span class="av" style="width:34px;height:34px">${esc((m.nome || "?").slice(0, 1))}</span><div style="flex:1"><b>${esc(m.nome)}</b><div class="suave peq">${PAPEL[m.papel] || m.papel}</div></div><button class="btn2 peq" data-rm="${m.id}">Remover</button></div>`).join("") : `<p class="suave">Ninguém ainda.</p>`}
       </div>
@@ -383,6 +385,7 @@ rota("/colaboracao/(\\w+)", async (id) => {
     const d = dialogo(`<h3 style="margin-top:0">Código de convite</h3><div class="codigo">${cod}</div><p class="suave">Mande este código para a pessoa. Ela abre Colaboração › Entrar com código (no celular ou no PC).</p><div class="linha-botoes"><button class="btn2 peq" id="cp">Copiar</button><button class="btn peq" data-n>Pronto</button></div>`);
     $("#cp", d).onclick = () => { navigator.clipboard.writeText(cod); toast("Copiado"); }; $("[data-n]", d).onclick = () => d.close();
   }));
+  vivo.ligarSalas(id);
   $$("[data-rm]").forEach((b) => (b.onclick = async () => { if (await confirmar("Remover pessoa?", "Ela perde o acesso a esta obra.", "Remover", true)) { await removerMembro(id, b.dataset.rm); window.redesenhar(); } }));
   $("#enviarrev").onclick = async () => { const c = caps.find((x) => x.id === $("#caprev").value); if (!c) return; toast("Enviando…"); await enviarRevisao(id, [c]); toast("Enviado para revisão"); window.redesenhar(); };
   $$("[data-tr]").forEach((b) => (b.onclick = async () => { await tirarRevisao(id, b.dataset.tr); window.redesenhar(); }));

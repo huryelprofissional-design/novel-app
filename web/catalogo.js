@@ -176,7 +176,9 @@ rota("/colab/(\\w+)", async (pid) => {
   const m = minhasColabs().find((x) => x.pid === pid); if (!m) { ir("/colaborar"); return; }
   carregando("colab");
   const caps = await capsRevisao(pid).catch(() => []);
+  const { salasAbertas, htmlSalas } = await import("./aovivo.js"); const salas = await salasAbertas(pid);
   casca("colab", `<div class="topo"><a class="voltar vidro" href="#/colaborar">←</a><h1>${esc(m.titulo)}</h1><span class="pilula">${m.papel === "COAUTOR" ? "Coautor" : "Revisor"}</span></div>
+    ${htmlSalas(salas, false)}
     <div class="sec"><h2>Capítulos para revisar</h2></div>
     ${caps.length ? caps.map((c) => `<a class="linha-item card" href="#/revisao/${pid}/${c.id}"><div style="flex:1"><b>${esc(c.titulo)}</b><div class="suave peq">enviado ${haQuanto(c.enviadoEm)} · ${c.notas} nota(s)</div></div><span>›</span></a>`).join("") : `<p class="suave">O autor ainda não mandou capítulos.</p>`}
     ${m.papel === "COAUTOR" ? `<div class="sec"><h2>Sugerir um capítulo</h2></div><div class="card"><input class="campo" id="st" placeholder="Título"><textarea class="campo" id="sx" rows="10" placeholder="Escreva o capítulo…" style="margin-top:10px"></textarea><div class="linha-botoes"><button class="btn" id="env">Enviar sugestão</button></div></div>` : ""}`);
