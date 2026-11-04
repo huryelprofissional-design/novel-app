@@ -78,16 +78,38 @@ function efeitosInline(h) {
     .replace(/\(\((.+?)\)\)/g, '<span class="sussurro">$1</span>')
     .replace(/\|\|(.+?)\|\|/g, '<span class="segredo" title="Toque para revelar">$1</span>')
     .replace(/%%(.+?)%%/g, '<span class="glitch" data-glitch="$1">$1</span>')
-    .replace(/&lt;&lt;(.+?)&gt;&gt;/g, '<span class="sombria">$1</span>');
+    .replace(/&lt;&lt;(.+?)&gt;&gt;/g, '<span class="sombria">$1</span>')
+    .replace(/~~(.+?)~~/g, '<span class="riscado">$1</span>')
+    .replace(/(^|[^{])\{([^{}]+)\}(?!\})/g, '$1<span class="tele">$2</span>')
+    .replace(/\[(SSS|SS|S|A|B|C|D|E|F)\+?\]/g, (_, r) => `<span class="rank r-${r.length > 1 ? "S" : r}">${r}</span>`);
 }
 const BARRA = /^([\p{L}][\p{L} ]{0,14}?)\s*:?\s*(\d+)\s*\/\s*(\d+)$/u;
 const COR_BARRA = (n) => (/^(HP|VIDA|SA[UÚ]DE)$/i.test(n) ? "#E0283C,#FF6A6A" : /^(MP|MANA|QI|CHI|KI|ENERGIA)$/i.test(n) ? "#3A7BFF,#5CC8FF" : /^(XP|EXP|EXPERI[EÊ]NCIA)$/i.test(n) ? "#FFB020,#FFC94A" : /^(SP|STAMINA|VIGOR)$/i.test(n) ? "#2FBF71,#6FCF97" : "#8E5CFF,#C59BFF");
 function sistemaHTML(l) {
-  const partes = l.split("|").map((x) => x.trim()); const bs = partes.map((x) => x.match(BARRA));
-  if (!bs.some(Boolean)) return null;
-  return `<span class="t-sis">◈ STATUS</span>` + partes.map((x, k) => { const m = bs[k]; if (!m) return `<span class="linha-sis">${efeitosInline(esc(x))}</span>`;
+  const partes = l.split("|").map((x) => x.trim()); const bs = partes.map((x) => x.match(BARRA)), cs = partes.map((x) => x.match(/^\[([xX✓ ]?)\]/));
+  if (!bs.some(Boolean) && !cs.some(Boolean)) return null;
+  return `<span class="t-sis">◈ ${cs.some(Boolean) ? "MISSÕES" : "STATUS"}</span>` + partes.map((x, k) => { const m = bs[k], c = cs[k];
+    if (c) return `<span class="missao-sis ${c[1].trim() ? "feita" : ""}"><i>${c[1].trim() ? "✓" : ""}</i>${efeitosInline(esc(x.slice(c[0].length).trim()))}</span>`;
+    if (!m) return `<span class="linha-sis">${efeitosInline(esc(x))}</span>`;
     const f = Math.min(100, (+m[2] / Math.max(1, +m[3])) * 100);
     return `<span class="barra-sis"><span>${esc(m[1].trim())}</span><i><b style="--f:${f}%;background:linear-gradient(90deg,${COR_BARRA(m[1].trim())})"></b></i><span>${m[2]} / ${m[3]}</span></span>`; }).join("");
+}
+
+const RAR = { comum: "#B0B0B8", incomum: "#6FCF97", raro: "#5CC8FF", "épico": "#C59BFF", epico: "#C59BFF", "lendário": "#FFC94A", lendario: "#FFC94A", "mítico": "#FF4458", mitico: "#FF4458" };
+const CORES_NOME = ["#6FCF97", "#5CC8FF", "#C59BFF", "#FF8A65", "#F07AAE", "#FFC94A"];
+const corNome = (n) => n.startsWith("[") ? "#FFC94A" : CORES_NOME[[...n].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % CORES_NOME.length];
+function iconeItem(n) { const l = n.toLowerCase(); return /espada|lâmina|lamina|faca|adaga|katana|sabre/.test(l) ? "🗡" : /poção|pocao|elixir|pílula|pilula/.test(l) ? "🧪" : /anel|colar|joia|amuleto/.test(l) ? "💍" : /livro|manual|técnica|tecnica|pergaminho/.test(l) ? "📜" : /escudo|armadura|elmo/.test(l) ? "🛡" : /arco|flecha/.test(l) ? "🏹" : /moeda|ouro|gema|cristal|pedra/.test(l) ? "💎" : /chave/.test(l) ? "🗝" : "✦"; }
+/** Blocos da leva 3: [classe, html] ou null. */
+function blocoEspecial(l, op) {
+  if (/^@@./.test(l)) { const nome = l.slice(2).trim().replace(/[.,]$/, ""); return ["ficha-cartao", `<span class="av-f" data-ficha-cartao="${esc(nome)}">${esc(nome.slice(0, 1).toUpperCase())}</span><span><b>${esc(nome)}</b><small class="sub-f"></small></span>`]; }
+  if (/^>>>./.test(l)) return ["aovivo", `<span class="tag-vivo">AO VIVO</span>` + l.split("\n").map((x) => { x = x.replace(/^>>>\s*/, ""); const d = x.startsWith("[") && x.indexOf("]") > 0 ? x.indexOf("]") + 1 + Math.max(0, x.slice(x.indexOf("]") + 1).indexOf(":")) : x.indexOf(":"); const n = d > 0 ? x.slice(0, d).trim().replace(/:$/, "") : ""; return `<span class="cmt">${n ? `<b style="color:${corNome(n)}">${esc(n)}</b> ` : ""}<span${n.startsWith("[") ? ' class="const"' : ""}>${efeitosInline(esc(d > 0 ? x.slice(d + 1).trim() : x))}</span></span>`; }).join("")];
+  const conv = l.match(/^>>\s*([^:\s>][^:]{0,24}):\s(.*)$/); if (conv) return ["conversa", `<small style="color:${corNome(conv[1].trim())}">${esc(conv[1].trim())}</small>${efeitosInline(esc(conv[2]))}`];
+  if (/^\{\{.+\}\}$/.test(l)) { const c = l.slice(2, -2), b = c.indexOf("|"); return ["pergaminho", `${b > 0 ? `<b>${esc(c.slice(0, b).trim())}</b>` : ""}<span>${efeitosInline(esc((b > 0 ? c.slice(b + 1) : c).trim()))}</span><i>印</i>`]; }
+  if (/^\[\+.+\]$/.test(l)) { const [n, r = ""] = l.slice(2, -1).split("|").map((x) => x.trim()); const cor = RAR[r.toLowerCase()] || "#FFC94A"; return ["item-obtido", `<span class="ic" style="--c:${cor}">${iconeItem(n)}</span><span><small style="color:${cor}">ITEM ${r ? esc(r.toUpperCase()) + " " : ""}OBTIDO</small><b>${esc(n)}</b></span>`]; }
+  if (/^::./.test(l)) { const [a, ...r] = l.slice(2).split("|").map((x) => x.trim()); return ["local-hora", `<b>${esc(a)}</b>${r.map((x) => `<span>${esc(x)}</span>`).join("")}`]; }
+  if (/^> ./.test(l)) { const t = l.slice(2), k = Math.max(t.lastIndexOf(" — "), t.lastIndexOf(" - ")); return ["epigrafe", `<span>${efeitosInline(esc(k > 0 ? t.slice(0, k) : t))}</span>${k > 0 ? `<small>— ${esc(t.slice(k + 3).trim())}</small>` : ""}`]; }
+  const na = l.match(/^(N\.\s?A\.|Nota do autor)\s*:?\s*/i); if (na) return ["nota-autor", `<span class="av-na">${esc((op.autor || "A").slice(0, 1).toUpperCase())}</span><span><small>NOTA DO AUTOR</small>${efeitosInline(esc(l.slice(na[0].length)))}</span>`];
+  return null;
 }
 
 export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
@@ -99,6 +121,7 @@ export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
     if (/^~pausa$/i.test(l)) { pausa = true; continue; }
     const m = marcaCena(l); if (m !== null) { clima = m; continue; }
     if (/^==./.test(l) && /^==/.test(linhas[linhas.length - 1] || "")) { linhas[linhas.length - 1] += "\n" + l; continue; }
+    if (/^>>>./.test(l) && /^>>>/.test(linhas[linhas.length - 1] || "")) { linhas[linhas.length - 1] += "\n" + l; continue; }
     linhas.push(l); climas.push(clima); pausas.push(pausa); pausa = false;
   }
   // palavra solta (parte do nome) não vale colada a outro nome: em "Gwon Jang-ho" o "Gwon" é de outra pessoa
@@ -109,6 +132,8 @@ export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
     if (/^(\* \* \*|\*\*\*|---|◆)$/.test(l)) return `<div class="sep enfeite" data-b="${i}"${cl}>${enfeiteHTML(op.enfeite)}</div>`;
     if (/^##(?!#)/.test(l)) return `<h2 class="impacto" data-b="${i}"${cl}>${esc(l.replace(/^#+\s*/, ""))}</h2>`;
     if (/^#/.test(l)) return `<h3 data-b="${i}"${cl}>${esc(l.replace(/^#+\s*/, ""))}</h3>`;
+    const especial = blocoEspecial(l, op);
+    if (especial) return `<div data-b="${i}"${cl} class="${especial[0]}">${especial[1]}</div>`;
     const sistema = /^\[\[.+\]\]$/.test(l), msg = /^>>/.test(l), aviso = /^\[!.+!\]$/.test(l), carta = /^==/.test(l);
     if (sistema) l = l.slice(2, -2).trim(); else if (msg) l = l.slice(2).trim(); else if (aviso) l = l.slice(2, -2).trim(); else if (carta) l = l.split("\n").map((x) => x.replace(/^==\s*/, "")).join("\n");
     let h = (sistema && sistemaHTML(l)) || efeitosInline(esc(l)).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
@@ -255,6 +280,17 @@ function ouvir(apartir = 0) {
 /** Liga clique nos nomes (abre a ficha). */
 function ligarNomes(fs, fotoDe) {
   $$("#texto .nome").forEach((n) => (n.onclick = async () => { const f = fs.find((x) => x.id === n.dataset.ficha); if (f) verFicha(f, fotoDe ? await fotoDe(f) : undefined); }));
+  // @@Nome: cartão do personagem com os dados da ficha
+  $$("#texto [data-ficha-cartao]").forEach(async (av) => {
+    const nome = av.dataset.fichaCartao.toLowerCase(), card = av.closest(".ficha-cartao");
+    const f = fs.find((x) => x.nome.toLowerCase() === nome) || fs.find((x) => (x.apelidos || "").split(",").some((a) => a.trim().toLowerCase() === nome)) || fs.find((x) => x.nome.toLowerCase().startsWith(nome));
+    if (!f) { card.querySelector(".sub-f").textContent = "Sem ficha com esse nome ainda"; return; }
+    card.querySelector("b").textContent = f.nome;
+    const idade = (f.idade || "").trim(); const sub = [idade && (/\d/.test(idade) && !/ano/.test(idade) ? idade + " anos" : idade), f.faccao].filter(Boolean).join(" · ");
+    card.querySelector(".sub-f").innerHTML = esc(sub) + `<span class="tags-f">${[f.aparencia, f.poder].filter(Boolean).join(",").split(",").map((x) => x.trim()).filter((x) => x && x.length <= 24).slice(0, 4).map((x) => `<i>${esc(x)}</i>`).join("")}</span>`;
+    card.style.cursor = "pointer"; card.onclick = async () => verFicha(f, fotoDe ? await fotoDe(f) : undefined);
+    const url = fotoDe ? await fotoDe(f) : null; if (url) av.innerHTML = `<img src="${url}" alt="">`;
+  });
 }
 
 function painelCapitulos(caps, atual, link) {
@@ -287,7 +323,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
         <button class="btn2 peq" id="ouvir">▶ Ouvir</button><button class="btn2 peq" id="lcaps" title="Capítulos">☰</button><button class="btn2 peq" id="aj" title="Leitura">Aa</button>${pode ? `<a class="btn2 peq" href="#/editar/${obraId}/${capId}">✎ Editar</a>` : ""}</div>
       <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo || "Sem título")}</h1><div class="suave peq">${palavrasFmt(c.palavras || 0)} palavras · ◷ ${Math.max(1, Math.round((c.palavras || 0) / 230))} min</div></div>
       ${(c.progresso || 0) < .05 ? cartaoAnterior(ant) : ""}
-      <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fs), grifos, { enfeite: o.enfeite }) || '<p class="suave">Capítulo vazio.</p>'}</div>
+      <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fs), grifos, { enfeite: o.enfeite, autor: o.autor || nomeAutor() }) || '<p class="suave">Capítulo vazio.</p>'}</div>
       <div class="fim"><div class="losango" style="width:14px;height:14px"></div><div class="rotulo" style="color:var(--suave)">Fim do capítulo</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${ant ? `<a class="btn2" href="#/ler/${obraId}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/ler/${obraId}/${prox.id}">Próximo: ${esc(prox.titulo)} ›</a>` : `<span class="suave">Último capítulo.</span>`}</div>
         ${!prox && o.status === "LENDO" && !o.minha ? `<button class="btn2 peq" id="concluir">Marcar obra como lida</button>` : ""}</div>
@@ -422,11 +458,11 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   $("#befx").onclick = () => {
     const linha = (ex, d, ins, env) => `<button class="efx" data-x="${esc(ins)}" ${env ? "data-e" : ""}><code>${esc(ex)}</code><span>${esc(d)}</span></button>`;
     const d = dialogo(`<h3 style="margin-top:0">Efeitos de escrita</h3><p class="suave peq">Escreva os símbolos e o leitor faz o efeito sozinho (no PC e no celular). Clique para inserir.</p>
-      <div class="rotulo">No texto (selecione um trecho)</div>${linha("!!GRITO!!", "Fala gritada, grande e tremendo", "!!", 1)}${linha("((sussurro))", "Baixinho, menor e em itálico", "((", 2)}${linha("^^brilho^^", "Palavra mágica dourada", "^^", 1)}${linha("||segredo||", "Borrado até o leitor tocar", "||", 1)}${linha("%%glitch%%", "Letras corrompidas trocando", "%%", 1)}${linha("<<voz sombria>>", "Vermelho com sombra: vilão, demônio", "<<", 3)}
-      <div class="rotulo" style="margin-top:12px">Parágrafo inteiro</div>${linha("[[texto]]", "Janela azul de Sistema", "\n[[Habilidade adquirida: Punho de Ferro]]\n")}${linha("[[HP 30/100]]", "Barras de status (separe com |)", "\n[[HP 30/100 | MP 80/100 | XP 45/100]]\n")}${linha("[!aviso!]", "Notificação que desliza do topo", "\n[!Você subiu de nível!]\n")}${linha("== texto", "Carta escrita à mão (várias linhas ==)", "\n== ")}${linha("## TÍTULO", "Título de impacto", "\n## ")}${linha(">> texto", "Mensagem de celular", "\n>> ")}${linha("~pausa", "Pausa dramática antes do próximo parágrafo", "\n~pausa\n")}
+      <div class="rotulo">No texto (selecione um trecho)</div>${linha("!!GRITO!!", "Fala gritada, grande e tremendo", "!!", 1)}${linha("((sussurro))", "Baixinho, menor e em itálico", "((", 2)}${linha("^^brilho^^", "Palavra mágica dourada", "^^", 1)}${linha("{telepatia}", "Voz mental azul", "{", 4)}${linha("~~riscado~~", "Palavra riscada", "~~", 1)}${linha("[S]", "Selo de rank (F até SSS)", "[S]")}${linha("||segredo||", "Borrado até o leitor tocar", "||", 1)}${linha("%%glitch%%", "Letras corrompidas trocando", "%%", 1)}${linha("<<voz sombria>>", "Vermelho com sombra: vilão, demônio", "<<", 3)}
+      <div class="rotulo" style="margin-top:12px">Parágrafo inteiro</div>${linha("[[texto]]", "Janela azul de Sistema", "\n[[Habilidade adquirida: Punho de Ferro]]\n")}${linha("[[ [x] feito | [ ] falta ]]", "Lista de missões no Sistema", "\n[[Missões | [x] Sobreviver à noite | [ ] Achar o mestre]]\n")}${linha("[+item | raridade]", "Item obtido (comum, raro, épico, lendário, mítico)", "\n[+Espada do Vazio | lendário]\n")}${linha("{{TÍTULO | texto}}", "Pergaminho com selo", "\n{{DECRETO DA SEITA | texto do decreto}}\n")}${linha(":: local | hora", "Local e hora, abertura de cena", "\n:: Seul, Gangnam | 03:14 da manhã\n")}${linha("> frase — autor", "Epígrafe", "\n> Frase marcante — Autor\n")}${linha("@@Nome", "Cartão do personagem (puxa a ficha)", "\n@@")}${linha(">>Nome: texto", "Mensagem de outra pessoa (com nome)", "\n>>Kang: ")}${linha(">>>Nome: texto", "Comentários ao vivo (várias linhas)", "\n>>>Nome: comentário\n")}${linha("N.A.: texto", "Nota do autor", "\nN.A.: ")}${linha("[[HP 30/100]]", "Barras de status (separe com |)", "\n[[HP 30/100 | MP 80/100 | XP 45/100]]\n")}${linha("[!aviso!]", "Notificação que desliza do topo", "\n[!Você subiu de nível!]\n")}${linha("== texto", "Carta escrita à mão (várias linhas ==)", "\n== ")}${linha("## TÍTULO", "Título de impacto", "\n## ")}${linha(">> texto", "Mensagem de celular", "\n>> ")}${linha("~pausa", "Pausa dramática antes do próximo parágrafo", "\n~pausa\n")}
       <div class="rotulo" style="margin-top:12px">Efeito de cena (numa linha sozinha, vale até ~fim)</div>${Object.entries(EFEITOS_CENA).map(([k, n]) => linha("~" + k, n, `\n~${k}\n`)).join("")}${linha("~fim", "⏹ Desligar o efeito", "\n~fim\n")}
       <div class="linha-botoes"><button class="btn peq" data-n>Fechar</button></div>`);
-    d.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { d.close?.(); d.remove?.(); const x = b.dataset.x; if (x === "((" || x === "<<") { const f = x === "((" ? "))" : ">>"; const a = ta.selectionStart, z = ta.selectionEnd; ta.setRangeText(x + ta.value.slice(a, z) + f, a, z, "end"); ta.dispatchEvent(new Event("input")); ta.focus(); } else inserir(x, b.hasAttribute("data-e")); }));
+    d.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { d.close?.(); d.remove?.(); const x = b.dataset.x; if (x === "((" || x === "<<" || x === "{") { const f = x === "((" ? "))" : x === "<<" ? ">>" : "}"; const a = ta.selectionStart, z = ta.selectionEnd; ta.setRangeText(x + ta.value.slice(a, z) + f, a, z, "end"); ta.dispatchEvent(new Event("input")); ta.focus(); } else inserir(x, b.hasAttribute("data-e")); }));
   };
   $("[data-fala]").onclick = () => { const a = ta.selectionStart; const antes = ta.value.slice(0, a); inserir((antes && !antes.endsWith("\n") ? "\n\n" : "") + "— "); };
   $("#bfoco").onclick = () => document.body.classList.toggle("foco");
@@ -500,7 +536,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
       <button class="btn2 peq" id="ouvir">▶ Ouvir</button><button class="btn2 peq" id="lcaps">☰</button><button class="btn2 peq" id="aj">Aa</button></div>
     <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo)}</h1><div class="suave peq">por <a href="#/autor/${esc(o.autorUid)}" style="text-decoration:underline">${esc(o.autorNome)}</a> · ${palavrasFmt(c.palavras)} palavras</div></div>
     ${cartaoAnterior(ant)}
-    <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fichasLista), new Map(), { enfeite: o.enfeite, coms: porTrecho })}</div>
+    <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fichasLista), new Map(), { enfeite: o.enfeite, coms: porTrecho, autor: o.autorNome })}</div>
     <div class="fim">${fimHTML(i + 1, caps.length, i + 1)}${await reacoesHTML(pid, cid)}
       <div class="social"><button class="btn2 ${gostei ? "on" : ""}" id="curtir">${gostei ? "♥" : "♡"} <span id="nc">${c.curtidas || 0}</span></button><span class="suave">💬 ${coms.length}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${ant ? `<a class="btn2" href="#/publer/${pid}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/publer/${pid}/${prox.id}">Próximo ›</a>` : `<span class="suave">Último capítulo publicado.</span>`}</div></div>

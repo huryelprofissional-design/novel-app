@@ -1909,7 +1909,8 @@ private fun ChatAoVivo(t: String, extra: Modifier) {
             Text("  ${linhas.size} comentários", fontSize = 11.sp, color = Color(0xFF8E8A93))
         }
         linhas.take(vistas).forEach { l ->
-            val d = l.indexOf(':')
+            val fecha = if (l.startsWith("[")) l.indexOf(']') else -1
+            val d = if (fecha > 0) l.indexOf(':', fecha).takeIf { it > 0 } ?: (fecha + 1) else l.indexOf(':')
             val nome = if (d > 0) l.substring(0, d).trim() else ""
             val msg = if (d > 0) l.substring(d + 1).trim() else l
             Text(buildAnnotatedString {
