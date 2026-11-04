@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.blur
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -100,9 +101,11 @@ import androidx.compose.ui.unit.isSpecified
 
 sealed interface Bloco {
     val plano: String
-    data class Titulo(override val plano: String) : Bloco
-    /** tipo: "" normal · "sistema" ([[janela]]) · "mensagem" (>> celular). clima: efeito de cena ligado por ~chuva … ~fim. */
-    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean, val tipo: String = "", val clima: String? = null) : Bloco { override val plano: String get() = texto.text }
+    /** impacto: "## TÍTULO" (letras gigantes que se juntam). */
+    data class Titulo(override val plano: String, val impacto: Boolean = false) : Bloco
+    /** tipo: "" normal · "sistema" ([[janela]]) · "mensagem" (>> celular) · "carta" (== papel) · "notificacao" ([!aviso!]).
+     *  clima: efeito de cena ligado por ~chuva … ~fim. pausa: veio depois de ~pausa (aparece devagar). */
+    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean, val tipo: String = "", val clima: String? = null, val pausa: Boolean = false) : Bloco { override val plano: String get() = texto.text }
     data object Separador : Bloco { override val plano = "" }
 }
 
@@ -113,33 +116,75 @@ fun ehFala(linha: String): Boolean {
     return iniciosDeFala.any { l.startsWith(it) } && l.length > 1 && !l.startsWith("---")
 }
 
-/** **negrito**, *itálico* e os efeitos de escrita: !!grito!!, ((sussurro)), ^^brilho^^ */
+/** Cores-marca dos efeitos (o leitor acha os trechos por elas). */
+val COR_SEGREDO = Color(0xFF3A3A46)
+val COR_GLITCH = Color(0xFFBB99FF)
+
+/** **negrito**, *itálico* e os efeitos de escrita: !!grito!!, ((sussurro)), ^^brilho^^, ||segredo||, %%glitch%%, <<voz sombria>> */
 fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
     var i = 0
     var negrito = false; var italico = false; var grito = false; var sussurro = false; var brilho = false
-    val marcas = "*!(^)"
+    var segredo = false; var glitch = false; var sombria = false
+    val marcas = "*!(^)|%<>"
     // !! e ^^ só abrem no começo de palavra ("Socorro!! Alguém!!" continua normal)
     fun abre(k: Int, m: String) = (k == 0 || linha[k - 1].isWhitespace() || linha[k - 1] in "—–“\"«(") && k + 2 < linha.length && !linha[k + 2].isWhitespace() && linha.indexOf(m, k + 3) > 0
+    fun par(k: Int, a: String, f: String) = linha.startsWith(a, k) && linha.indexOf(f, k + 2) > k + 2
     while (i < linha.length) {
         if (linha.startsWith("**", i)) { negrito = !negrito; i += 2; continue }
         if (linha.startsWith("!!", i) && (grito || abre(i, "!!"))) { grito = !grito; i += 2; continue }
         if (linha.startsWith("((", i) && !sussurro && linha.indexOf("))", i + 2) > 0) { sussurro = true; i += 2; continue }
         if (linha.startsWith("))", i) && sussurro) { sussurro = false; i += 2; continue }
         if (linha.startsWith("^^", i) && (brilho || abre(i, "^^"))) { brilho = !brilho; i += 2; continue }
+        if (linha.startsWith("||", i) && (segredo || par(i, "||", "||"))) { segredo = !segredo; i += 2; continue }
+        if (linha.startsWith("%%", i) && (glitch || par(i, "%%", "%%"))) { glitch = !glitch; i += 2; continue }
+        if (!sombria && par(i, "<<", ">>")) { sombria = true; i += 2; continue }
+        if (sombria && linha.startsWith(">>", i)) { sombria = false; i += 2; continue }
         if (linha[i] == '*') { italico = !italico; i++; continue }
         val ini = i
         i++
         while (i < linha.length && linha[i] !in marcas) i++
-        pushStyle(SpanStyle(
-            fontWeight = if (negrito || brilho) FontWeight.Bold else if (grito) FontWeight.Black else null,
-            fontStyle = if (italico || sussurro) FontStyle.Italic else null,
+        val st = SpanStyle(
+            fontWeight = if (negrito || brilho || glitch) FontWeight.Bold else if (grito) FontWeight.Black else if (sombria) FontWeight.SemiBold else null,
+            fontStyle = if (italico || sussurro || sombria) FontStyle.Italic else null,
+            fontFamily = if (glitch) androidx.compose.ui.text.font.FontFamily.Monospace else null,
             fontSize = if (grito) 1.3.em else if (sussurro) 0.86.em else androidx.compose.ui.unit.TextUnit.Unspecified,
-            letterSpacing = if (sussurro) 0.04.em else if (grito) 0.02.em else androidx.compose.ui.unit.TextUnit.Unspecified,
-            color = if (brilho) Color(0xFFFFC94A) else if (sussurro) Color(0xFF9A9AA8) else Color.Unspecified,
-            shadow = if (brilho) androidx.compose.ui.graphics.Shadow(Color(0xCCFFB020), blurRadius = 14f) else null,
-        ))
-        append(linha, ini, i)
-        pop()
+            letterSpacing = if (sussurro || sombria) 0.04.em else if (grito) 0.02.em else androidx.compose.ui.unit.TextUnit.Unspecified,
+            color = when { segredo -> Color.Transparent; glitch -> COR_GLITCH; sombria -> Color(0xFFFF4458); brilho -> Color(0xFFFFC94A); sussurro -> Color(0xFF9A9AA8); else -> Color.Unspecified },
+            background = if (segredo) COR_SEGREDO else Color.Unspecified,
+            shadow = when { brilho -> androidx.compose.ui.graphics.Shadow(Color(0xCCFFB020), blurRadius = 14f); sombria -> androidx.compose.ui.graphics.Shadow(Color(0xDDE0283C), blurRadius = 16f)
+                glitch -> androidx.compose.ui.graphics.Shadow(Color(0xFFFF00AA), androidx.compose.ui.geometry.Offset(3f, 0f), 0f); else -> null },
+        )
+        val a = length
+        pushStyle(st); append(linha, ini, i); pop()
+        if (segredo) addStringAnnotation("segredo", "", a, length)
+        if (glitch) addStringAnnotation("glitch", "", a, length)
+    }
+}
+
+/** Tira o borrão dos ||segredos|| (depois que o leitor tocou). */
+fun revelarSegredos(t: AnnotatedString): AnnotatedString {
+    if (t.getStringAnnotations("segredo", 0, t.length).isEmpty()) return t
+    return buildAnnotatedString {
+        append(t)
+        t.getStringAnnotations("segredo", 0, t.length).forEach { addStyle(SpanStyle(color = Color(0xFFFFE6A8), background = Color(0x33FFC94A)), it.start, it.end) }
+    }
+}
+
+/** Letras do %%glitch%% trocadas por lixo (chamado a cada quadro do efeito). */
+fun embaralharGlitch(t: AnnotatedString, r: kotlin.random.Random): AnnotatedString {
+    val gs = t.getStringAnnotations("glitch", 0, t.length)
+    if (gs.isEmpty()) return t
+    val lixo = "▓▒░#@%&$*!?"
+    return buildAnnotatedString {
+        var k = 0
+        gs.forEach { g ->
+            append(t.subSequence(k, g.start))
+            val pedaco = t.subSequence(g.start, g.end)
+            val troca = pedaco.text.map { c -> if (c != ' ' && r.nextFloat() < 0.12f) lixo[r.nextInt(lixo.length)] else c }.joinToString("")
+            append(AnnotatedString(troca, pedaco.spanStyles))
+            k = g.end
+        }
+        append(t.subSequence(k, t.length))
     }
 }
 
@@ -174,17 +219,27 @@ fun montarBlocos(texto: String): List<Bloco> {
     val saida = ArrayList<Bloco>(texto.length / 300 + 4)
     var anteriorVazia = true
     var clima: String? = null
+    var pausa = false
+    val carta = StringBuilder()
+    fun fecharCarta() { if (carta.isNotEmpty()) { saida.add(Bloco.Paragrafo(estilizar(carta.toString()), false, "carta", clima)); carta.clear() } }
     texto.lineSequence().forEach { bruta ->
         val linha = Marcas.limpar(bruta).trim()
+        // linhas "== …" seguidas viram uma carta só
+        if (linha.startsWith("==") && linha.length > 2) { if (carta.isNotEmpty()) carta.append('\n'); carta.append(linha.drop(2).trim()); return@forEach }
+        if (linha.isNotEmpty()) fecharCarta()
+        if (linha.equals("~pausa", true)) { pausa = true; return@forEach }
         val cena = marcaCena(linha)
         if (cena != null) { clima = cena.ifEmpty { null }; return@forEach } // a linha do símbolo não aparece
         val podeSerTitulo = anteriorVazia
         anteriorVazia = linha.isEmpty()
         when {
             linha.isEmpty() -> {}
+            linha.startsWith("[!") && linha.endsWith("!]") && linha.length > 4 ->
+                saida.add(Bloco.Paragrafo(estilizar(linha.substring(2, linha.length - 2).trim()), false, "notificacao", clima))
             linha.startsWith("[[") && linha.endsWith("]]") && linha.length > 4 ->
                 saida.add(Bloco.Paragrafo(estilizar(linha.substring(2, linha.length - 2).trim()), false, "sistema", clima))
             linha.startsWith(">>") && linha.length > 2 -> saida.add(Bloco.Paragrafo(estilizar(linha.drop(2).trim()), false, "mensagem", clima))
+            linha.startsWith("##") && !linha.startsWith("###") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim(), impacto = true))
             podeSerTitulo && Texto.ehTituloCapitulo(linha) && !linha.startsWith("#") -> saida.add(Bloco.Titulo(Texto.tituloLimpo(linha)))
             linha == "* * *" || linha == "***" || linha == "---" || linha == "◆" -> saida.add(Bloco.Separador)
             linha.startsWith("#") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim()))
@@ -192,9 +247,10 @@ fun montarBlocos(texto: String): List<Bloco> {
                 val fala = ehFala(linha)
                 Texto.dividirEmPedacos(linha, 1500).forEach { saida.add(Bloco.Paragrafo(estilizar(it.trim()), fala, clima = clima)) }
             }
-            else -> saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha), clima = clima))
+            else -> { saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha), clima = clima, pausa = pausa)); pausa = false }
         }
     }
+    fecharCarta()
     return saida
 }
 
@@ -365,6 +421,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     val marcasPorBloco = remember(marcas) { marcas.associateBy { it.bloco } }
     val fichas by remember(c.obraId) { repo.fichas(c.obraId) }.collectAsState(initial = emptyList())
     LaunchedEffect(c.obraId) { repo.repararNomes(c.obraId) }
+    val revelados = remember(capId) { mutableStateListOf<Int>() } // ||segredos|| que o leitor já abriu
     var blocoSel by remember { mutableStateOf(-1) }
     var fichaVer by remember { mutableStateOf<com.huryel.novely.data.Ficha?>(null) }
 
@@ -621,9 +678,10 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                                         is Bloco.Paragrafo -> {
                                             val inteiro = remember(item.bi, regraNomes, destacarNomes, tamanho) { decorado(item.bi) }
                                             val comBusca = if (q.length >= 2) destacarBusca(inteiro, normalizados.value[item.bi], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == item.bi }?.second) else inteiro
-                                            val trecho = comBusca.subSequence(item.ini.coerceAtMost(comBusca.length), item.fim.coerceAtMost(comBusca.length))
+                                            val trecho0 = comBusca.subSequence(item.ini.coerceAtMost(comBusca.length), item.fim.coerceAtMost(comBusca.length))
+                                            val trecho = textoComEfeitos(trecho0, item.bi in revelados) { revelados.add(item.bi) }
                                             if (bl.fala && destacarFalas) Fala(trecho, estiloLivro, p, fundo)
-                                            else Text(trecho, style = estiloLivro.copy(color = when (bl.tipo) { "sistema" -> Color(0xFF8FD3FF); "mensagem" -> p.destaque; else -> corNarracao }),
+                                            else Text(trecho, style = estiloLivro.copy(color = when (bl.tipo) { "sistema" -> Color(0xFF8FD3FF); "mensagem", "notificacao" -> p.destaque; else -> corNarracao }),
                                                 modifier = fundo.then(if (item.bi == primeiroParagrafo && item.ini == 0) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
                                         }
                                     }
@@ -673,7 +731,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                         drawRect(coresGrifo[mk.cor] ?: p.destaque, topLeft = androidx.compose.ui.geometry.Offset(x, 2f), size = androidx.compose.ui.geometry.Size(4.dp.toPx(), 18.dp.toPx()))
                     } else Modifier)
                 when (bloco) {
-                    is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, fundoAtivo)
+                    is Bloco.Titulo -> if (bloco.impacto) TituloImpacto(bloco.plano, p, fundoAtivo) else TituloNoTexto(bloco.plano, p, fundoAtivo)
                     is Bloco.Separador -> Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) { SeparadorCena(enfeite, p.destaque) }
                     is Bloco.Paragrafo -> {
                         val base = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
@@ -681,15 +739,20 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                             val t = comNomes(base)
                             if (i == primeiroParagrafo) capitular(t, p, tamanho) else t
                         }
+                        val comEfeitos = textoComEfeitos(texto, i in revelados) { revelados.add(i) }
+                        PausaDramatica(bloco.pausa) {
                         Column {
-                            if (bloco.tipo == "sistema") JanelaSistema(texto, estiloBase, fundoAtivo)
-                            else if (bloco.tipo == "mensagem") BalaoMensagem(texto, estiloBase, p, fundoAtivo)
-                            else if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
-                            else Text(texto, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo.then(if (i == primeiroParagrafo) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
+                            if (bloco.tipo == "sistema") JanelaSistema(comEfeitos, estiloBase, fundoAtivo)
+                            else if (bloco.tipo == "mensagem") BalaoMensagem(comEfeitos, estiloBase, p, fundoAtivo)
+                            else if (bloco.tipo == "carta") CartaPapel(comEfeitos, estiloBase, fundoAtivo)
+                            else if (bloco.tipo == "notificacao") AvisoNoTexto(comEfeitos, fundoAtivo)
+                            else if (bloco.fala && destacarFalas) Fala(comEfeitos, estiloBase, p, fundoAtivo)
+                            else Text(comEfeitos, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo.then(if (i == primeiroParagrafo) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
                             val n = comsPorBloco[i] ?: 0
                             if (n > 0) Text("💬 $n", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.sobreDestaque,
                                 modifier = Modifier.align(Alignment.End).padding(top = 4.dp).clip(RoundedCornerShape(10.dp)).background(p.destaque)
                                     .clickable { trechoComentar = i }.padding(horizontal = 8.dp, vertical = 2.dp))
+                        }
                         }
                     }
                 }
@@ -716,6 +779,16 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }
         LaunchedEffect(clima, somCena) { com.huryel.novely.data.Ambiente.tocar(if (somCena) clima?.let { SOM_CLIMA[it] } else null) }
         ClimaCena(clima)
+        // [!aviso!]: desliza do topo quando o leitor chega nele (uma vez por capítulo)
+        var aviso by remember { mutableStateOf<String?>(null) }
+        val avisados = remember(capId) { mutableSetOf<Int>() }
+        LaunchedEffect(b) {
+            snapshotFlow { blocoAtual() }.collectLatest { bi ->
+                val k = (bi..bi + 3).firstOrNull { (b.getOrNull(it) as? Bloco.Paragrafo)?.tipo == "notificacao" && it !in avisados } ?: return@collectLatest
+                avisados.add(k); aviso = b[k].plano; kotlinx.coroutines.delay(3500); aviso = null
+            }
+        }
+        AvisoDeslizante(aviso, Modifier.align(Alignment.TopCenter))
         androidx.compose.animation.AnimatedVisibility(clima != null, Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = if (controles) 64.dp else 10.dp, end = 12.dp),
             enter = fadeIn() + slideInVertically { -it }, exit = fadeOut()) {
             var ultimoClima by remember { mutableStateOf("") }
@@ -1500,17 +1573,49 @@ private fun Reacoes(pid: String, cid: String) {
     }
 }
 
-/** [[texto]] → janela de sistema (estilo novel de Sistema). */
+private val BARRA_STATUS = Regex("^([\\p{L}][\\p{L} ]{0,14}?)\\s*:?\\s*(\\d+)\\s*/\\s*(\\d+)$")
+
+/** [[texto]] → janela de sistema. "HP 30/100 | MP 80/100" vira barras que enchem. */
 @Composable
 private fun JanelaSistema(texto: AnnotatedString, estilo: TextStyle, extra: Modifier) {
     val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "sistema")
     val luz by t.animateFloat(0.35f, 0.8f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1600), androidx.compose.animation.core.RepeatMode.Reverse), label = "luz")
+    val partes = remember(texto.text) { texto.text.split('|').map { it.trim() } }
+    val barras = partes.map { BARRA_STATUS.find(it) }
+    val estiloMono = estilo.copy(color = Color(0xFFDDF3FF), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = escalar(estilo.fontSize, 0.88f), lineHeight = escalar(estilo.lineHeight, 0.92f))
     Column(extra.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(6.dp))
         .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF0101E33), Color(0xF00A1424))))
-        .border(1.5.dp, Color(0xFF5CC8FF).copy(alpha = luz), RoundedCornerShape(6.dp)).padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text("◈ SISTEMA", fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Color(0xFF5CC8FF))
-        Text(texto, style = estilo.copy(color = Color(0xFFDDF3FF), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = escalar(estilo.fontSize, 0.88f), lineHeight = escalar(estilo.lineHeight, 0.92f)),
-            modifier = Modifier.padding(top = 6.dp))
+        .border(1.5.dp, Color(0xFF5CC8FF).copy(alpha = luz), RoundedCornerShape(6.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(if (barras.any { it != null }) "◈ STATUS" else "◈ SISTEMA", fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Color(0xFF5CC8FF))
+        if (barras.all { it == null }) Text(texto, style = estiloMono)
+        else partes.forEachIndexed { k, parte ->
+            val m = barras[k]
+            if (m == null) Text(parte, style = estiloMono)
+            else BarraStatus(m.groupValues[1].trim(), m.groupValues[2].toInt(), m.groupValues[3].toInt().coerceAtLeast(1))
+        }
+    }
+}
+
+@Composable
+private fun BarraStatus(nome: String, valor: Int, max: Int) {
+    val n = nome.uppercase()
+    val cores = when {
+        n in setOf("HP", "VIDA", "SAÚDE", "SAUDE") -> listOf(Color(0xFFE0283C), Color(0xFFFF6A6A))
+        n in setOf("MP", "MANA", "QI", "CHI", "KI", "ENERGIA") -> listOf(Color(0xFF3A7BFF), Color(0xFF5CC8FF))
+        n in setOf("XP", "EXP", "EXPERIÊNCIA", "EXPERIENCIA") -> listOf(Color(0xFFFFB020), Color(0xFFFFC94A))
+        n in setOf("SP", "STAMINA", "VIGOR") -> listOf(Color(0xFF2FBF71), Color(0xFF6FCF97))
+        else -> listOf(Color(0xFF8E5CFF), Color(0xFFC59BFF))
+    }
+    val f = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(valor, max) { f.animateTo((valor.toFloat() / max).coerceIn(0f, 1f), androidx.compose.animation.core.tween(1400, 200, androidx.compose.animation.core.FastOutSlowInEasing)) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(nome, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDDF3FF), modifier = Modifier.width(64.dp), maxLines = 1)
+        Box(Modifier.weight(1f).height(9.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xFF1B2A40))) {
+            Box(Modifier.fillMaxWidth(f.value).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(androidx.compose.ui.graphics.Brush.horizontalGradient(cores)))
+        }
+        Text("${(f.value * max).toInt()} / $max", fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp, color = Color(0xFFDDF3FF),
+            textAlign = TextAlign.End, modifier = Modifier.width(86.dp))
     }
 }
 
@@ -1526,3 +1631,80 @@ private fun BalaoMensagem(texto: AnnotatedString, estilo: TextStyle, p: Paleta, 
 }
 
 private fun escalar(u: androidx.compose.ui.unit.TextUnit, f: Float) = if (u.isSpecified) u * f else u
+
+/** Segredo clicável (borrão até tocar) e glitch com letras trocando. */
+@Composable
+private fun textoComEfeitos(t: AnnotatedString, revelado: Boolean, revelar: () -> Unit): AnnotatedString {
+    val temSegredo = remember(t) { t.getStringAnnotations("segredo", 0, t.length).isNotEmpty() }
+    val temGlitch = remember(t) { t.getStringAnnotations("glitch", 0, t.length).isNotEmpty() }
+    val base = remember(t, revelado) {
+        if (!temSegredo) t else if (revelado) revelarSegredos(t) else buildAnnotatedString {
+            append(t)
+            t.getStringAnnotations("segredo", 0, t.length).forEach { addLink(LinkAnnotation.Clickable("seg${it.start}") { revelar() }, it.start, it.end) }
+        }
+    }
+    if (!temGlitch) return base
+    var quadro by remember { mutableIntStateOf(0) }
+    LaunchedEffect(t) { while (true) { kotlinx.coroutines.delay(120); quadro++ } }
+    return remember(base, quadro) { embaralharGlitch(base, kotlin.random.Random(quadro)) }
+}
+
+/** ~pausa: três pontinhos e o parágrafo aparece bem devagar. */
+@Composable
+private fun PausaDramatica(ligada: Boolean, conteudo: @Composable () -> Unit) {
+    if (!ligada) { conteudo(); return }
+    val a = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(1200); a.animateTo(1f, androidx.compose.animation.core.tween(2600)) }
+    Column(Modifier.fillMaxWidth()) {
+        Text("·  ·  ·", color = LocalPaleta.current.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp))
+        Box(Modifier.graphicsLayer { alpha = a.value }) { conteudo() }
+    }
+}
+
+/** ## TÍTULO: letras gigantes que se juntam no centro. */
+@Composable
+private fun TituloImpacto(t: String, p: Paleta, extra: Modifier) {
+    val a = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) { a.animateTo(1f, androidx.compose.animation.core.tween(1600, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    Text(t.uppercase(), textAlign = TextAlign.Center, fontWeight = FontWeight.Black, fontSize = 32.sp, lineHeight = 36.sp, color = p.texto, fontFamily = p.fonteUi,
+        letterSpacing = (0.08f + (1 - a.value) * 0.7f).em,
+        modifier = extra.fillMaxWidth().padding(vertical = 26.dp).graphicsLayer { alpha = (a.value * 1.6f).coerceAtMost(1f) }
+            .then(if (a.value < 0.6f) Modifier.then(Modifier.blur(((0.6f - a.value) * 14).dp)) else Modifier))
+}
+
+/** == carta: papel antigo, letra cursiva, torto. */
+@Composable
+private fun CartaPapel(texto: AnnotatedString, estilo: TextStyle, extra: Modifier) {
+    Box(extra.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp).graphicsLayer { rotationZ = -1.2f }
+        .shadow(10.dp, RoundedCornerShape(4.dp)).clip(RoundedCornerShape(4.dp))
+        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFFF3E7CF), Color(0xFFE8D8B8))))
+        .drawBehind {
+            val passo = 30.dp.toPx(); var y = passo + 12.dp.toPx()
+            while (y < size.height) { drawLine(Color(0x2E785A32), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), 1f); y += passo }
+        }.padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Text(texto, style = estilo.copy(color = Color(0xFF2B2118), fontFamily = androidx.compose.ui.text.font.FontFamily.Cursive, fontSize = escalar(estilo.fontSize, 1.2f), lineHeight = 30.sp))
+    }
+}
+
+/** [!aviso!] no meio do texto: uma linha discreta (o aviso grande desliza do topo). */
+@Composable
+private fun AvisoNoTexto(texto: AnnotatedString, extra: Modifier) {
+    Row(extra.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Text(buildAnnotatedString { append("🔔 "); append(texto) }, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDDF3FF),
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFF12233A)).border(1.dp, Color(0xFF5CC8FF).copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp, vertical = 8.dp))
+    }
+}
+
+@Composable
+private fun AvisoDeslizante(texto: String?, modifier: Modifier) {
+    var ultimo by remember { mutableStateOf("") }
+    texto?.let { ultimo = it }
+    androidx.compose.animation.AnimatedVisibility(texto != null, modifier.statusBarsPadding().padding(top = 70.dp, start = 20.dp, end = 20.dp),
+        enter = slideInVertically(androidx.compose.animation.core.spring(0.55f, 300f)) { -it * 3 } + fadeIn(), exit = slideOutVertically { -it * 3 } + fadeOut()) {
+        Text("🔔  $ultimo", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDDF3FF), textAlign = TextAlign.Center,
+            modifier = Modifier.shadow(20.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF12233A), Color(0xFF0B1626))))
+                .border(1.dp, Color(0xFF5CC8FF), RoundedCornerShape(14.dp)).padding(horizontal = 18.dp, vertical = 12.dp))
+    }
+}

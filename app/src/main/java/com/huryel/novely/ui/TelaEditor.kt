@@ -1029,14 +1029,21 @@ private fun FolhaEfeitosEscrita(p: Paleta, inserir: (String, Boolean) -> Unit) {
         Text("Escreva os símbolos e o leitor faz o efeito sozinho. Toque para inserir.", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
         Text("NO TEXTO (selecione um trecho e toque)", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave)
         listOf(Triple("!!", "!!GRITO!!", "Fala gritada, grande e forte"), Triple("((", "((sussurro))", "Baixinho, menor e em itálico"),
-            Triple("^^", "^^brilho^^", "Palavra mágica dourada e brilhando"), Triple("**", "**negrito**", "Negrito"), Triple("*", "*itálico*", "Itálico")).forEach { (m, ex, d) ->
-            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { if (m == "((") inserir("(())", false) else inserir(m, true) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Triple("^^", "^^brilho^^", "Palavra mágica dourada e brilhando"), Triple("||", "||segredo||", "Borrado até o leitor tocar"),
+            Triple("%%", "%%glitch%%", "Letras corrompidas trocando"), Triple("<<", "<<voz sombria>>", "Vermelho com sombra: vilão, demônio"),
+            Triple("**", "**negrito**", "Negrito"), Triple("*", "*itálico*", "Itálico")).forEach { (m, ex, d) ->
+            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { if (m == "((") inserir("(())", false) else if (m == "<<") inserir("<<>>", false) else inserir(m, true) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
                 Text(d, fontSize = 13.sp, color = p.textoSuave)
             }
         }
         Text("PARÁGRAFO INTEIRO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
-        listOf(Triple("\n[[Habilidade adquirida: Punho de Ferro]]\n", "[[texto]]", "Janela azul de Sistema"), Triple("\n>> ", ">> texto", "Mensagem de celular")).forEach { (m, ex, d) ->
+        listOf(Triple("\n[[Habilidade adquirida: Punho de Ferro]]\n", "[[texto]]", "Janela azul de Sistema"),
+            Triple("\n[[HP 30/100 | MP 80/100 | XP 45/100]]\n", "[[HP 30/100]]", "Barras de status (separe com |)"),
+            Triple("\n[!Você subiu de nível!]\n", "[!aviso!]", "Notificação que desliza do topo"),
+            Triple("\n== ", "== texto", "Carta escrita à mão (várias linhas ==)"),
+            Triple("\n## ", "## TÍTULO", "Título de impacto, letras gigantes"),
+            Triple("\n>> ", ">> texto", "Mensagem de celular"), Triple("\n~pausa\n", "~pausa", "Pausa dramática antes do próximo parágrafo")).forEach { (m, ex, d) ->
             Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir(m, false) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
                 Text(d, fontSize = 13.sp, color = p.textoSuave)
