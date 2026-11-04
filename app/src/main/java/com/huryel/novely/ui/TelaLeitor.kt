@@ -97,6 +97,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.random.Random
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.isSpecified
 
@@ -108,7 +109,7 @@ sealed interface Bloco {
     data class Titulo(override val plano: String, val impacto: Boolean = false) : Bloco
     /** tipo: "" normal · "sistema" ([[janela]]) · "mensagem" (>> celular) · "carta" (== papel) · "notificacao" ([!aviso!]).
      *  clima: efeito de cena ligado por ~chuva … ~fim. pausa: veio depois de ~pausa (aparece devagar). */
-    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean, val tipo: String = "", val clima: String? = null, val pausa: Boolean = false) : Bloco { override val plano: String get() = texto.text }
+    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean, val tipo: String = "", val clima: String? = null, val pausa: Boolean = false, val extra: String = "") : Bloco { override val plano: String get() = texto.text }
     data object Separador : Bloco { override val plano = "" }
 }
 
@@ -143,6 +144,20 @@ fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
         if (!sombria && par(i, "<<", ">>")) { sombria = true; i += 2; continue }
         if (sombria && linha.startsWith(">>", i)) { sombria = false; i += 2; continue }
         if (linha.startsWith("~~", i) && (riscado || par(i, "~~", "~~"))) { riscado = !riscado; i += 2; continue }
+        if (linha[i] == '{') {
+            val achado = lerInlineFx(linha, i)
+            if (achado != null) {
+                val (fx, fim) = achado
+                val (nome, cor, conteudo) = fx
+                val mostrado = when (nome) { "runa" -> runar(conteudo); "idioma" -> conteudo.map { if (it == ' ') ' ' else (0x1401 + Random(it.code).nextInt(0xBF)).toChar() }.joinToString(""); else -> conteudo }
+                val a = length
+                append(estilizar(mostrado))
+                addStyle(estiloInlineFx(nome, cor), a, length)
+                addStringAnnotation("fx", nome, a, length)
+                if (nome == "runa" || nome == "idioma") addStringAnnotation("decifra", conteudo, a, length)
+                i = fim; continue
+            }
+        }
         if (!tele && linha[i] == '{' && !linha.startsWith("{{", i) && linha.indexOf('}', i + 2) > 0) { tele = true; i++; continue }
         if (tele && linha[i] == '}') { tele = false; i++; continue }
         if (linha[i] == '[') {
@@ -255,6 +270,12 @@ fun montarBlocos(texto: String): List<Bloco> {
     fun fecharChat() { if (chat.isNotEmpty()) { saida.add(Bloco.Paragrafo(AnnotatedString(chat.toString()), false, "aovivo", clima)); chat.clear() } }
     texto.lineSequence().forEach { bruta ->
         val crua = bruta.trim()
+        // [#efeito:cor campo | campo]: blocos do Mega Pack (antes de limpar as marcas, que mexem no @)
+        lerBlocoFx(crua)?.let { (nome, cor, resto) ->
+            fecharCarta(); fecharChat()
+            val falado = camposFx(resto).joinToString(". ") { Marcas.limparEfeitos(it) }
+            saida.add(Bloco.Paragrafo(AnnotatedString(falado), false, "fx", clima, extra = "$nome\u0000${cor.orEmpty()}\u0000$resto")); return@forEach
+        }
         // @@Nome: cartão do personagem (antes de limpar as marcas, que mexem no @)
         if (crua.startsWith("@@") && crua.length > 3) { fecharCarta(); fecharChat(); saida.add(Bloco.Paragrafo(AnnotatedString(crua.drop(2).trim().trimEnd('.', ',')), false, "ficha", clima)); return@forEach }
         val linha = Marcas.limpar(bruta).trim()
@@ -790,6 +811,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                             else if (bloco.tipo == "mensagem") BalaoMensagem(comEfeitos, estiloBase, p, fundoAtivo)
                             else if (bloco.tipo == "carta") CartaPapel(comEfeitos, estiloBase, fundoAtivo)
                             else if (bloco.tipo == "notificacao") AvisoNoTexto(comEfeitos, fundoAtivo)
+                            else if (bloco.tipo == "fx") bloco.extra.split('\u0000').let { (nm, cr, rs) -> BlocoFx(nm, cr.ifEmpty { null }, rs, estiloBase, fundoAtivo) }
                             else if (bloco.tipo == "conversa") BalaoConversa(comEfeitos, estiloBase, p, fundoAtivo)
                             else if (bloco.tipo == "pergaminho") Pergaminho(comEfeitos, estiloBase, fundoAtivo)
                             else if (bloco.tipo == "item") ItemObtido(bloco.plano, fundoAtivo)
@@ -1700,13 +1722,20 @@ private fun escalar(u: androidx.compose.ui.unit.TextUnit, f: Float) = if (u.isSp
 /** Segredo clicável (borrão até tocar) e glitch com letras trocando. */
 @Composable
 private fun textoComEfeitos(t: AnnotatedString, revelado: Boolean, revelar: () -> Unit): AnnotatedString {
-    val temSegredo = remember(t) { t.getStringAnnotations("segredo", 0, t.length).isNotEmpty() }
+    val temSegredo = remember(t) { t.getStringAnnotations("segredo", 0, t.length).isNotEmpty() || t.getStringAnnotations("decifra", 0, t.length).isNotEmpty() }
+    val temFx = remember(t) { t.getStringAnnotations("fx", 0, t.length).any { it.item in setOf("medo", "quebra", "vento", "raio", "neon", "idioma", "coracao") } }
     val temGlitch = remember(t) { t.getStringAnnotations("glitch", 0, t.length).isNotEmpty() }
     val base = remember(t, revelado) {
-        if (!temSegredo) t else if (revelado) revelarSegredos(t) else buildAnnotatedString {
+        if (!temSegredo) t else if (revelado) decifrar(revelarSegredos(t)) else buildAnnotatedString {
             append(t)
             t.getStringAnnotations("segredo", 0, t.length).forEach { addLink(LinkAnnotation.Clickable("seg${it.start}") { revelar() }, it.start, it.end) }
+            t.getStringAnnotations("decifra", 0, t.length).forEach { addLink(LinkAnnotation.Clickable("dec${it.start}") { revelar() }, it.start, it.end) }
         }
+    }
+    if (temFx) {
+        var q by remember { mutableIntStateOf(0) }
+        LaunchedEffect(t) { while (true) { kotlinx.coroutines.delay(110); q++ } }
+        return remember(base, q) { animarInlineFx(if (temGlitch) embaralharGlitch(base, kotlin.random.Random(q)) else base, q) }
     }
     if (!temGlitch) return base
     var quadro by remember { mutableIntStateOf(0) }
@@ -1947,5 +1976,21 @@ private fun CartaoPersonagem(nome: String, fichas: List<com.huryel.novely.data.F
             if (f == null) Text("Sem ficha com esse nome ainda", fontSize = 11.sp, color = p.textoSuave)
         }
         if (f != null) Text("›", fontSize = 22.sp, color = p.textoSuave)
+    }
+}
+
+/** Runas e idioma estranho viram o texto de verdade depois do toque. */
+private fun decifrar(t: AnnotatedString): AnnotatedString {
+    val ds = t.getStringAnnotations("decifra", 0, t.length)
+    if (ds.isEmpty()) return t
+    return buildAnnotatedString {
+        var k = 0
+        ds.sortedBy { it.start }.forEach { d ->
+            append(t.subSequence(k, d.start))
+            val real = d.item.take(d.end - d.start).padEnd(d.end - d.start)
+            withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = Color(0xFFFFF0C8))) { append(real.trimEnd()) }
+            k = d.end
+        }
+        append(t.subSequence(k, t.length))
     }
 }

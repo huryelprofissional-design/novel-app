@@ -42,6 +42,7 @@ object Marcas {
         val saida = ArrayList<Pair<Marca, String?>>()
         texto.split('\n').forEach { par ->
             if ('@' !in par && '&' !in par) return@forEach
+            if (par.trimStart().startsWith("[#") || par.trimStart().startsWith("@@")) return@forEach // efeitos do Mega Pack não criam fichas
             val limpo by lazy { limpar(par).trim() }
             rx.findAll(par).forEach { m ->
                 var nome = nomeDe(m)

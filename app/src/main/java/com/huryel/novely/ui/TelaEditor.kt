@@ -1060,6 +1060,14 @@ private fun FolhaEfeitosEscrita(p: Paleta, inserir: (String, Boolean) -> Unit) {
                 Text(d, fontSize = 13.sp, color = p.textoSuave)
             }
         }
+        Text("MEGA PACK · {efeito: texto} num trecho, [#efeito campo | campo] no parágrafo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
+        Text("Cor por texto: {fogo:azul: …} ou [#sistema:vermelho …]. Cores: roxo, vermelho, azul, verde, dourado, rosa, branco, sombrio.", fontSize = 12.sp, color = p.textoSuave)
+        MEGA_PACK.forEach { (nome, cod, cat) ->
+            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir(if (cat == "inline") cod.replace("texto", "").replace("tradução", "") else "\n$cod\n", false) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(cod, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.weight(1.3f), maxLines = 2)
+                Text(nome, fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.weight(1f).padding(start = 10.dp))
+            }
+        }
         Text("EFEITO DE CENA (vale daqui até ~fim)", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
         Text("Numa linha sozinha. Trocar para outro efeito (~neve) já desliga o anterior.", fontSize = 12.sp, color = p.textoSuave)
         (EFEITOS_CENA.entries.map { it.key to it.value } + listOf("fim" to "⏹ Desligar o efeito")).forEach { (k, nome) ->

@@ -53,3 +53,19 @@ class EfeitosLeva3Test {
         assertEquals("obrigado", b[8].plano)
     }
 }
+
+class MegaPackTest {
+    @Test fun blocoFx() {
+        val b = montarBlocos("[#evolucao:dourado Nv 11 > 12 | Força 14 > 17]\n\n[#post kang | oi @todos | 10]\n\n[#naoexiste x]")
+        assertEquals("fx", (b[0] as Bloco.Paragrafo).tipo)
+        assertEquals("evolucao\u0000dourado\u0000Nv 11 > 12 | Força 14 > 17", (b[0] as Bloco.Paragrafo).extra)
+        assertEquals("fx", (b[1] as Bloco.Paragrafo).tipo)
+        assertEquals("", (b[2] as Bloco.Paragrafo).tipo)
+        assertEquals(listOf("Caso", "Nome: ||Han||", "ok"), camposFx("Caso | Nome: ||Han|| | ok"))
+    }
+    @Test fun inlineFx() {
+        val t = estilizar("Ele gritou: {fogo:azul: BOLA} e {telepatia normal} e {runa: abc}")
+        assertEquals("Ele gritou: BOLA e telepatia normal e ᚨᚩᚲ".length, t.text.length)
+        assertEquals(listOf("fogo", "runa"), t.getStringAnnotations("fx", 0, t.length).map { it.item })
+    }
+}
