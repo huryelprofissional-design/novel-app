@@ -93,13 +93,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.isSpecified
 
 // ───────── Blocos de texto ─────────
 
 sealed interface Bloco {
     val plano: String
     data class Titulo(override val plano: String) : Bloco
-    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean) : Bloco { override val plano: String get() = texto.text }
+    /** tipo: "" normal · "sistema" ([[janela]]) · "mensagem" (>> celular). clima: efeito de cena ligado por ~chuva … ~fim. */
+    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean, val tipo: String = "", val clima: String? = null) : Bloco { override val plano: String get() = texto.text }
     data object Separador : Bloco { override val plano = "" }
 }
 
@@ -110,20 +113,50 @@ fun ehFala(linha: String): Boolean {
     return iniciosDeFala.any { l.startsWith(it) } && l.length > 1 && !l.startsWith("---")
 }
 
-/** **negrito** e *itálico* */
+/** **negrito**, *itálico* e os efeitos de escrita: !!grito!!, ((sussurro)), ^^brilho^^ */
 fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
     var i = 0
-    var negrito = false
-    var italico = false
+    var negrito = false; var italico = false; var grito = false; var sussurro = false; var brilho = false
+    val marcas = "*!(^)"
+    // !! e ^^ só abrem no começo de palavra ("Socorro!! Alguém!!" continua normal)
+    fun abre(k: Int, m: String) = (k == 0 || linha[k - 1].isWhitespace() || linha[k - 1] in "—–“\"«(") && k + 2 < linha.length && !linha[k + 2].isWhitespace() && linha.indexOf(m, k + 3) > 0
     while (i < linha.length) {
         if (linha.startsWith("**", i)) { negrito = !negrito; i += 2; continue }
+        if (linha.startsWith("!!", i) && (grito || abre(i, "!!"))) { grito = !grito; i += 2; continue }
+        if (linha.startsWith("((", i) && !sussurro && linha.indexOf("))", i + 2) > 0) { sussurro = true; i += 2; continue }
+        if (linha.startsWith("))", i) && sussurro) { sussurro = false; i += 2; continue }
+        if (linha.startsWith("^^", i) && (brilho || abre(i, "^^"))) { brilho = !brilho; i += 2; continue }
         if (linha[i] == '*') { italico = !italico; i++; continue }
         val ini = i
-        while (i < linha.length && linha[i] != '*') i++
-        pushStyle(SpanStyle(fontWeight = if (negrito) FontWeight.Bold else null, fontStyle = if (italico) FontStyle.Italic else null))
+        i++
+        while (i < linha.length && linha[i] !in marcas) i++
+        pushStyle(SpanStyle(
+            fontWeight = if (negrito || brilho) FontWeight.Bold else if (grito) FontWeight.Black else null,
+            fontStyle = if (italico || sussurro) FontStyle.Italic else null,
+            fontSize = if (grito) 1.3.em else if (sussurro) 0.86.em else androidx.compose.ui.unit.TextUnit.Unspecified,
+            letterSpacing = if (sussurro) 0.04.em else if (grito) 0.02.em else androidx.compose.ui.unit.TextUnit.Unspecified,
+            color = if (brilho) Color(0xFFFFC94A) else if (sussurro) Color(0xFF9A9AA8) else Color.Unspecified,
+            shadow = if (brilho) androidx.compose.ui.graphics.Shadow(Color(0xCCFFB020), blurRadius = 14f) else null,
+        ))
         append(linha, ini, i)
         pop()
     }
+}
+
+/** Efeitos de cena que dá para ligar escrevendo ~nome numa linha (até ~fim). */
+val EFEITOS_CENA = linkedMapOf(
+    "chuva" to "🌧 Chuva", "neve" to "❄ Neve", "fogo" to "🔥 Fogo e brasas", "vento" to "🌬 Vento", "noite" to "🌙 Noite e vaga-lumes",
+    "tensao" to "💓 Tensão (batida de coração)", "sangue" to "🩸 Sangue", "flashback" to "🎞 Lembrança (sépia)", "sonho" to "☁ Sonho", "magia" to "✨ Magia",
+)
+private val SINONIMOS_CENA = mapOf("tensão" to "tensao", "lembranca" to "flashback", "lembrança" to "flashback", "memoria" to "flashback", "memória" to "flashback", "chamas" to "fogo", "estrelas" to "noite")
+/** "~chuva" → "chuva"; "~fim" → ""; linha comum → null. */
+fun marcaCena(linha: String): String? {
+    val l = linha.trim()
+    if (!l.startsWith("~") || l.length > 24 || l.contains(' ')) return null
+    val k = l.drop(1).trimEnd('~').lowercase()
+    if (k == "fim" || k == "pare" || k == "parar" || k == "/") return ""
+    val n = SINONIMOS_CENA[k] ?: k
+    return if (n in EFEITOS_CENA) n else null
 }
 
 /** Texto do capítulo → blocos (um por parágrafo; parágrafos gigantes viram vários blocos). Fora da thread principal. */
@@ -140,20 +173,26 @@ private class Pagina(val itens: List<ItemPag>) {
 fun montarBlocos(texto: String): List<Bloco> {
     val saida = ArrayList<Bloco>(texto.length / 300 + 4)
     var anteriorVazia = true
+    var clima: String? = null
     texto.lineSequence().forEach { bruta ->
         val linha = Marcas.limpar(bruta).trim()
+        val cena = marcaCena(linha)
+        if (cena != null) { clima = cena.ifEmpty { null }; return@forEach } // a linha do símbolo não aparece
         val podeSerTitulo = anteriorVazia
         anteriorVazia = linha.isEmpty()
         when {
             linha.isEmpty() -> {}
+            linha.startsWith("[[") && linha.endsWith("]]") && linha.length > 4 ->
+                saida.add(Bloco.Paragrafo(estilizar(linha.substring(2, linha.length - 2).trim()), false, "sistema", clima))
+            linha.startsWith(">>") && linha.length > 2 -> saida.add(Bloco.Paragrafo(estilizar(linha.drop(2).trim()), false, "mensagem", clima))
             podeSerTitulo && Texto.ehTituloCapitulo(linha) && !linha.startsWith("#") -> saida.add(Bloco.Titulo(Texto.tituloLimpo(linha)))
             linha == "* * *" || linha == "***" || linha == "---" || linha == "◆" -> saida.add(Bloco.Separador)
             linha.startsWith("#") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim()))
             linha.length > 2500 -> {
                 val fala = ehFala(linha)
-                Texto.dividirEmPedacos(linha, 1500).forEach { saida.add(Bloco.Paragrafo(estilizar(it.trim()), fala)) }
+                Texto.dividirEmPedacos(linha, 1500).forEach { saida.add(Bloco.Paragrafo(estilizar(it.trim()), fala, clima = clima)) }
             }
-            else -> saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha)))
+            else -> saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha), clima = clima))
         }
     }
     return saida
@@ -584,7 +623,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                                             val comBusca = if (q.length >= 2) destacarBusca(inteiro, normalizados.value[item.bi], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == item.bi }?.second) else inteiro
                                             val trecho = comBusca.subSequence(item.ini.coerceAtMost(comBusca.length), item.fim.coerceAtMost(comBusca.length))
                                             if (bl.fala && destacarFalas) Fala(trecho, estiloLivro, p, fundo)
-                                            else Text(trecho, style = estiloLivro.copy(color = corNarracao),
+                                            else Text(trecho, style = estiloLivro.copy(color = when (bl.tipo) { "sistema" -> Color(0xFF8FD3FF); "mensagem" -> p.destaque; else -> corNarracao }),
                                                 modifier = fundo.then(if (item.bi == primeiroParagrafo && item.ini == 0) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
                                         }
                                     }
@@ -643,7 +682,9 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                             if (i == primeiroParagrafo) capitular(t, p, tamanho) else t
                         }
                         Column {
-                            if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
+                            if (bloco.tipo == "sistema") JanelaSistema(texto, estiloBase, fundoAtivo)
+                            else if (bloco.tipo == "mensagem") BalaoMensagem(texto, estiloBase, p, fundoAtivo)
+                            else if (bloco.fala && destacarFalas) Fala(texto, estiloBase, p, fundoAtivo)
                             else Text(texto, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo.then(if (i == primeiroParagrafo) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
                             val n = comsPorBloco[i] ?: 0
                             if (n > 0) Text("💬 $n", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.sobreDestaque,
@@ -669,19 +710,9 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         // clima da cena: partículas conforme o trecho na tela (chuva, neve, fogo, vento, noite) e som opcional
         val climaLigado by prefs.climaCena.estado.collectAsState()
         val somCena by prefs.somCena.estado.collectAsState()
-        var clima by remember { mutableStateOf<String?>(null) }
-        if (climaLigado) LaunchedEffect(b) {
-            // só troca depois de confirmar: o clima novo tem que aparecer em 3 leituras seguidas (≈2 s parado nele)
-            var candidato: String? = null; var vezes = 0
-            snapshotFlow { blocoAtual() }.collectLatest { bi ->
-                while (true) {
-                    val janela = (bi - 2..bi + 5).mapNotNull { b.getOrNull(it)?.plano }.joinToString(" ")
-                    val achou = withContext(Dispatchers.Default) { detectarClima(janela) }
-                    if (achou == clima) { vezes = 0 } else if (achou == candidato) { if (++vezes >= 3) { clima = achou; vezes = 0 } } else { candidato = achou; vezes = 1 }
-                    kotlinx.coroutines.delay(700)
-                }
-            }
-        } else clima = null
+        // efeito de cena: só onde o autor escreveu ~chuva … ~fim
+        val climaBloco by remember(b) { derivedStateOf { if (!climaLigado) null else (blocoAtual() downTo 0).firstNotNullOfOrNull { k -> (b.getOrNull(k) as? Bloco.Paragrafo) }?.clima } }
+        val clima = climaBloco
         DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }
         LaunchedEffect(clima, somCena) { com.huryel.novely.data.Ambiente.tocar(if (somCena) clima?.let { SOM_CLIMA[it] } else null) }
         ClimaCena(clima)
@@ -1306,8 +1337,8 @@ fun AjustesLeitura() {
         LinhaInterruptor("Maratona: próximo capítulo começa sozinho", marat) { prefs.maratona.definir(it) }
         val clm by prefs.climaCena.estado.collectAsState()
         val som by prefs.somCena.estado.collectAsState()
-        LinhaInterruptor("Clima da cena (chuva, neve, fogo…)", clm) { prefs.climaCena.definir(it) }
-        if (clm) LinhaInterruptor("Som ambiente da cena", som) { prefs.somCena.definir(it) }
+        LinhaInterruptor("Efeitos de cena (~chuva, ~tensao…)", clm) { prefs.climaCena.definir(it) }
+        if (clm) LinhaInterruptor("Som dos efeitos de cena", som) { prefs.somCena.definir(it) }
         val esc by prefs.escurecer.estado.collectAsState()
         val quente by prefs.luzQuente.estado.collectAsState()
         val vel by prefs.velocidadeRolagem.estado.collectAsState()
@@ -1468,3 +1499,30 @@ private fun Reacoes(pid: String, cid: String) {
         }
     }
 }
+
+/** [[texto]] → janela de sistema (estilo novel de Sistema). */
+@Composable
+private fun JanelaSistema(texto: AnnotatedString, estilo: TextStyle, extra: Modifier) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "sistema")
+    val luz by t.animateFloat(0.35f, 0.8f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1600), androidx.compose.animation.core.RepeatMode.Reverse), label = "luz")
+    Column(extra.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(6.dp))
+        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF0101E33), Color(0xF00A1424))))
+        .border(1.5.dp, Color(0xFF5CC8FF).copy(alpha = luz), RoundedCornerShape(6.dp)).padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text("◈ SISTEMA", fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Color(0xFF5CC8FF))
+        Text(texto, style = estilo.copy(color = Color(0xFFDDF3FF), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = escalar(estilo.fontSize, 0.88f), lineHeight = escalar(estilo.lineHeight, 0.92f)),
+            modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+/** >> texto → mensagem de celular. */
+@Composable
+private fun BalaoMensagem(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Modifier) {
+    Row(extra.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.End) {
+        Column(Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)).background(p.destaque.copy(alpha = 0.9f)).padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Text(texto, style = estilo.copy(color = p.sobreDestaque, fontSize = escalar(estilo.fontSize, 0.9f), lineHeight = escalar(estilo.lineHeight, 0.9f), fontFamily = p.fonteUi))
+            Text("✓✓", fontSize = 10.sp, color = p.sobreDestaque.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.End))
+        }
+    }
+}
+
+private fun escalar(u: androidx.compose.ui.unit.TextUnit, f: Float) = if (u.isSpecified) u * f else u

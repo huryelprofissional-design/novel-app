@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -147,6 +148,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         }
     }
     var mostrarMapa by remember { mutableStateOf(false) }
+    var mostrarEfeitos by remember { mutableStateOf(false) }
 
     // desfazer / refazer
     val desfazer = remember { ArrayDeque<Passo>() }
@@ -666,6 +668,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                             BotaoFerramenta("◆", p, cor = p.destaque) { inserir("\n\n* * *\n\n", false) }
                             BotaoFerramenta("H", p) { inserir("\n# ", false) }
                             BotaoFerramenta("☰", p) { mostrarMapa = true }
+                            BotaoFerramenta("✦", p, FontWeight.ExtraBold, cor = Color(0xFFFFC94A)) { mostrarEfeitos = true }
                         }
                     }
                 }
@@ -692,6 +695,9 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp))
     }
 
+    if (mostrarEfeitos) ModalBottomSheet(onDismissRequest = { mostrarEfeitos = false }, containerColor = p.superficie) {
+        FolhaEfeitosEscrita(p) { marca, envolver -> mostrarEfeitos = false; inserir(marca, envolver) }
+    }
     if (mostrarMapa) ModalBottomSheet(onDismissRequest = { mostrarMapa = false }, containerColor = p.superficie) {
         val m = remember { marcas() }
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -1010,6 +1016,38 @@ fun TelaComparar(capId: Long, quando: Long, nav: NavHostController) {
                 Text((if (d.tipo == -1) "− " else if (d.tipo == 1) "+ " else "") + d.texto, fontSize = 14.sp, lineHeight = 21.sp, color = if (d.tipo == 0) p.textoSuave else p.texto,
                     textDecoration = if (d.tipo == -1) TextDecoration.LineThrough else null,
                     modifier = Modifier.fillMaxWidth().clip(forma(10.dp)).background(fundo).border(if (d.tipo != 0) 1.dp else 0.dp, cor.copy(alpha = 0.4f), forma(10.dp)).padding(10.dp))
+            }
+        }
+    }
+}
+
+/** Cola dos efeitos de escrita: tocar insere no texto. */
+@Composable
+private fun FolhaEfeitosEscrita(p: Paleta, inserir: (String, Boolean) -> Unit) {
+    Column(Modifier.fillMaxWidth().fillMaxHeight(0.8f).then(Modifier.verticalScroll(rememberScrollState())).padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+        Text("Efeitos de escrita", fontWeight = FontWeight.Black, fontSize = 22.sp)
+        Text("Escreva os símbolos e o leitor faz o efeito sozinho. Toque para inserir.", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
+        Text("NO TEXTO (selecione um trecho e toque)", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave)
+        listOf(Triple("!!", "!!GRITO!!", "Fala gritada, grande e forte"), Triple("((", "((sussurro))", "Baixinho, menor e em itálico"),
+            Triple("^^", "^^brilho^^", "Palavra mágica dourada e brilhando"), Triple("**", "**negrito**", "Negrito"), Triple("*", "*itálico*", "Itálico")).forEach { (m, ex, d) ->
+            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { if (m == "((") inserir("(())", false) else inserir(m, true) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
+                Text(d, fontSize = 13.sp, color = p.textoSuave)
+            }
+        }
+        Text("PARÁGRAFO INTEIRO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
+        listOf(Triple("\n[[Habilidade adquirida: Punho de Ferro]]\n", "[[texto]]", "Janela azul de Sistema"), Triple("\n>> ", ">> texto", "Mensagem de celular")).forEach { (m, ex, d) ->
+            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir(m, false) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
+                Text(d, fontSize = 13.sp, color = p.textoSuave)
+            }
+        }
+        Text("EFEITO DE CENA (vale daqui até ~fim)", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
+        Text("Numa linha sozinha. Trocar para outro efeito (~neve) já desliga o anterior.", fontSize = 12.sp, color = p.textoSuave)
+        (EFEITOS_CENA.entries.map { it.key to it.value } + listOf("fim" to "⏹ Desligar o efeito")).forEach { (k, nome) ->
+            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir("\n~$k\n", false) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("~$k", fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
+                Text(nome, fontSize = 13.sp, color = p.textoSuave)
             }
         }
     }

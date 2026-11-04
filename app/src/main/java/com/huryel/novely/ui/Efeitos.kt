@@ -259,27 +259,8 @@ fun RankingSemana() {
 
 // ───────── Clima da cena (leitor) ─────────
 
-// palavra forte vale 2 pontos, fraca 1; precisa de 3 pontos na janela. Nada de verbos soltos ("chama", "ardia") que aparecem em qualquer cena.
-private val PALAVRAS_CLIMA = listOf(
-    "chuva" to (Regex("\\b(tempestade|aguaceiro|temporal|tromba d.água|chuva forte|chovia forte)", RegexOption.IGNORE_CASE) to Regex("\\b(chuva|chovia|chover|choveu|garoa|trov[aã]o|trovoada|rel[aâ]mpago|gotas de chuva)", RegexOption.IGNORE_CASE)),
-    "neve" to (Regex("\\b(nevasca|nevava|nevando|flocos de neve)", RegexOption.IGNORE_CASE) to Regex("\\b(neve|geada)\\b", RegexOption.IGNORE_CASE)),
-    "fogo" to (Regex("\\b(inc[eê]ndio|fogueira|lareira|labaredas|em chamas)", RegexOption.IGNORE_CASE) to Regex("\\b(fogo|brasas|chamas)\\b", RegexOption.IGNORE_CASE)),
-    "vento" to (Regex("\\b(ventania|vendaval|rajadas? de vento)", RegexOption.IGNORE_CASE) to Regex("\\b(vento|uivava)\\b", RegexOption.IGNORE_CASE)),
-    "noite" to (Regex("\\b(meia-noite|luar|c[eé]u estrelado)", RegexOption.IGNORE_CASE) to Regex("\\b(noite|madrugada|lua)\\b", RegexOption.IGNORE_CASE)),
-)
-
-/** Qual clima o trecho sugere (chuva, neve, fogo, vento, noite) ou null. */
-fun detectarClima(texto: String): String? {
-    var melhor: String? = null; var nota = 0
-    for ((tipo, rx) in PALAVRAS_CLIMA) {
-        val n = rx.first.findAll(texto).take(5).count() * 2 + rx.second.findAll(texto).take(6).count()
-        if (n >= 3 && n > nota) { melhor = tipo; nota = n }
-    }
-    return melhor
-}
-
-val ROTULO_CLIMA = mapOf("chuva" to "🌧 chuva na cena", "neve" to "❄ neve na cena", "fogo" to "🔥 fogo na cena", "vento" to "🌬 vento na cena", "noite" to "🌙 noite na cena")
-val SOM_CLIMA = mapOf("chuva" to "chuva", "neve" to "vento", "fogo" to "lareira", "vento" to "vento", "noite" to "noite")
+val ROTULO_CLIMA: Map<String, String> get() = EFEITOS_CENA.mapValues { it.value.substringBefore(" (") }
+val SOM_CLIMA = mapOf("chuva" to "chuva", "neve" to "vento", "fogo" to "lareira", "vento" to "vento", "noite" to "noite", "tensao" to "coracao")
 
 private class Particula(var x: Float, var y: Float, val v: Float, val tam: Float, val fase: Float)
 
@@ -295,7 +276,7 @@ fun ClimaCena(tipo: String?, modifier: Modifier = Modifier) {
     val m = mostrado ?: return
     val r = remember(m) { Random(m.hashCode()) }
     val parts = remember(m) {
-        val n = when (m) { "chuva" -> 90; "neve" -> 70; "fogo" -> 45; "noite" -> 26; else -> 22 }
+        val n = when (m) { "chuva" -> 90; "neve" -> 70; "fogo" -> 45; "noite" -> 26; "magia" -> 40; "sonho" -> 9; "sangue" -> 14; "flashback" -> 60; else -> 22 }
         List(n) { Particula(r.nextFloat(), r.nextFloat(), 0.6f + r.nextFloat() * 0.8f, 0.5f + r.nextFloat(), r.nextFloat() * 6.28f) }
     }
     var tempo by remember { mutableLongStateOf(0L) }
@@ -332,6 +313,46 @@ fun ClimaCena(tipo: String?, modifier: Modifier = Modifier) {
                     drawCircle(Color(0xFFE8FF8A).copy(alpha = 0.22f * a * pulso), 7f * density, Offset(x, y))
                     drawCircle(Color(0xFFF4FFC4).copy(alpha = 0.8f * a * pulso), 1.6f * density, Offset(x, y))
                 }
+            }
+            "tensao" -> {
+                // batida dupla de coração: a borda escurece e pulsa
+                val c = (t % 1.1f)
+                val bat = (if (c < 0.12f) c / 0.12f else if (c < 0.3f) 1 - (c - 0.12f) / 0.18f else if (c < 0.4f) (c - 0.3f) / 0.1f * 0.7f else if (c < 0.6f) 0.7f * (1 - (c - 0.4f) / 0.2f) else 0f)
+                drawRect(Brush.radialGradient(listOf(Color.Transparent, Color(0xFF2A0008).copy(alpha = (0.55f + 0.3f * bat) * a)), center = Offset(w / 2, h / 2), radius = maxOf(w, h) * (0.75f - 0.05f * bat)))
+            }
+            "sangue" -> {
+                drawRect(Brush.radialGradient(listOf(Color.Transparent, Color(0xFF8A0010).copy(alpha = (0.35f + 0.1f * sin(t * 2f)) * a)), center = Offset(w / 2, h / 2), radius = maxOf(w, h) * 0.7f))
+                parts.forEach { p ->
+                    val k = (p.y + t * 0.05f * p.v) % 1f
+                    val x = p.x * w; val y = k * h * 0.35f
+                    drawLine(Color(0xFF9A0012).copy(alpha = 0.55f * a), Offset(x, 0f), Offset(x, y), 3f * density * p.tam, StrokeCap.Round)
+                    drawCircle(Color(0xFFB0001A).copy(alpha = 0.7f * a), 3.2f * density * p.tam, Offset(x, y))
+                }
+            }
+            "flashback" -> {
+                drawRect(Color(0xFF704214).copy(alpha = 0.22f * a))
+                drawRect(Brush.radialGradient(listOf(Color.Transparent, Color(0xFF1A0E04).copy(alpha = 0.6f * a)), center = Offset(w / 2, h / 2), radius = maxOf(w, h) * 0.72f))
+                val q = (t * 12).toInt() // grão de filme velho, muda a cada quadro
+                val rr = Random(q)
+                repeat(parts.size) { drawCircle(Color.White.copy(alpha = 0.12f * a), 0.8f * density, Offset(rr.nextFloat() * w, rr.nextFloat() * h)) }
+                if (q % 9 == 0) drawLine(Color.White.copy(alpha = 0.08f * a), Offset(rr.nextFloat() * w, 0f), Offset(rr.nextFloat() * w, h), 1f)
+            }
+            "sonho" -> parts.forEach { p ->
+                val x = p.x * w + sin(t * 0.2f * p.v + p.fase) * w * 0.15f
+                val y = p.y * h + cos(t * 0.17f * p.v + p.fase) * h * 0.1f
+                val cor = if (p.fase > 3.14f) Color(0xFFB79CFF) else Color(0xFFFFC7E8)
+                drawCircle(Brush.radialGradient(listOf(cor.copy(alpha = 0.22f * a), Color.Transparent), center = Offset(x, y), radius = 160f * density * p.tam / 2), 160f * density * p.tam / 2, Offset(x, y))
+            }
+            "magia" -> parts.forEach { p ->
+                val k = (p.y + t * 0.08f * p.v) % 1f
+                val y = h - k * h
+                val x = p.x * w + sin(t * 1.3f + p.fase) * 18f * density
+                val pis = ((sin(t * 4f * p.v + p.fase) + 1) / 2)
+                val cor = if (p.fase > 3.14f) Color(0xFFFFD86B) else Color(0xFFC59BFF)
+                val r = 5f * density * p.tam * (0.5f + pis)
+                drawLine(cor.copy(alpha = 0.8f * a * pis), Offset(x - r, y), Offset(x + r, y), 1.4f * density / 2)
+                drawLine(cor.copy(alpha = 0.8f * a * pis), Offset(x, y - r), Offset(x, y + r), 1.4f * density / 2)
+                drawCircle(cor.copy(alpha = 0.25f * a * pis), r * 0.8f, Offset(x, y))
             }
             else -> parts.forEach { p ->
                 val x = ((p.x + t * 0.35f * p.v) % 1f) * (w + 200) - 100

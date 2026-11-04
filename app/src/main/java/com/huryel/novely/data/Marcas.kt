@@ -57,6 +57,10 @@ object Marcas {
     }
 
     /** Tira as marcas para leitura: "@Lin Feng (Lin), o" → "Lin Feng, o"; "@[Seo-yeon do clã], x" → "Seo-yeon do clã, x". */
+    /** Tira os símbolos de efeito (!!, ^^, ((, )), [[, ]], >>, linhas ~chuva) para prévias e cartões. */
+    fun limparEfeitos(s: String): String = s.lineSequence().filterNot { val l = it.trim(); l.startsWith("~") && l.length <= 24 && ' ' !in l }
+        .map { it.trim().removePrefix(">>").replace("!!", "").replace("^^", "").replace("((", "").replace("))", "").replace("[[", "").replace("]]", "") }.joinToString("\n")
+
     fun limpar(s: String): String {
         if ('@' !in s && '&' !in s) return s
         return REGRA_BASE.replace(s) { m -> nomeDe(m) + m.groupValues[7] }

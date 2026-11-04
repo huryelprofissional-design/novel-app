@@ -81,6 +81,12 @@ object Ambiente {
                             val g = if (grilo > 0) { grilo--; val on = (grilo / (TAXA / 28)) % 2 == 0; if (on) sin(2 * PI * 4400 * t / TAXA) * 0.07 else 0.0 } else 0.0
                             marrom * 0.9 + g
                         }
+                        "coracao" -> {
+                            // tum-tum grave, 70 batidas por minuto
+                            val c = (t % (TAXA * 60 / 70)).toDouble() / TAXA
+                            val bat = { ini: Double, v: Double -> if (c >= ini && c < ini + 0.12) sin(2 * PI * 48 * (c - ini)) * kotlin.math.exp(-(c - ini) * 30) * v else 0.0 }
+                            (bat(0.0, 1.0) + bat(0.22, 0.7)) * 2.6 + marrom * 0.3
+                        }
                         "cafe" -> {
                             // burburinho (ruído rosa modulado) + xícaras tilintando
                             if (tilinta <= 0 && r.nextInt(TAXA * 4) == 0) { tilinta = (TAXA * 0.4).toInt(); tilF = 2600.0 + r.nextDouble() * 1800 }
