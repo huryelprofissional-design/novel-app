@@ -550,3 +550,16 @@ canvas.clima { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
 .fogueira.batida .anel-xp { background: conic-gradient(#6FC2B4 360deg, transparent 0); }
 .fogueira small { font-size: 11px; font-weight: 800; color: var(--suave); background: rgba(0,0,0,.5); padding: 2px 8px; border-radius: 10px; }
 .fileira.autores { padding-top: 6px; }
+
+/* efeitos de escrita */
+.grito { font-size: 1.3em; font-weight: 900; letter-spacing: .02em; display: inline-block; animation: tremor .5s ease-in-out 1; }
+@keyframes tremor { 0%, 100% { transform: none; } 20% { transform: translateX(-2px) rotate(-1deg); } 40% { transform: translateX(2px) rotate(1deg); } 60% { transform: translateX(-1px); } }
+.sussurro { font-size: .86em; font-style: italic; letter-spacing: .04em; color: #9A9AA8; }
+.brilho-t { color: #FFC94A; font-weight: 700; text-shadow: 0 0 12px rgba(255,176,32,.8); }
+.texto p.sistema { font-family: ui-monospace, Consolas, monospace; font-size: .88em; color: #DDF3FF; background: linear-gradient(#101E33f0, #0A1424f0); border: 1.5px solid #5CC8FF; border-radius: 6px; padding: 30px 16px 12px; position: relative; animation: luzSistema 1.6s ease-in-out infinite alternate; }
+.texto p.sistema::before { content: "◈ SISTEMA"; position: absolute; top: 9px; left: 16px; font: 900 10px/1 system-ui, sans-serif; letter-spacing: 2px; color: #5CC8FF; }
+@keyframes luzSistema { from { border-color: rgba(92,200,255,.35); } to { border-color: rgba(92,200,255,.8); box-shadow: 0 0 18px rgba(92,200,255,.25); } }
+.texto p.mensagem { margin-left: auto; max-width: 340px; width: fit-content; background: var(--amb, #FF6A2B); color: #000; font-family: system-ui, sans-serif; font-size: .9em; border-radius: 18px 18px 4px 18px; padding: 10px 14px; }
+.texto p.mensagem::after { content: " ✓✓"; font-size: 10px; opacity: .6; }
+.efx { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; background: none; border: 0; color: inherit; padding: 8px 6px; border-radius: 10px; cursor: pointer; }
+.efx:hover { background: rgba(255,255,255,.06); } .efx code { min-width: 150px; color: #FF6A2B; font-weight: 700; } .efx span { color: var(--suave); font-size: 13px; }

@@ -89,15 +89,7 @@ export function ligarReacoes() {
 }
 
 // ───────── clima da cena ─────────
-// palavra forte vale 2, fraca 1; precisa de 3 pontos. Sem verbos soltos ("chama", "ardia") que aparecem em qualquer cena.
-const CLIMA = [
-  ["chuva", /\b(tempestade|aguaceiro|temporal|chuva forte|chovia forte)/gi, /\b(chuva|chovia|chover|choveu|garoa|trov[aã]o|trovoada|rel[aâ]mpago)/gi],
-  ["neve", /\b(nevasca|nevava|nevando|flocos de neve)/gi, /\b(neve|geada)\b/gi],
-  ["fogo", /\b(inc[eê]ndio|fogueira|lareira|labaredas|em chamas)/gi, /\b(fogo|brasas|chamas)\b/gi],
-  ["vento", /\b(ventania|vendaval|rajadas? de vento)/gi, /\b(vento|uivava)\b/gi],
-  ["noite", /\b(meia-noite|luar|c[eé]u estrelado)/gi, /\b(noite|madrugada|lua)\b/gi]];
-export function detectarClima(t) { let m = null, n = 0; for (const [k, forte, fraca] of CLIMA) { const c = (t.match(forte) || []).length * 2 + (t.match(fraca) || []).length; if (c >= 3 && c > n) { m = k; n = c; } } return m; }
-export const ROTULO_CLIMA = { chuva: "🌧 chuva na cena", neve: "❄ neve na cena", fogo: "🔥 fogo na cena", vento: "🌬 vento na cena", noite: "🌙 noite na cena" };
+export const ROTULO_CLIMA = { chuva: "🌧 Chuva", neve: "❄ Neve", fogo: "🔥 Fogo", vento: "🌬 Vento", noite: "🌙 Noite", tensao: "💓 Tensão", sangue: "🩸 Sangue", flashback: "🎞 Lembrança", sonho: "☁ Sonho", magia: "✨ Magia" };
 
 /** Liga o clima no leitor: olha os parágrafos visíveis e desenha partículas por cima. Devolve uma função para desligar. */
 export function ligarClima() {
@@ -106,21 +98,27 @@ export function ligarClima() {
   const pill = document.createElement("div"); pill.className = "pilula-clima"; document.body.append(pill);
   const g = c.getContext("2d"); let tipo = null, alfa = 0, ps = [], vivo = true, t0 = performance.now();
   const tam = () => { c.width = innerWidth; c.height = innerHeight; }; tam(); addEventListener("resize", tam);
-  const novo = (k) => { const n = { chuva: 110, neve: 80, fogo: 50, noite: 28 }[k] || 24; ps = Array.from({ length: n }, () => ({ x: Math.random(), y: Math.random(), v: .6 + Math.random() * .8, s: .5 + Math.random(), f: Math.random() * 6.28 })); };
+  const novo = (k) => { const n = { chuva: 110, neve: 80, fogo: 50, noite: 28, magia: 45, sonho: 9, sangue: 14, flashback: 60 }[k] || 24; ps = Array.from({ length: n }, () => ({ x: Math.random(), y: Math.random(), v: .6 + Math.random() * .8, s: .5 + Math.random(), f: Math.random() * 6.28 })); };
   let alvo = null;
+  // o efeito vem do autor: parágrafos entre ~chuva e ~fim têm data-clima
   const olhar = () => {
-    const vis = [...document.querySelectorAll("#texto [data-b]")].filter((p) => { const r = p.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
-    const achou = detectarClima(vis.map((p) => p.textContent).join(" "));
-    // só troca depois de confirmar em 3 olhadas seguidas (~2 s naquele trecho)
-    if (achou === alvo) vezes = 0; else if (achou === cand) { if (++vezes >= 3) { alvo = achou; vezes = 0; } } else { cand = achou; vezes = 1; }
+    const el = [...document.querySelectorAll("#texto [data-b]")].find((p) => p.getBoundingClientRect().bottom > innerHeight * 0.3);
+    alvo = el?.dataset.clima || null;
     if (alvo) pill.textContent = ROTULO_CLIMA[alvo]; pill.classList.toggle("on", !!alvo);
   };
-  let cand = null, vezes = 0; const relogio = setInterval(olhar, 700);
+  const relogio = setInterval(olhar, 400);
   (function q(agora) {
     if (!vivo) return;
-    if (alvo !== tipo) { alfa -= .012; if (alfa <= 0) { alfa = 0; tipo = alvo; if (tipo) novo(tipo); } } else if (tipo && alfa < 1) alfa = Math.min(1, alfa + .007);
+    if (alvo !== tipo) { alfa -= .03; if (alfa <= 0) { alfa = 0; tipo = alvo; if (tipo) novo(tipo); } } else if (tipo && alfa < 1) alfa = Math.min(1, alfa + .015);
     const t = (agora - t0) / 1000, w = c.width, h = c.height; g.clearRect(0, 0, w, h);
-    if (tipo) for (const p of ps) {
+    const M = Math.max(w, h);
+    const vinheta = (cor, a, r = .72) => { const gr = g.createRadialGradient(w / 2, h / 2, M * r * .35, w / 2, h / 2, M * r); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, cor.replace("A", a)); g.fillStyle = gr; g.fillRect(0, 0, w, h); };
+    if (tipo === "tensao") { const c = t % 1.1, bat = c < .12 ? c / .12 : c < .3 ? 1 - (c - .12) / .18 : c < .4 ? (c - .3) / .1 * .7 : c < .6 ? .7 * (1 - (c - .4) / .2) : 0; vinheta("rgba(42,0,8,A)", (.6 + .3 * bat) * alfa, .75 - .05 * bat); }
+    else if (tipo === "sangue") { vinheta("rgba(138,0,16,A)", (.4 + .1 * Math.sin(t * 2)) * alfa); for (const p of ps) { const y = ((p.y + t * .05 * p.v) % 1) * h * .35, x = p.x * w; g.strokeStyle = `rgba(154,0,18,${.55 * alfa})`; g.lineWidth = 3 * p.s; g.lineCap = "round"; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, y); g.stroke(); g.fillStyle = `rgba(176,0,26,${.7 * alfa})`; g.beginPath(); g.arc(x, y, 3.4 * p.s, 0, 6.28); g.fill(); } }
+    else if (tipo === "flashback") { g.fillStyle = `rgba(112,66,20,${.22 * alfa})`; g.fillRect(0, 0, w, h); vinheta("rgba(26,14,4,A)", .65 * alfa); g.fillStyle = `rgba(255,255,255,${.12 * alfa})`; for (let k = 0; k < 60; k++) g.fillRect(Math.random() * w, Math.random() * h, 1.2, 1.2); }
+    else if (tipo === "sonho") for (const p of ps) { const x = p.x * w + Math.sin(t * .2 * p.v + p.f) * w * .15, y = p.y * h + Math.cos(t * .17 * p.v + p.f) * h * .1, r = 160 * p.s; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, p.f > 3.14 ? `rgba(183,156,255,${.22 * alfa})` : `rgba(255,199,232,${.22 * alfa})`); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+    else if (tipo === "magia") for (const p of ps) { const y = h - ((p.y + t * .08 * p.v) % 1) * h, x = p.x * w + Math.sin(t * 1.3 + p.f) * 18, pi = (Math.sin(t * 4 * p.v + p.f) + 1) / 2, r = 6 * p.s * (.5 + pi); g.strokeStyle = p.f > 3.14 ? `rgba(255,216,107,${.85 * alfa * pi})` : `rgba(197,155,255,${.85 * alfa * pi})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x - r, y); g.lineTo(x + r, y); g.moveTo(x, y - r); g.lineTo(x, y + r); g.stroke(); }
+    else if (tipo) for (const p of ps) {
       if (tipo === "chuva") { const y = ((p.y + t * 1.3 * p.v) % 1) * (h + 80) - 40, x = ((p.x + t * .12 * p.v) % 1) * w; g.strokeStyle = `rgba(191,216,255,${.35 * alfa * p.s})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 5 * p.v, y + 22 * p.v); g.stroke(); }
       else if (tipo === "neve") { const y = ((p.y + t * .07 * p.v) % 1) * (h + 20) - 10, x = p.x * w + Math.sin(t * .9 + p.f) * 22; g.fillStyle = `rgba(255,255,255,${.7 * alfa * (.4 + p.s / 2)})`; g.beginPath(); g.arc(x, y, 2 * p.s, 0, 6.28); g.fill(); }
       else if (tipo === "fogo") { const k = (p.y + t * .18 * p.v) % 1, y = h - k * h * .75, x = p.x * w + Math.sin(t * 2 + p.f) * 14, b = (1 - k) * (.6 + .4 * Math.sin(t * 9 + p.f)); g.fillStyle = `rgba(255,138,42,${.6 * alfa * b})`; g.beginPath(); g.arc(x, y, 2.4 * p.s, 0, 6.28); g.fill(); }

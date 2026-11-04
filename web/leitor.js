@@ -61,26 +61,47 @@ function painelAjustes(aoMudar) {
 
 // ───────── texto → html ─────────
 const CORES_GRIFO = { AMBAR: "#E9A65A", VERDE: "#6FC2B4", AZUL: "#7FA7E6", ROSA: "#E88AA8" };
+// ───────── efeitos de escrita (iguais ao app) ─────────
+export const EFEITOS_CENA = { chuva: "🌧 Chuva", neve: "❄ Neve", fogo: "🔥 Fogo e brasas", vento: "🌬 Vento", noite: "🌙 Noite e vaga-lumes", tensao: "💓 Tensão", sangue: "🩸 Sangue", flashback: "🎞 Lembrança", sonho: "☁ Sonho", magia: "✨ Magia" };
+const SIN_CENA = { "tensão": "tensao", lembranca: "flashback", "lembrança": "flashback", memoria: "flashback", "memória": "flashback", chamas: "fogo", estrelas: "noite" };
+/** "~chuva" → "chuva"; "~fim" → ""; outra linha → null */
+export function marcaCena(l) {
+  if (!l.startsWith("~") || l.length > 24 || l.includes(" ")) return null;
+  const k = l.slice(1).replace(/~+$/, "").toLowerCase();
+  if (["fim", "pare", "parar", "/"].includes(k)) return "";
+  const n = SIN_CENA[k] || k; return EFEITOS_CENA[n] ? n : null;
+}
+const ABRE = "(^|[\\s—–“\"«(])";
+function efeitosInline(h) {
+  return h.replace(new RegExp(ABRE + "!!(\\S.*?)!!", "g"), '$1<span class="grito">$2</span>')
+    .replace(new RegExp(ABRE + "\\^\\^(\\S.*?)\\^\\^", "g"), '$1<span class="brilho-t">$2</span>')
+    .replace(/\(\((.+?)\)\)/g, '<span class="sussurro">$1</span>');
+}
+
 export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
   let capitularFeita = !pref().capitular;
-  const linhas = limparMarcas(t).split("\n").map((l) => l.trim()).filter(Boolean);
+  // linhas ~chuva … ~fim ligam um efeito de cena e não aparecem no texto
+  let clima = ""; const climas = [];
+  const linhas = limparMarcas(t).split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => { const m = marcaCena(l); if (m === null) { climas.push(clima); return true; } clima = m; return false; });
   // palavra solta (parte do nome) não vale colada a outro nome: em "Gwon Jang-ho" o "Gwon" é de outra pessoa
   const lista = [...nomes.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (n.trim().includes(" ") ? "" : "(?!\\s\\p{Lu}\\p{Ll})"));
   const rxNomes = lista.length ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(${lista.join("|")})(?![\\p{L}\\p{N}]|[-'’]\\p{L})`, "gu") : null;
   return linhas.map((l, i) => {
-    const g = grifos.get(i);
-    if (/^(\* \* \*|\*\*\*|---|◆)$/.test(l)) return `<div class="sep enfeite" data-b="${i}">${enfeiteHTML(op.enfeite)}</div>`;
-    if (/^#/.test(l)) return `<h3 data-b="${i}">${esc(l.replace(/^#+\s*/, ""))}</h3>`;
-    let h = esc(l).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
+    const g = grifos.get(i); const cl = climas[i] ? ` data-clima="${climas[i]}"` : "";
+    if (/^(\* \* \*|\*\*\*|---|◆)$/.test(l)) return `<div class="sep enfeite" data-b="${i}"${cl}>${enfeiteHTML(op.enfeite)}</div>`;
+    if (/^#/.test(l)) return `<h3 data-b="${i}"${cl}>${esc(l.replace(/^#+\s*/, ""))}</h3>`;
+    const sistema = /^\[\[.+\]\]$/.test(l), msg = /^>>/.test(l);
+    if (sistema) l = l.slice(2, -2).trim(); else if (msg) l = l.slice(2).trim();
+    let h = efeitosInline(esc(l)).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
     if (rxNomes) h = h.replace(rxNomes, (m) => `<span class="nome" data-ficha="${esc(nomes.get(m))}">${m}</span>`);
-    const fala = /^[—–―\-“"«]/.test(l) && l.length > 1 && !l.startsWith("---");
+    const fala = !sistema && !msg && /^[—–―\-“"«]/.test(l) && l.length > 1 && !l.startsWith("---");
     if (fala) h = h.replace(/^([—–―\-“"«]\s?)/, '<b class="trav">$1</b>');
     const nota = g?.nota ? `<span class="nota-grifo" title="${esc(g.nota)}">✎</span>` : "";
-    const capit = !capitularFeita && !fala && l.length > 40 && !/^(cap[ií]tulo|pr[oó]logo|ep[ií]logo)/i.test(l); if (capit) capitularFeita = true;
-    const cls = [fala ? "fala" : "", g ? "grifo" : "", capit ? "capitular" : ""].filter(Boolean).join(" ");
+    const capit = !capitularFeita && !fala && !sistema && !msg && l.length > 40 && !/^(cap[ií]tulo|pr[oó]logo|ep[ií]logo)/i.test(l); if (capit) capitularFeita = true;
+    const cls = [fala ? "fala" : "", g ? "grifo" : "", capit ? "capitular" : "", sistema ? "sistema" : "", msg ? "mensagem" : ""].filter(Boolean).join(" ");
     const nc = op.coms?.get(i) || 0;
     const balao = op.coms ? `<button class="balao-trecho ${nc ? "" : "vazio"}" data-trecho="${i}" title="Comentar este trecho">💬${nc ? " " + nc : ""}</button>` : "";
-    return `<p data-b="${i}"${cls ? ` class="${cls}"` : ""}${g ? ` style="--grifo:${CORES_GRIFO[g.cor] || "#E9A65A"}"` : ""}>${h}${nota}${balao}</p>`;
+    return `<p data-b="${i}"${cl}${cls ? ` class="${cls}"` : ""}${g ? ` style="--grifo:${CORES_GRIFO[g.cor] || "#E9A65A"}"` : ""}>${h}${nota}${balao}</p>`;
   }).join("");
 }
 
@@ -329,7 +350,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     <div class="ferramentas-ed vidro">
       <button data-ins="@" class="cor-nome" title="Personagem">@</button><button data-ins="&" class="cor-lugar" title="Lugar">&amp;</button><span class="div"></span>
       <button data-fala title="Nova fala">—</button><button data-env="**" title="Negrito (Ctrl+B)"><b>B</b></button><button data-env="*" title="Itálico (Ctrl+I)"><i>I</i></button><button data-ins="“" title="Aspas">“ ”</button>
-      <button data-ins="\n\n* * *\n\n" title="Separador de cena">◆</button><button data-ins="\n# " title="Subtítulo">H</button><span class="div"></span>
+      <button data-ins="\n\n* * *\n\n" title="Separador de cena">◆</button><button data-ins="\n# " title="Subtítulo">H</button><button id="befx" title="Efeitos de escrita (chuva, grito, sistema…)" style="color:#FFC94A">✦ Efeitos</button><span class="div"></span>
       <button id="bbusca" title="Buscar e substituir (Ctrl+F)">⌕ Buscar</button><button id="bfichas" title="Personagens">☺ Fichas</button><button id="bfoco" title="Modo foco">⛶ Foco</button><button id="bmaq" title="Máquina de escrever: som de tecla, papel e a linha sempre no meio">⌨ Máquina</button><button id="bia" class="ia-btn" title="Estúdio de IA">✨ IA</button><button id="bvivo" title="Escrever junto ao vivo com coautores">👥 Ao vivo</button>
     </div>
     <div class="busca-ed vidro" id="busca" hidden><input class="campo" id="q" placeholder="Buscar…"><input class="campo" id="r" placeholder="Substituir por…"><span class="suave peq" id="qn"></span>
@@ -377,6 +398,15 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   };
   $$("[data-ins]").forEach((b) => (b.onclick = () => inserir(b.dataset.ins.replace(/\\n/g, "\n"))));
   $$("[data-env]").forEach((b) => (b.onclick = () => inserir(b.dataset.env, true)));
+  $("#befx").onclick = () => {
+    const linha = (ex, d, ins, env) => `<button class="efx" data-x="${esc(ins)}" ${env ? "data-e" : ""}><code>${esc(ex)}</code><span>${esc(d)}</span></button>`;
+    const d = dialogo(`<h3 style="margin-top:0">Efeitos de escrita</h3><p class="suave peq">Escreva os símbolos e o leitor faz o efeito sozinho (no PC e no celular). Clique para inserir.</p>
+      <div class="rotulo">No texto (selecione um trecho)</div>${linha("!!GRITO!!", "Fala gritada, grande e tremendo", "!!", 1)}${linha("((sussurro))", "Baixinho, menor e em itálico", "((", 2)}${linha("^^brilho^^", "Palavra mágica dourada", "^^", 1)}
+      <div class="rotulo" style="margin-top:12px">Parágrafo inteiro</div>${linha("[[texto]]", "Janela azul de Sistema", "\n[[Habilidade adquirida: Punho de Ferro]]\n")}${linha(">> texto", "Mensagem de celular", "\n>> ")}
+      <div class="rotulo" style="margin-top:12px">Efeito de cena (numa linha sozinha, vale até ~fim)</div>${Object.entries(EFEITOS_CENA).map(([k, n]) => linha("~" + k, n, `\n~${k}\n`)).join("")}${linha("~fim", "⏹ Desligar o efeito", "\n~fim\n")}
+      <div class="linha-botoes"><button class="btn peq" data-n>Fechar</button></div>`);
+    d.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { d.close?.(); d.remove?.(); const x = b.dataset.x; if (x === "((") { const a = ta.selectionStart, z = ta.selectionEnd; ta.setRangeText("((" + ta.value.slice(a, z) + "))", a, z, "end"); ta.dispatchEvent(new Event("input")); ta.focus(); } else inserir(x, b.hasAttribute("data-e")); }));
+  };
   $("[data-fala]").onclick = () => { const a = ta.selectionStart; const antes = ta.value.slice(0, a); inserir((antes && !antes.endsWith("\n") ? "\n\n" : "") + "— "); };
   $("#bfoco").onclick = () => document.body.classList.toggle("foco");
   // máquina de escrever: papel, letra de máquina, som de cada tecla e a linha atual sempre no meio da tela
