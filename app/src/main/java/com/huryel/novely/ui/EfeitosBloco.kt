@@ -969,8 +969,8 @@ private fun BoxScope.fx45(nome: String, corNome: String?, resto: String, c: List
                         }
                         Text(f(0), fontFamily = MONO, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
                     }
-                    if (n >= 32 && c.size > 1) Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Normal)) { append("Transcrição: ") }; append("“" + c.drop(1).joinToString(" ") + "”") },
-                        fontStyle = FontStyle.Italic, fontSize = 13.sp, color = Color(0xFF8E8A93), textAlign = TextAlign.End, modifier = Modifier.padding(top = 8.dp).entrar())
+                    if (c.size > 1) Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Normal)) { append("Transcrição: ") }; append("“" + c.drop(1).joinToString(" ") + "”") },
+                        fontStyle = FontStyle.Italic, fontSize = 13.sp, color = Color(0xFF8E8A93), textAlign = TextAlign.End, modifier = Modifier.padding(top = 8.dp))
                 }
             }
     }
