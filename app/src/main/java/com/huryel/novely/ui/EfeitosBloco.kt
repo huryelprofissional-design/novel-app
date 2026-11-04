@@ -880,7 +880,7 @@ fun estiloInlineFx(nome: String, cor: String?): SpanStyle {
         "veneno" -> SpanStyle(color = cc ?: Color(0xFF7CFF6B), fontWeight = FontWeight.ExtraBold, shadow = androidx.compose.ui.graphics.Shadow(Color(0x8C7CFF6B), blurRadius = 12f))
         "raio" -> SpanStyle(color = Color.White, fontWeight = FontWeight.Black, shadow = androidx.compose.ui.graphics.Shadow(cc ?: Color(0xFF4FB8FF), Offset(2f, -1f), 6f))
         "sombra" -> SpanStyle(color = Color(0xFFD9CDEE), fontWeight = FontWeight.ExtraBold, shadow = androidx.compose.ui.graphics.Shadow(cc ?: Color(0xF25A328C), Offset(0f, -8f), 18f))
-        "quebra", "vento" -> SpanStyle(color = cc, fontWeight = FontWeight.Bold)
+        "quebra", "vento" -> SpanStyle(color = cc ?: Color.Unspecified, fontWeight = FontWeight.Bold)
         "ouro" -> SpanStyle(brush = Brush.linearGradient(listOf(Color(0xFF8A5A00), Color(0xFFFFD86B), Color(0xFFFFF6CF), Color(0xFFFFC94A), Color(0xFF8A5A00))), fontFamily = FontFamily.Serif, fontWeight = FontWeight.ExtraBold)
         "coracao" -> SpanStyle(color = cc ?: Color(0xFFFF6FA8), fontWeight = FontWeight.ExtraBold, shadow = androidx.compose.ui.graphics.Shadow(Color(0x80FF6FA8), blurRadius = 12f))
         else -> SpanStyle()
