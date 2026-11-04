@@ -1031,8 +1031,10 @@ private fun FolhaEfeitosEscrita(p: Paleta, inserir: (String, Boolean) -> Unit) {
         listOf(Triple("!!", "!!GRITO!!", "Fala gritada, grande e forte"), Triple("((", "((sussurro))", "Baixinho, menor e em itálico"),
             Triple("^^", "^^brilho^^", "Palavra mágica dourada e brilhando"), Triple("||", "||segredo||", "Borrado até o leitor tocar"),
             Triple("%%", "%%glitch%%", "Letras corrompidas trocando"), Triple("<<", "<<voz sombria>>", "Vermelho com sombra: vilão, demônio"),
+            Triple("{", "{telepatia}", "Voz mental azul ondulando"), Triple("~~", "~~riscado~~", "Palavra riscada"),
+            Triple("[S]", "[S]", "Selo de rank (F, E, D, C, B, A, S, SS, SSS)"),
             Triple("**", "**negrito**", "Negrito"), Triple("*", "*itálico*", "Itálico")).forEach { (m, ex, d) ->
-            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { if (m == "((") inserir("(())", false) else if (m == "<<") inserir("<<>>", false) else inserir(m, true) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { when (m) { "((" -> inserir("(())", false); "<<" -> inserir("<<>>", false); "{" -> inserir("{}", false); "[S]" -> inserir("[S]", false); else -> inserir(m, true) } }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
                 Text(d, fontSize = 13.sp, color = p.textoSuave)
             }
@@ -1043,6 +1045,15 @@ private fun FolhaEfeitosEscrita(p: Paleta, inserir: (String, Boolean) -> Unit) {
             Triple("\n[!Você subiu de nível!]\n", "[!aviso!]", "Notificação que desliza do topo"),
             Triple("\n== ", "== texto", "Carta escrita à mão (várias linhas ==)"),
             Triple("\n## ", "## TÍTULO", "Título de impacto, letras gigantes"),
+            Triple("\n[[Missões | [x] Sobreviver à noite | [ ] Achar o mestre]]\n", "[[ [x] feito | [ ] falta ]]", "Lista de missões no Sistema"),
+            Triple("\n[+Espada do Vazio | lendário]\n", "[+item | raridade]", "Item obtido (comum, raro, épico, lendário, mítico)"),
+            Triple("\n{{DECRETO DA SEITA | texto do decreto}}\n", "{{TÍTULO | texto}}", "Pergaminho com selo"),
+            Triple("\n:: Seul, Gangnam | 03:14 da manhã\n", ":: local | hora", "Local e hora, abertura de cena"),
+            Triple("\n> Frase marcante — Autor\n", "> frase — autor", "Epígrafe no começo do capítulo"),
+            Triple("\n@@", "@@Nome", "Cartão do personagem (puxa a ficha)"),
+            Triple("\n>>Kang: ", ">>Nome: texto", "Mensagem de outra pessoa (com nome)"),
+            Triple("\n>>>Nome: comentário\n", ">>>Nome: texto", "Comentários ao vivo (várias linhas)"),
+            Triple("\nN.A.: ", "N.A.: texto", "Nota do autor (o Ouvir pula)"),
             Triple("\n>> ", ">> texto", "Mensagem de celular"), Triple("\n~pausa\n", "~pausa", "Pausa dramática antes do próximo parágrafo")).forEach { (m, ex, d) ->
             Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir(m, false) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))

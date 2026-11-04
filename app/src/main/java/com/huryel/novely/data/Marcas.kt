@@ -59,9 +59,10 @@ object Marcas {
     /** Tira as marcas para leitura: "@Lin Feng (Lin), o" → "Lin Feng, o"; "@[Seo-yeon do clã], x" → "Seo-yeon do clã, x". */
     /** Tira os símbolos de efeito (!!, ^^, ((, )), [[, ]], >>, linhas ~chuva) para prévias e cartões. */
     fun limparEfeitos(s: String): String = s.lineSequence().filterNot { val l = it.trim(); l.startsWith("~") && l.length <= 24 && ' ' !in l }
-        .map { var l = it.trim().removePrefix(">>").removePrefix("==").removePrefix("##").trimStart('#')
+        .map { var l = it.trim().removePrefix(">>>").removePrefix(">>").removePrefix("> ").removePrefix("==").removePrefix("##").removePrefix("::").removePrefix("@@").trimStart('#')
+            if (l.startsWith("[+") && l.endsWith("]")) l = l.substring(2, l.length - 1)
             if (l.startsWith("[!") && l.endsWith("!]")) l = l.substring(2, l.length - 2)
-            listOf("!!", "^^", "((", "))", "[[", "]]", "||", "%%", "<<", ">>").fold(l) { a, m -> a.replace(m, "") } }.joinToString("\n")
+            listOf("!!", "^^", "((", "))", "[[", "]]", "||", "%%", "<<", ">>", "{{", "}}", "~~", "{", "}").fold(l) { a, m -> a.replace(m, "") } }.joinToString("\n")
 
     fun limpar(s: String): String {
         if ('@' !in s && '&' !in s) return s

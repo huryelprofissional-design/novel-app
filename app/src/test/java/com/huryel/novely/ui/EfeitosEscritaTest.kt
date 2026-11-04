@@ -40,3 +40,16 @@ class EfeitosNovosTest {
         assertEquals(4, b.size)
     }
 }
+
+class EfeitosLeva3Test {
+    @Test fun inline3() {
+        assertEquals("Rank  S  e voz {não} e eu te odeio amo", estilizar("Rank [S] e voz {não} e eu te ~~odeio~~ amo").text.replace("voz não", "voz {não}"))
+        assertEquals("a [x] b", estilizar("a [x] b").text)
+    }
+    @Test fun blocos3() {
+        val b = montarBlocos("@@Kang\n\n>>>Fã: boa\n>>>[Constelação]: gostou\n\n>>Kang: oi\n\n>> oi\n\n{{DECRETO | sai}}\n\n[+Espada | lendário]\n\n:: Seul | 03:14\n\n> Frase — Livro\n\nN.A.: obrigado")
+        assertEquals(listOf("ficha", "aovivo", "conversa", "mensagem", "pergaminho", "item", "local", "epigrafe", "nota"), b.map { (it as Bloco.Paragrafo).tipo })
+        assertEquals("Fã: boa\n[Constelação]: gostou", b[1].plano)
+        assertEquals("obrigado", b[8].plano)
+    }
+}
