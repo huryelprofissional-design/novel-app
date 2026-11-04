@@ -130,6 +130,22 @@ export function ligarClima() {
   return () => { vivo = false; c.remove(); pill.remove(); removeEventListener("resize", tam); clearInterval(relogio); };
 }
 
+/** Efeitos de escrita que reagem à leitura: segredo, glitch, aviso, pausa, título de impacto e barras. */
+export function ligarEfeitosTexto() {
+  const raizT = document.querySelector("#texto"); if (!raizT) return () => {};
+  const aoClicar = (e) => { const s = e.target.closest(".segredo"); if (s) { e.stopPropagation(); s.classList.add("aberto"); } };
+  raizT.addEventListener("click", aoClicar);
+  const gls = [...raizT.querySelectorAll(".glitch")], lixo = "▓▒░#@%&$*!?";
+  const tGl = gls.length ? setInterval(() => { for (const g of gls) { const o = g.dataset.glitch; g.textContent = [...o].map((c) => c !== " " && Math.random() < .12 ? lixo[Math.random() * lixo.length | 0] : c).join(""); } }, 120) : 0;
+  const toast = document.createElement("div"); toast.className = "aviso-voa"; document.body.append(toast); let tT;
+  const obs = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting) return; const el = e.target; obs.unobserve(el); el.classList.add("on");
+    if (el.classList.contains("aviso")) { toast.innerHTML = el.innerHTML; toast.classList.add("on"); clearTimeout(tT); tT = setTimeout(() => toast.classList.remove("on"), 3500); }
+  }), { threshold: .6 });
+  raizT.querySelectorAll(".aviso, .pausa, .impacto, .com-barras").forEach((el) => obs.observe(el));
+  return () => { raizT.removeEventListener("click", aoClicar); clearInterval(tGl); obs.disconnect(); toast.remove(); };
+}
+
 /** Cabeçalho do fim de capítulo: anel com quanto já leu e os ganhos. */
 export function fimHTML(n, total, lidos) {
   return `<div class="fim-cine"><div class="anel-xp grande" style="--f:${total ? lidos / total : 1}"><b>${n}</b></div>

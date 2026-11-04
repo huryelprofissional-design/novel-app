@@ -1,5 +1,5 @@
 // Leitor (biblioteca e catálogo), editor e revisão.
-import { ligarClima, registrar, confete, reacoesHTML, ligarReacoes, fimHTML } from "./efeitos.js";
+import { ligarEfeitosTexto, ligarClima, registrar, confete, reacoesHTML, ligarReacoes, fimHTML } from "./efeitos.js";
 import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas,
   capitulos, fichas, marcadores, salvarCapitulo, salvarObra, salvarItem, apagarItem, lerTexto, colTextos, salvarTexto, novoId, dialogo, confirmar,
@@ -75,33 +75,54 @@ const ABRE = "(^|[\\s—–“\"«(])";
 function efeitosInline(h) {
   return h.replace(new RegExp(ABRE + "!!(\\S.*?)!!", "g"), '$1<span class="grito">$2</span>')
     .replace(new RegExp(ABRE + "\\^\\^(\\S.*?)\\^\\^", "g"), '$1<span class="brilho-t">$2</span>')
-    .replace(/\(\((.+?)\)\)/g, '<span class="sussurro">$1</span>');
+    .replace(/\(\((.+?)\)\)/g, '<span class="sussurro">$1</span>')
+    .replace(/\|\|(.+?)\|\|/g, '<span class="segredo" title="Toque para revelar">$1</span>')
+    .replace(/%%(.+?)%%/g, '<span class="glitch" data-glitch="$1">$1</span>')
+    .replace(/&lt;&lt;(.+?)&gt;&gt;/g, '<span class="sombria">$1</span>');
+}
+const BARRA = /^([\p{L}][\p{L} ]{0,14}?)\s*:?\s*(\d+)\s*\/\s*(\d+)$/u;
+const COR_BARRA = (n) => (/^(HP|VIDA|SA[UÚ]DE)$/i.test(n) ? "#E0283C,#FF6A6A" : /^(MP|MANA|QI|CHI|KI|ENERGIA)$/i.test(n) ? "#3A7BFF,#5CC8FF" : /^(XP|EXP|EXPERI[EÊ]NCIA)$/i.test(n) ? "#FFB020,#FFC94A" : /^(SP|STAMINA|VIGOR)$/i.test(n) ? "#2FBF71,#6FCF97" : "#8E5CFF,#C59BFF");
+function sistemaHTML(l) {
+  const partes = l.split("|").map((x) => x.trim()); const bs = partes.map((x) => x.match(BARRA));
+  if (!bs.some(Boolean)) return null;
+  return `<span class="t-sis">◈ STATUS</span>` + partes.map((x, k) => { const m = bs[k]; if (!m) return `<span class="linha-sis">${efeitosInline(esc(x))}</span>`;
+    const f = Math.min(100, (+m[2] / Math.max(1, +m[3])) * 100);
+    return `<span class="barra-sis"><span>${esc(m[1].trim())}</span><i><b style="--f:${f}%;background:linear-gradient(90deg,${COR_BARRA(m[1].trim())})"></b></i><span>${m[2]} / ${m[3]}</span></span>`; }).join("");
 }
 
 export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
   let capitularFeita = !pref().capitular;
   // linhas ~chuva … ~fim ligam um efeito de cena e não aparecem no texto
-  let clima = ""; const climas = [];
-  const linhas = limparMarcas(t).split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => { const m = marcaCena(l); if (m === null) { climas.push(clima); return true; } clima = m; return false; });
+  // ~pausa deixa o próximo parágrafo devagar; linhas "== …" seguidas viram uma carta só
+  let clima = "", pausa = false; const climas = [], pausas = [], linhas = [];
+  for (const l of limparMarcas(t).split("\n").map((x) => x.trim()).filter(Boolean)) {
+    if (/^~pausa$/i.test(l)) { pausa = true; continue; }
+    const m = marcaCena(l); if (m !== null) { clima = m; continue; }
+    if (/^==./.test(l) && /^==/.test(linhas[linhas.length - 1] || "")) { linhas[linhas.length - 1] += "\n" + l; continue; }
+    linhas.push(l); climas.push(clima); pausas.push(pausa); pausa = false;
+  }
   // palavra solta (parte do nome) não vale colada a outro nome: em "Gwon Jang-ho" o "Gwon" é de outra pessoa
   const lista = [...nomes.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (n.trim().includes(" ") ? "" : "(?!\\s\\p{Lu}\\p{Ll})"));
   const rxNomes = lista.length ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(${lista.join("|")})(?![\\p{L}\\p{N}]|[-'’]\\p{L})`, "gu") : null;
   return linhas.map((l, i) => {
     const g = grifos.get(i); const cl = climas[i] ? ` data-clima="${climas[i]}"` : "";
     if (/^(\* \* \*|\*\*\*|---|◆)$/.test(l)) return `<div class="sep enfeite" data-b="${i}"${cl}>${enfeiteHTML(op.enfeite)}</div>`;
+    if (/^##(?!#)/.test(l)) return `<h2 class="impacto" data-b="${i}"${cl}>${esc(l.replace(/^#+\s*/, ""))}</h2>`;
     if (/^#/.test(l)) return `<h3 data-b="${i}"${cl}>${esc(l.replace(/^#+\s*/, ""))}</h3>`;
-    const sistema = /^\[\[.+\]\]$/.test(l), msg = /^>>/.test(l);
-    if (sistema) l = l.slice(2, -2).trim(); else if (msg) l = l.slice(2).trim();
-    let h = efeitosInline(esc(l)).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
+    const sistema = /^\[\[.+\]\]$/.test(l), msg = /^>>/.test(l), aviso = /^\[!.+!\]$/.test(l), carta = /^==/.test(l);
+    if (sistema) l = l.slice(2, -2).trim(); else if (msg) l = l.slice(2).trim(); else if (aviso) l = l.slice(2, -2).trim(); else if (carta) l = l.split("\n").map((x) => x.replace(/^==\s*/, "")).join("\n");
+    let h = (sistema && sistemaHTML(l)) || efeitosInline(esc(l)).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
+    if (carta) h = h.replace(/\n/g, "<br>");
+    if (aviso) h = "🔔 " + h;
     if (rxNomes) h = h.replace(rxNomes, (m) => `<span class="nome" data-ficha="${esc(nomes.get(m))}">${m}</span>`);
-    const fala = !sistema && !msg && /^[—–―\-“"«]/.test(l) && l.length > 1 && !l.startsWith("---");
+    const fala = !sistema && !msg && !aviso && !carta && /^[—–―\-“"«]/.test(l) && l.length > 1 && !l.startsWith("---");
     if (fala) h = h.replace(/^([—–―\-“"«]\s?)/, '<b class="trav">$1</b>');
     const nota = g?.nota ? `<span class="nota-grifo" title="${esc(g.nota)}">✎</span>` : "";
-    const capit = !capitularFeita && !fala && !sistema && !msg && l.length > 40 && !/^(cap[ií]tulo|pr[oó]logo|ep[ií]logo)/i.test(l); if (capit) capitularFeita = true;
-    const cls = [fala ? "fala" : "", g ? "grifo" : "", capit ? "capitular" : "", sistema ? "sistema" : "", msg ? "mensagem" : ""].filter(Boolean).join(" ");
+    const capit = !capitularFeita && !fala && !sistema && !msg && !aviso && !carta && l.length > 40 && !/^(cap[ií]tulo|pr[oó]logo|ep[ií]logo)/i.test(l); if (capit) capitularFeita = true;
+    const cls = [fala ? "fala" : "", g ? "grifo" : "", capit ? "capitular" : "", sistema ? "sistema" : "", msg ? "mensagem" : "", aviso ? "aviso" : "", carta ? "carta" : "", pausas[i] ? "pausa" : "", sistema && h.startsWith('<span class="t-sis">') ? "com-barras" : ""].filter(Boolean).join(" ");
     const nc = op.coms?.get(i) || 0;
     const balao = op.coms ? `<button class="balao-trecho ${nc ? "" : "vazio"}" data-trecho="${i}" title="Comentar este trecho">💬${nc ? " " + nc : ""}</button>` : "";
-    return `<p data-b="${i}"${cl}${cls ? ` class="${cls}"` : ""}${g ? ` style="--grifo:${CORES_GRIFO[g.cor] || "#E9A65A"}"` : ""}>${h}${nota}${balao}</p>`;
+    return `${pausas[i] ? `<div class="pausa-pontos">· · ·</div>` : ""}<p data-b="${i}"${cl}${cls ? ` class="${cls}"` : ""}${g ? ` style="--grifo:${CORES_GRIFO[g.cor] || "#E9A65A"}"` : ""}>${h}${nota}${balao}</p>`;
   }).join("");
 }
 
@@ -308,7 +329,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   const fimXp = () => { if (o.minha || local.ler("xpLido/" + capId, false)) return; const alt = document.documentElement.scrollHeight - innerHeight; if (alt <= 0 || scrollY / alt < .97) return; local.gravar("xpLido/" + capId, true); registrar("ler"); confete(90); };
   window.onscroll = () => { aoRolar(); fimXp(); maratona(prox && `/ler/${obraId}/${prox.id}`); }; aoRolar();
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/ler/${obraId}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/ler/${obraId}/${ant.id}`); };
-  const desligarClima = ligarClima();
+  const desligarClima = (() => { const a = ligarClima(), z = ligarEfeitosTexto(); return () => { a(); z(); }; })();
   E.saindo = async () => { pararVoz(); desligarClima(); };
 });
 
@@ -401,11 +422,11 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   $("#befx").onclick = () => {
     const linha = (ex, d, ins, env) => `<button class="efx" data-x="${esc(ins)}" ${env ? "data-e" : ""}><code>${esc(ex)}</code><span>${esc(d)}</span></button>`;
     const d = dialogo(`<h3 style="margin-top:0">Efeitos de escrita</h3><p class="suave peq">Escreva os símbolos e o leitor faz o efeito sozinho (no PC e no celular). Clique para inserir.</p>
-      <div class="rotulo">No texto (selecione um trecho)</div>${linha("!!GRITO!!", "Fala gritada, grande e tremendo", "!!", 1)}${linha("((sussurro))", "Baixinho, menor e em itálico", "((", 2)}${linha("^^brilho^^", "Palavra mágica dourada", "^^", 1)}
-      <div class="rotulo" style="margin-top:12px">Parágrafo inteiro</div>${linha("[[texto]]", "Janela azul de Sistema", "\n[[Habilidade adquirida: Punho de Ferro]]\n")}${linha(">> texto", "Mensagem de celular", "\n>> ")}
+      <div class="rotulo">No texto (selecione um trecho)</div>${linha("!!GRITO!!", "Fala gritada, grande e tremendo", "!!", 1)}${linha("((sussurro))", "Baixinho, menor e em itálico", "((", 2)}${linha("^^brilho^^", "Palavra mágica dourada", "^^", 1)}${linha("||segredo||", "Borrado até o leitor tocar", "||", 1)}${linha("%%glitch%%", "Letras corrompidas trocando", "%%", 1)}${linha("<<voz sombria>>", "Vermelho com sombra: vilão, demônio", "<<", 3)}
+      <div class="rotulo" style="margin-top:12px">Parágrafo inteiro</div>${linha("[[texto]]", "Janela azul de Sistema", "\n[[Habilidade adquirida: Punho de Ferro]]\n")}${linha("[[HP 30/100]]", "Barras de status (separe com |)", "\n[[HP 30/100 | MP 80/100 | XP 45/100]]\n")}${linha("[!aviso!]", "Notificação que desliza do topo", "\n[!Você subiu de nível!]\n")}${linha("== texto", "Carta escrita à mão (várias linhas ==)", "\n== ")}${linha("## TÍTULO", "Título de impacto", "\n## ")}${linha(">> texto", "Mensagem de celular", "\n>> ")}${linha("~pausa", "Pausa dramática antes do próximo parágrafo", "\n~pausa\n")}
       <div class="rotulo" style="margin-top:12px">Efeito de cena (numa linha sozinha, vale até ~fim)</div>${Object.entries(EFEITOS_CENA).map(([k, n]) => linha("~" + k, n, `\n~${k}\n`)).join("")}${linha("~fim", "⏹ Desligar o efeito", "\n~fim\n")}
       <div class="linha-botoes"><button class="btn peq" data-n>Fechar</button></div>`);
-    d.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { d.close?.(); d.remove?.(); const x = b.dataset.x; if (x === "((") { const a = ta.selectionStart, z = ta.selectionEnd; ta.setRangeText("((" + ta.value.slice(a, z) + "))", a, z, "end"); ta.dispatchEvent(new Event("input")); ta.focus(); } else inserir(x, b.hasAttribute("data-e")); }));
+    d.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { d.close?.(); d.remove?.(); const x = b.dataset.x; if (x === "((" || x === "<<") { const f = x === "((" ? "))" : ">>"; const a = ta.selectionStart, z = ta.selectionEnd; ta.setRangeText(x + ta.value.slice(a, z) + f, a, z, "end"); ta.dispatchEvent(new Event("input")); ta.focus(); } else inserir(x, b.hasAttribute("data-e")); }));
   };
   $("[data-fala]").onclick = () => { const a = ta.selectionStart; const antes = ta.value.slice(0, a); inserir((antes && !antes.endsWith("\n") ? "\n\n" : "") + "— "); };
   $("#bfoco").onclick = () => document.body.classList.toggle("foco");
@@ -514,7 +535,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   medir();
   window.onscroll = () => { aoRolar(); medir(); };
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/publer/${pid}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/publer/${pid}/${ant.id}`); };
-  const desligarClima = ligarClima();
+  const desligarClima = (() => { const a = ligarClima(), z = ligarEfeitosTexto(); return () => { a(); z(); }; })();
   E.saindo = async () => { document.removeEventListener("visibilitychange", aoEsconder); enviar(); pararVoz(); desligarClima(); };
 });
 
