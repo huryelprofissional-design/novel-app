@@ -1,4 +1,5 @@
 // Efeitos visuais e progresso (XP, missões, baú) no PC — mesmo jeito do app Android.
+import { ligarFx } from "./fx.js";
 import { E, $, esc, local, toast, db, doc, getDoc, setDoc, updateDoc, deleteDoc, increment } from "./nucleo.js";
 
 // ───────── confete e celebração ─────────
@@ -143,7 +144,8 @@ export function ligarEfeitosTexto() {
     if (el.classList.contains("aviso")) { toast.innerHTML = el.innerHTML; toast.classList.add("on"); clearTimeout(tT); tT = setTimeout(() => toast.classList.remove("on"), 3500); }
   }), { threshold: .6 });
   raizT.querySelectorAll(".aviso, .pausa, .impacto, .com-barras").forEach((el) => obs.observe(el));
-  return () => { raizT.removeEventListener("click", aoClicar); clearInterval(tGl); obs.disconnect(); toast.remove(); };
+  const pararFx = ligarFx(raizT);
+  return () => { pararFx(); raizT.removeEventListener("click", aoClicar); clearInterval(tGl); obs.disconnect(); toast.remove(); };
 }
 
 /** Cabeçalho do fim de capítulo: anel com quanto já leu e os ganhos. */

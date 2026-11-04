@@ -137,12 +137,79 @@ private fun piscar(ms: Int): Boolean {
 fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, modifier: Modifier = Modifier) {
     val c = camposFx(resto)
     val f = { i: Int -> c.getOrNull(i).orEmpty() }
-    val corp = estilo.fontSize
     Box(modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         when (nome) {
-            // ───── Sistema e RPG ─────
-            "sistema" -> { val cor = corFx(corNome); Painel(cor) { Rot("// " + (if (c.size > 1) f(0) else "Sistema"), cor); Text(estilizar(if (c.size > 1) c.drop(1).joinToString("\n") else f(0)), fontFamily = MONO, fontSize = 14.sp, lineHeight = 20.sp, color = claro(cor)) } }
-            "evolucao" -> { val cor = corFx(corNome)
+            "sistema" -> fx0(nome, corNome, resto, c, f, estilo)
+            "evolucao" -> fx1(nome, corNome, resto, c, f, estilo)
+            "atributos" -> fx2(nome, corNome, resto, c, f, estilo)
+            "habilidade" -> fx3(nome, corNome, resto, c, f, estilo)
+            "missao-ok" -> fx4(nome, corNome, resto, c, f, estilo)
+            "missao-falhou" -> fx5(nome, corNome, resto, c, f, estilo)
+            "perigo" -> fx6(nome, corNome, resto, c, f, estilo)
+            "conquista" -> fx7(nome, corNome, resto, c, f, estilo)
+            "classe", "titulo" -> fx8(nome, corNome, resto, c, f, estilo)
+            "chefe" -> fx9(nome, corNome, resto, c, f, estilo)
+            "andar" -> fx10(nome, corNome, resto, c, f, estilo)
+            "bau" -> fx11(nome, corNome, resto, c, f, estilo)
+            "ranking" -> fx12(nome, corNome, resto, c, f, estilo)
+            "tempo" -> fx13(nome, corNome, resto, c, f, estilo)
+            "inimigo" -> fx14(nome, corNome, resto, c, f, estilo)
+            "reino" -> fx15(nome, corNome, resto, c, f, estilo)
+            "tecnica" -> fx16(nome, corNome, resto, c, f, estilo)
+            "seita" -> fx17(nome, corNome, resto, c, f, estilo)
+            "pilula" -> fx18(nome, corNome, resto, c, f, estilo)
+            "duelo" -> fx19(nome, corNome, resto, c, f, estilo)
+            "dantian" -> fx20(nome, corNome, resto, c, f, estilo)
+            "tribulacao" -> fx21(nome, corNome, resto, c, f, estilo)
+            "rasgada" -> fx22(nome, corNome, resto, c, f, estilo)
+            "vhs" -> fx23(nome, corNome, resto, c, f, estilo)
+            "regras" -> fx24(nome, corNome, resto, c, f, estilo)
+            "foto" -> fx25(nome, corNome, resto, c, f, estilo)
+            "arquivo" -> fx26(nome, corNome, resto, c, f, estilo)
+            "depoimento" -> fx27(nome, corNome, resto, c, f, estilo)
+            "telegrama" -> fx28(nome, corNome, resto, c, f, estilo)
+            "linha" -> fx29(nome, corNome, resto, c, f, estilo)
+            "prova" -> fx30(nome, corNome, resto, c, f, estilo)
+            "profecia" -> fx31(nome, corNome, resto, c, f, estilo)
+            "contrato" -> fx32(nome, corNome, resto, c, f, estilo)
+            "terminal" -> fx33(nome, corNome, resto, c, f, estilo)
+            "holo" -> fx34(nome, corNome, resto, c, f, estilo)
+            "corte" -> fx35(nome, corNome, resto, c, f, estilo)
+            "scan" -> fx36(nome, corNome, resto, c, f, estilo)
+            "codigo" -> fx37(nome, corNome, resto, c, f, estilo)
+            "alerta-vermelho" -> fx38(nome, corNome, resto, c, f, estilo)
+            "ia" -> fx39(nome, corNome, resto, c, f, estilo)
+            "post" -> fx40(nome, corNome, resto, c, f, estilo)
+            "jornal" -> fx41(nome, corNome, resto, c, f, estilo)
+            "email" -> fx42(nome, corNome, resto, c, f, estilo)
+            "ligacao" -> fx43(nome, corNome, resto, c, f, estilo)
+            "busca" -> fx44(nome, corNome, resto, c, f, estilo)
+            "voz" -> fx45(nome, corNome, resto, c, f, estilo)
+            "bloqueio" -> fx46(nome, corNome, resto, c, f, estilo)
+            "apagada" -> fx47(nome, corNome, resto, c, f, estilo)
+            "digitando" -> fx48(nome, corNome, resto, c, f, estilo)
+            "grupo" -> fx49(nome, corNome, resto, c, f, estilo)
+            "localizacao" -> fx50(nome, corNome, resto, c, f, estilo)
+            "diario" -> fx51(nome, corNome, resto, c, f, estilo)
+            "procurado" -> fx52(nome, corNome, resto, c, f, estilo)
+            "aviso" -> fx53(nome, corNome, resto, c, f, estilo)
+            "salto" -> fx54(nome, corNome, resto, c, f, estilo)
+            "capitulo" -> fx55(nome, corNome, resto, c, f, estilo)
+            "proximo" -> fx56(nome, corNome, resto, c, f, estilo)
+            else -> Text(resto, style = estilo)
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.fx0(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome); Painel(cor) { Rot("// " + (if (c.size > 1) f(0) else "Sistema"), cor); Text(estilizar(if (c.size > 1) c.drop(1).joinToString("\n") else f(0)), fontFamily = MONO, fontSize = 14.sp, lineHeight = 20.sp, color = claro(cor)) } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx1(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome)
                 Painel(cor) {
                     Rot("// Evolução", cor)
                     val nv = Regex("(\\d+)\\s*>\\s*(\\d+)").find(f(0))
@@ -169,8 +236,13 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "atributos" -> { val cor = corFx(corNome)
-                val vals = c.mapNotNull { Regex("^(.+?)\\s+(\\d+)$").find(it)?.let { m -> m.groupValues[1] to m.groupValues[2].toInt() } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx2(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome)
+                val vals = c.mapNotNull { Regex("^([^:]+?)\\s+(\\d+)$").find(it)?.let { m -> m.groupValues[1] to m.groupValues[2].toInt() } }
                 Painel(cor) {
                     Rot("// Atributos", cor)
                     val a = remember { Animatable(0f) }; LaunchedEffect(Unit) { a.animateTo(1f, tween(1200, 300, FastOutSlowInEasing)) }
@@ -184,10 +256,15 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                         drawPath(pv, cor.copy(alpha = .3f)); drawPath(pv, cor, style = Stroke(2.dp.toPx()))
                     }
                     Text(vals.joinToString("   ") { "${it.first} ${it.second}" }, fontFamily = MONO, fontSize = 12.sp, color = claro(cor), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                    c.filter { Regex("^(.+?)\\s+(\\d+)$").find(it) == null }.forEach { Text(it, fontFamily = MONO, fontSize = 12.sp, color = Color(0xFFFFC94A), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                    c.filter { Regex("^([^:]+?)\\s+(\\d+)$").find(it) == null }.forEach { Text(it, fontFamily = MONO, fontSize = 12.sp, color = Color(0xFFFFC94A), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
                 }
             }
-            "habilidade" -> { val cor = corFx(corNome)
+    }
+}
+
+@Composable
+private fun BoxScope.fx3(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome)
                 val desc = c.drop(1).lastOrNull { it.length > 18 }
                 val tags = c.drop(1).filter { it != desc }
                 Painel(cor) {
@@ -197,7 +274,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Linha { tags.drop(2).forEachIndexed { k, t -> Chip(t, cor, 300 + k * 150) } }
                 }
             }
-            "missao-ok" -> { val cor = corFx(corNome, Color(0xFFFFC94A))
+    }
+}
+
+@Composable
+private fun BoxScope.fx4(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, Color(0xFFFFC94A))
                 Painel(cor, Modifier.entrar()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(44.dp).rotate(45f).background(cor), contentAlignment = Alignment.Center) { Text("✓", fontWeight = FontWeight.Black, color = Color.Black, fontSize = 20.sp, modifier = Modifier.rotate(-45f)) }
@@ -208,7 +290,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "missao-falhou" -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
+    }
+}
+
+@Composable
+private fun BoxScope.fx5(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
                 val treme = remember { Animatable(0f) }
                 LaunchedEffect(Unit) { treme.animateTo(1f, tween(600)) }
                 Painel(cor, Modifier.graphicsLayer { translationX = sin(treme.value * 20f) * (1 - treme.value) * 14f * density }) {
@@ -216,7 +303,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text(f(0), fontFamily = MONO, fontSize = 13.sp, color = claro(cor)); if (c.size > 1) Text("Penalidade: " + c.drop(1).joinToString(" · "), fontFamily = MONO, fontSize = 13.sp, color = claro(cor).copy(alpha = 0.75f))
                 }
             }
-            "perigo" -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
+    }
+}
+
+@Composable
+private fun BoxScope.fx6(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
                 val t = rememberInfiniteTransition(label = "perigo"); val desl by t.animateFloat(0f, 28f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "d")
                 val alarme by t.animateFloat(0.05f, 0.25f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "a")
                 Column(Modifier.fillMaxWidth().background(cor.copy(alpha = alarme)).border(1.dp, cor.copy(alpha = 0.6f))) {
@@ -229,7 +321,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Box(faixa)
                 }
             }
-            "conquista" -> { val cor = corFx(corNome, Color(0xFFFFC94A))
+    }
+}
+
+@Composable
+private fun BoxScope.fx7(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, Color(0xFFFFC94A))
                 Row(Modifier.entrar(dy = 0f).graphicsLayer { }.background(Color(0xFF14141A)).border(1.dp, cor.copy(alpha = 0.4f)).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(42.dp).background(cor), contentAlignment = Alignment.Center) { Text("🏆", fontSize = 20.sp) }
                     Column(Modifier.padding(start = 12.dp, end = 10.dp)) {
@@ -238,7 +335,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "classe", "titulo" -> { val cor = corFx(corNome, if (nome == "titulo") Color(0xFFFFC94A) else CORES_FX["roxo"]!!)
+    }
+}
+
+@Composable
+private fun BoxScope.fx8(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, if (nome == "titulo") Color(0xFFFFC94A) else CORES_FX["roxo"]!!)
                 val gira = rememberInfiniteTransition(label = "raios").animateFloat(0f, 360f, infiniteRepeatable(tween(24000, easing = LinearEasing)), label = "g")
                 Box(Modifier.fillMaxWidth().background(mix(cor, 0.08f)).border(1.dp, cor.copy(alpha = 0.4f)).padding(vertical = 18.dp, horizontal = 12.dp), contentAlignment = Alignment.Center) {
                     Canvas(Modifier.matchParentSize()) { val cx = size.width / 2; val cy = size.height * .45f; for (k in 0 until 18) { val a = Math.toRadians((gira.value + k * 20).toDouble()); drawLine(cor.copy(alpha = .14f), Offset(cx, cy), Offset(cx + cos(a).toFloat() * size.width, cy + sin(a).toFloat() * size.width), 8f) } }
@@ -251,7 +353,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "chefe" -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
+    }
+}
+
+@Composable
+private fun BoxScope.fx9(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
                 val fases = Regex("(\\d+)\\s*fase").find(resto)?.groupValues?.get(1)?.toIntOrNull() ?: 1
                 val t = rememberInfiniteTransition(label = "chefe"); val bat by t.animateFloat(0.2f, 0.6f, infiniteRepeatable(tween(550), RepeatMode.Reverse), label = "b")
                 val hp = remember { Animatable(0f) }; LaunchedEffect(Unit) { hp.animateTo(1f, tween(1600, 400, FastOutSlowInEasing)) }
@@ -269,7 +376,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text("Fase 1 de $fases", fontFamily = MONO, fontSize = 12.sp, color = claro(cor).copy(alpha = .7f), modifier = Modifier.padding(top = 6.dp))
                 }
             }
-            "andar" -> { val alvo = f(0).filter { it.isDigit() }.toIntOrNull() ?: 1
+    }
+}
+
+@Composable
+private fun BoxScope.fx10(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val alvo = f(0).filter { it.isDigit() }.toIntOrNull() ?: 1
                 var n by remember { mutableIntStateOf(maxOf(1, alvo - 9)) }
                 LaunchedEffect(alvo) { while (n < alvo) { delay(120); n++ } }
                 Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFF1B1A1F), Color(0xFF0C0B0E)))).border(1.dp, Color(0xFF3A3740)).padding(vertical = 20.dp),
@@ -279,7 +391,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     if (c.size > 1) Text(c[1], fontStyle = FontStyle.Italic, fontFamily = FontFamily.Serif, fontSize = 15.sp, color = Color(0xFFC9C3B4), modifier = Modifier.entrar(1200))
                 }
             }
-            "bau" -> { val cor = corFx(corNome, Color(0xFFFFC94A))
+    }
+}
+
+@Composable
+private fun BoxScope.fx11(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, Color(0xFFFFC94A))
                 val abre = remember { Animatable(0f) }; LaunchedEffect(Unit) { delay(400); abre.animateTo(1f, spring(0.45f, 200f)) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(92.dp, 84.dp)) {
@@ -297,7 +414,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "ranking" -> { val cor = corFx(corNome)
+    }
+}
+
+@Composable
+private fun BoxScope.fx12(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Rot("// Ranking " + f(0), cor, Modifier.padding(bottom = 4.dp))
                     c.drop(1).forEachIndexed { k, l ->
@@ -316,7 +438,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "tempo" -> { val cor = corFx(corNome)
+    }
+}
+
+@Composable
+private fun BoxScope.fx13(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome)
                 val ini = f(0).split(':').mapNotNull { it.trim().toIntOrNull() }.fold(0) { a, b -> a * 60 + b }
                 var s by remember { mutableIntStateOf(ini) }
                 LaunchedEffect(ini) { while (s > 0) { delay(1000); s-- } }
@@ -328,7 +455,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     c.drop(1).forEach { Text(it, fontSize = 12.sp, color = Color(0xFF8E8A93)) }
                 }
             }
-            "inimigo" -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
+    }
+}
+
+@Composable
+private fun BoxScope.fx14(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val cor = corFx(corNome, Color(0xFFFF3B4E))
                 Painel(cor) {
                     Row {
                         Box(Modifier.size(80.dp, 92.dp).background(Color(0xFF140A0C)).border(1.dp, cor.copy(alpha = .5f))) {
@@ -346,8 +478,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            // ───── Murim ─────
-            "reino" -> { val reinos = f(0).split('>').map { it.trim() }.filter { it.isNotEmpty() }
+    }
+}
+
+@Composable
+private fun BoxScope.fx15(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val reinos = f(0).split('>').map { it.trim() }.filter { it.isNotEmpty() }
                 val atual = (c.getOrNull(1)?.filter { it.isDigit() }?.toIntOrNull() ?: reinos.size).coerceIn(1, reinos.size.coerceAtLeast(1))
                 val linha = remember { Animatable(0f) }; LaunchedEffect(Unit) { linha.animateTo(1f, tween(1200, easing = FastOutSlowInEasing)) }
                 val t = rememberInfiniteTransition(label = "reino"); val onda by t.animateFloat(0f, 1f, infiniteRepeatable(tween(1200)), label = "o")
@@ -367,7 +503,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     c.drop(2).forEach { Text(estilizar(it), fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic, fontSize = 15.sp, color = Color(0xFFFFE6A8), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 14.dp).entrar(1100)) }
                 }
             }
-            "tecnica" -> Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF171310), Color(0xFF0B0907)))).border(1.dp, Color(0xFF6B5420)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx16(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF171310), Color(0xFF0B0907)))).border(1.dp, Color(0xFF6B5420)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Rot("Técnica marcial", Color(0xFFC9A24A))
                 Text(f(0), fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color(0xFFFFE6A8))
                 val formas = c.drop(1).filter { it.contains("forma", true) || it == "???" || it.contains("?") }
@@ -375,7 +516,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                 formas.forEachIndexed { k, fo -> Text("${k + 1}ª Forma · " + (if (fo.contains("?")) "Nome ainda desconhecido" else fo.replace(Regex("^forma\\s*\\d*\\s*[:·-]?\\s*", RegexOption.IGNORE_CASE), "")),
                     fontSize = 13.5.sp, color = Color(0xFFD4CDB8), modifier = Modifier.entrar(300 + k * 200).then(if (fo.contains("?")) Modifier.blur(4.dp) else Modifier)) }
             }
-            "seita" -> Row(verticalAlignment = Alignment.CenterVertically) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx17(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Row(verticalAlignment = Alignment.CenterVertically) {
                 val bal = rememberInfiniteTransition(label = "bal").animateFloat(-1.5f, 1.5f, infiniteRepeatable(tween(2000), RepeatMode.Reverse), label = "b")
                 val emb = f(0).firstOrNull { it.code in 0x4E00..0x9FFF } ?: f(0).firstOrNull() ?: '?'
                 Box(Modifier.size(90.dp, 120.dp).graphicsLayer { rotationZ = bal.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f) }.clip(Estandarte)
@@ -387,7 +533,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                         fontFamily = if (r == "Seita") FontFamily.Serif else null, fontWeight = FontWeight.Bold, fontStyle = if (r == "Lema") FontStyle.Italic else null, color = if (r == "Seita") Color(0xFFFFE6A8) else Color.White) } }
                 }
             }
-            "pilula" -> Row(verticalAlignment = Alignment.CenterVertically) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx18(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Row(verticalAlignment = Alignment.CenterVertically) {
                 val t = rememberInfiniteTransition(label = "pil"); val g by t.animateFloat(0f, 360f, infiniteRepeatable(tween(8000, easing = LinearEasing)), label = "g"); val pul by t.animateFloat(1f, 1.08f, infiniteRepeatable(tween(1200), RepeatMode.Reverse), label = "p")
                 Box(Modifier.size(90.dp), contentAlignment = Alignment.Center) {
                     Box(Modifier.size(72.dp).rotate(g).border(1.5.dp, Color(0x99A0FFD7)))
@@ -399,7 +550,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     c.drop(2).forEachIndexed { k, e -> Text("+ $e", fontFamily = MONO, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFB8FFE0), modifier = Modifier.entrar(400 + k * 200)) }
                 }
             }
-            "duelo" -> { val m = Regex("^(.+?)\\s*(\\d+)?%?\\s+vs\\s+(.+?)\\s*(\\d+)?%?$", RegexOption.IGNORE_CASE).find(f(0))
+    }
+}
+
+@Composable
+private fun BoxScope.fx19(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val m = Regex("^(.+?)\\s*(\\d+)?%?\\s+vs\\s+(.+?)\\s*(\\d+)?%?$", RegexOption.IGNORE_CASE).find(f(0))
                 val a = m?.groupValues?.get(1)?.trim() ?: f(0); val b = m?.groupValues?.get(3)?.trim() ?: f(1)
                 val pa = (m?.groupValues?.get(2)?.toIntOrNull() ?: 50) / 100f; val pb = (m?.groupValues?.get(4)?.toIntOrNull() ?: 50) / 100f
                 val t = rememberInfiniteTransition(label = "vs"); val vs by t.animateFloat(0.92f, 1.14f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "v")
@@ -418,7 +574,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text("VS", fontSize = 34.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Color.White, modifier = Modifier.align(Alignment.Center).graphicsLayer { scaleX = vs; scaleY = vs })
                 }
             }
-            "dantian" -> { val pc = (f(0).filter { it.isDigit() }.toIntOrNull() ?: 50).coerceIn(0, 100) / 100f
+    }
+}
+
+@Composable
+private fun BoxScope.fx20(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val pc = (f(0).filter { it.isDigit() }.toIntOrNull() ?: 50).coerceIn(0, 100) / 100f
                 val a = remember { Animatable(0f) }; LaunchedEffect(Unit) { a.animateTo(pc, tween(2000, 300, FastOutSlowInEasing)) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(58.dp, 120.dp).clip(Frasco).background(Color(0xFF0D0A07)).border(2.dp, Color(0xFFC9A24A), Frasco)) {
@@ -427,7 +588,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Column(Modifier.padding(start = 18.dp)) { Rot("Dantian", Color(0xFFC9A24A)); Text("${(a.value * 100).toInt()}%", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Color(0xFFFFE08A)); c.drop(1).forEach { Text(it, fontSize = 13.sp, color = Color(0xFFC9BFA6)) } }
                 }
             }
-            "tribulacao" -> { val m = Regex("(\\d+)\\s*/\\s*(\\d+)").find(f(0)); val atual = m?.groupValues?.get(1)?.toIntOrNull() ?: 1; val total = (m?.groupValues?.get(2)?.toIntOrNull() ?: 9).coerceIn(1, 12)
+    }
+}
+
+@Composable
+private fun BoxScope.fx21(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val m = Regex("(\\d+)\\s*/\\s*(\\d+)").find(f(0)); val atual = m?.groupValues?.get(1)?.toIntOrNull() ?: 1; val total = (m?.groupValues?.get(2)?.toIntOrNull() ?: 9).coerceIn(1, 12)
                 val pisca = piscar(1600)
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Rot("Tribulação celestial", Color(0xFFC59BFF))
@@ -440,11 +606,20 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     c.drop(1).forEach { Text(estilizar(it), fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = Color(0xFFBFB3D8), textAlign = TextAlign.Center) }
                 }
             }
-            // ───── Terror ─────
-            "rasgada" -> Box(Modifier.fillMaxWidth().rotate(-1.4f).clip(Rasgado).background(Brush.verticalGradient(listOf(Color(0xFFE6D9BC), Color(0xFFCDBB92)))).padding(horizontal = 22.dp, vertical = 26.dp)) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx22(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Box(Modifier.fillMaxWidth().rotate(-1.4f).clip(Rasgado).background(Brush.verticalGradient(listOf(Color(0xFFE6D9BC), Color(0xFFCDBB92)))).padding(horizontal = 22.dp, vertical = 26.dp)) {
                 Text(estilizar(c.joinToString("\n")), fontFamily = FontFamily.Cursive, fontSize = 22.sp, lineHeight = 28.sp, color = Color(0xFF3A2418))
             }
-            "vhs" -> { val ts = f(0); var seg by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (true) { delay(1000); seg++ } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx23(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val ts = f(0); var seg by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (true) { delay(1000); seg++ } }
                 val t = rememberInfiniteTransition(label = "vhs"); val faixa by t.animateFloat(-0.2f, 1.1f, infiniteRepeatable(tween(5000, easing = LinearEasing)), label = "f"); val rec = piscar(1100)
                 Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFF1A2430), Color(0xFF0C1118)))).drawBehind {
                     var y = 0f; while (y < size.height) { drawRect(Color(0x47000000), Offset(0f, y), Size(size.width, 1f)); y += 3f }
@@ -459,7 +634,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text(if (hm != null) ts.replace(hm.value, "%02d:%02d:%02d".format(agora / 3600 % 24, agora / 60 % 60, agora % 60)) else ts, style = sombra, fontSize = 16.sp, letterSpacing = 1.5.sp)
                 }
             }
-            "regras" -> { val regras = c.drop(1)
+    }
+}
+
+@Composable
+private fun BoxScope.fx24(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val regras = c.drop(1)
                 var vez by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (true) { delay(2200); vez++ } }
                 Column(Modifier.fillMaxWidth().background(Color(0xFFE9E4D8)).padding(18.dp)) {
                     Text(f(0).uppercase(), fontFamily = MONO, fontSize = 13.sp, letterSpacing = 2.sp, color = Color(0xFF1E1A14), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
@@ -472,7 +652,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "foto" -> { val t = rememberInfiniteTransition(label = "foto"); val v by t.animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = LinearEasing)), label = "v")
+    }
+}
+
+@Composable
+private fun BoxScope.fx25(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = rememberInfiniteTransition(label = "foto"); val v by t.animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = LinearEasing)), label = "v")
                 val vulto = when { v < .4f -> 0f; v < .55f -> (v - .4f) / .15f; v < .8f -> 1f; v < .85f -> 1 - (v - .8f) / .05f; else -> 0f } * 0.9f
                 Column(Modifier.align(Alignment.Center).width(230.dp).rotate(-2f).background(Color(0xFFF1EBDD)).padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 8.dp)) {
                     Canvas(Modifier.fillMaxWidth().height(150.dp)) { val w = size.width; val h = size.height
@@ -485,8 +670,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text(f(0), fontFamily = FontFamily.Cursive, fontSize = 20.sp, color = Color(0xFF3A2A18), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
                 }
             }
-            // ───── Mistério ─────
-            "arquivo" -> Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx26(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 Box(Modifier.offset(y = (-12).dp).fillMaxWidth(0.44f).height(14.dp).background(Color(0xFFD8C28E)))
                 Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFFD8C28E), Color(0xFFC9B27A)))).padding(18.dp)) {
                     Text(f(0).uppercase(), fontFamily = MONO, fontSize = 12.sp, letterSpacing = 2.sp, color = Color(0xFF2A2218), modifier = Modifier.padding(bottom = 8.dp))
@@ -496,7 +685,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                 Text("CONFIDENCIAL", fontFamily = MONO, fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFFB01E1E), letterSpacing = 1.5.sp,
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 18.dp, end = 12.dp).entrar(400, 0f).rotate(-12f).border(3.dp, Color(0xFFB01E1E)).padding(horizontal = 8.dp, vertical = 3.dp))
             }
-            "depoimento" -> Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFFE8E6E0), Color(0xFFD2CFC6)))).padding(16.dp)) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx27(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFFE8E6E0), Color(0xFFD2CFC6)))).padding(16.dp)) {
                 val grava = piscar(1200)
                 Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) { Text("POLÍCIA · SALA 2", fontFamily = MONO, fontSize = 11.sp, letterSpacing = 1.5.sp, color = Color(0xFF25252B), modifier = Modifier.weight(1f)); Text("● GRAVANDO", fontFamily = MONO, fontSize = 11.sp, color = Color(0xFFB01E1E).copy(alpha = if (grava) 1f else 0f)) }
                 Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0xFF25252B)))
@@ -504,14 +698,24 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text(buildAnnotatedString { if (d > 0) withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = if (k % 2 == 0) Color(0xFF13307A) else Color(0xFF7A1010))) { append(l.substring(0, d + 1)) }; append(if (d > 0) l.substring(d + 1) else l) },
                         fontFamily = MONO, fontSize = 14.sp, lineHeight = 22.sp, color = Color(0xFF25252B), modifier = Modifier.padding(top = 8.dp).entrar(300 + k * 900)) }
             }
-            "telegrama" -> { val txt = c.joinToString(" ").uppercase(); var n by remember { mutableIntStateOf(0) }; LaunchedEffect(txt) { while (n < txt.length) { delay(45); n++ } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx28(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val txt = c.joinToString(" ").uppercase(); var n by remember { mutableIntStateOf(0) }; LaunchedEffect(txt) { while (n < txt.length) { delay(45); n++ } }
                 Column(Modifier.fillMaxWidth().rotate(0.8f).background(Brush.verticalGradient(listOf(Color(0xFFEAD9A4), Color(0xFFD9C688))))) {
                     Text("TELÉGRAFO NACIONAL · TELEGRAMA", fontFamily = MONO, fontSize = 10.sp, letterSpacing = 2.sp, color = Color(0xFFF1DFB4), modifier = Modifier.fillMaxWidth().background(Color(0xFF8A1C1C)).padding(horizontal = 10.dp, vertical = 6.dp))
                     Text(buildAnnotatedString { val vis = txt.take(n); var k = 0; Regex("STOP|PT").findAll(vis).forEach { m -> append(vis.substring(k, m.range.first)); withStyle(SpanStyle(color = Color(0xFF8A1C1C), fontWeight = FontWeight.Bold)) { append(m.value) }; k = m.range.last + 1 }; append(vis.substring(k)); if (n < txt.length) append("▌") },
                         fontFamily = MONO, fontSize = 15.sp, lineHeight = 24.sp, color = Color(0xFF2A2418), modifier = Modifier.padding(18.dp))
                 }
             }
-            "linha" -> Column(Modifier.fillMaxWidth().padding(start = 4.dp)) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx29(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().padding(start = 4.dp)) {
                 val pisca = piscar(800)
                 c.forEachIndexed { k, l -> val m = Regex("^(\\d{1,2}[:h]\\d{2})\\s+(.*)$").find(l); val gap = l.contains("???")
                     Row(Modifier.entrar(200 + k * 350).height(IntrinsicSize.Min)) {
@@ -521,7 +725,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "prova" -> Box(Modifier.align(Alignment.Center).width(270.dp).background(Color(0x14E6F0FF)).border(1.dp, Color(0x4DE6F0FF)).padding(start = 14.dp, end = 14.dp, top = 26.dp, bottom = 14.dp)) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx30(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Box(Modifier.align(Alignment.Center).width(270.dp).background(Color(0x14E6F0FF)).border(1.dp, Color(0x4DE6F0FF)).padding(start = 14.dp, end = 14.dp, top = 26.dp, bottom = 14.dp)) {
                 Column(Modifier.fillMaxWidth().background(Color(0xFFF2EBD9)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("PROVA " + f(0).uppercase(), fontFamily = MONO, fontSize = 10.sp, letterSpacing = 1.5.sp, color = Color(0xFF8A1C1C))
                     Text(f(1), fontFamily = MONO, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF1E1A14))
@@ -529,14 +738,23 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                 }
                 Text("EVIDÊNCIA", fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, color = Color(0xFFB01E1E), modifier = Modifier.align(Alignment.TopEnd).offset(y = 6.dp).entrar(500, 0f).rotate(8f).border(2.dp, Color(0xFFB01E1E)).padding(horizontal = 6.dp, vertical = 2.dp))
             }
-            // ───── Fantasia ─────
-            "profecia" -> Column(Modifier.fillMaxWidth().background(Brush.radialGradient(listOf(Color(0xFF1B2A55), Color(0xFF080A1C)), radius = 700f)).border(1.dp, Color(0x66A0C8FF)).padding(horizontal = 18.dp, vertical = 26.dp),
+    }
+}
+
+@Composable
+private fun BoxScope.fx31(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().background(Brush.radialGradient(listOf(Color(0xFF1B2A55), Color(0xFF080A1C)), radius = 700f)).border(1.dp, Color(0x66A0C8FF)).padding(horizontal = 18.dp, vertical = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("A PROFECIA", fontFamily = FontFamily.Serif, fontSize = 11.sp, letterSpacing = 5.sp, color = Color(0xFF8FB4FF), modifier = Modifier.padding(bottom = 12.dp))
                 c.forEachIndexed { k, v -> Text(estilizar(v), fontFamily = FontFamily.Serif, fontSize = 18.sp, lineHeight = 28.sp, color = Color(0xFFCFE4FF), textAlign = TextAlign.Center, modifier = Modifier.entrar(400 + k * 1400)) }
                 Text("— ◇ —", color = Color(0xFF8FB4FF), letterSpacing = 6.sp, modifier = Modifier.padding(top = 12.dp).entrar(400 + c.size * 1400))
             }
-            "contrato" -> { val traco = remember { Animatable(0f) }; LaunchedEffect(Unit) { delay(500); traco.animateTo(1f, tween(2200, easing = FastOutSlowInEasing)) }
+    }
+}
+
+@Composable
+private fun BoxScope.fx32(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val traco = remember { Animatable(0f) }; LaunchedEffect(Unit) { delay(500); traco.animateTo(1f, tween(2200, easing = FastOutSlowInEasing)) }
                 Column(Modifier.fillMaxWidth().background(Brush.radialGradient(listOf(Color(0xFFF1DFB4), Color(0xFFCDAE70)), radius = 900f)).padding(18.dp)) {
                     Text("PACTO", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 3.sp, color = Color(0xFF2F1E0C), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     Text(estilizar(f(0)), fontFamily = FontFamily.Serif, fontSize = 15.sp, lineHeight = 22.sp, color = Color(0xFF2F1E0C), modifier = Modifier.padding(vertical = 10.dp))
@@ -547,8 +765,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            // ───── Ficção científica ─────
-            "terminal" -> { var mostradas by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (mostradas < c.size) { delay(600); mostradas++ } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx33(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var mostradas by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (mostradas < c.size) { delay(600); mostradas++ } }
                 val cur = piscar(1000)
                 Column(Modifier.fillMaxWidth().background(Color(0xFF050A07)).border(1.dp, Color(0xFF1D3A26))) {
                     Text("■ ■ ■   terminal", fontFamily = MONO, fontSize = 11.sp, color = Color(0xFF5AA070), modifier = Modifier.fillMaxWidth().background(Color(0xFF0D1A12)).padding(horizontal = 10.dp, vertical = 6.dp))
@@ -559,7 +781,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "holo" -> { val t = rememberInfiniteTransition(label = "holo"); val g by t.animateFloat(0f, 360f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "g")
+    }
+}
+
+@Composable
+private fun BoxScope.fx34(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = rememberInfiniteTransition(label = "holo"); val g by t.animateFloat(0f, 360f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "g")
                 Row(Modifier.fillMaxWidth().background(Color(0xFF050C12)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Canvas(Modifier.size(100.dp)) { val cx = size.width / 2; val cy = size.height / 2 - 6.dp.toPx(); val r = 30.dp.toPx(); val a = Math.toRadians(g.toDouble())
                         val pts = listOf(-1f to -1f, 1f to -1f, 1f to 1f, -1f to 1f).flatMap { (x, z) -> listOf(Triple(x, -1f, z), Triple(x, 1f, z)) }
@@ -574,7 +801,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "corte" -> { val ruido = "▒░▓#%&/\\?*"; var q by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (true) { delay(140); q++ } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx35(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val ruido = "▒░▓#%&/\\?*"; var q by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (true) { delay(140); q++ } }
                 val r = Random(q); val cai = (q / 8) % 3
                 Column(Modifier.fillMaxWidth().background(Color(0xFF07100D)).border(1.dp, Color(0xFF1D3A30)).padding(14.dp)) {
                     Text("📶  CANAL 7 · ONDA CURTA", fontFamily = MONO, fontSize = 11.sp, letterSpacing = 1.5.sp, color = Color(0xFF6AA890), modifier = Modifier.padding(bottom = 10.dp))
@@ -583,7 +815,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text("▮▮▮ SINAL PERDIDO", fontFamily = MONO, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, fontSize = 13.sp, color = Color(0xFFFF6A7A).copy(alpha = if (q / 4 % 2 == 0) 1f else 0.2f), modifier = Modifier.padding(top = 8.dp))
                 }
             }
-            "scan" -> { val t = rememberInfiniteTransition(label = "scan"); val y by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2400), RepeatMode.Reverse), label = "y")
+    }
+}
+
+@Composable
+private fun BoxScope.fx36(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = rememberInfiniteTransition(label = "scan"); val y by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2400), RepeatMode.Reverse), label = "y")
                 val cor = corFx(corNome, Color(0xFF5CC8FF))
                 Row(Modifier.fillMaxWidth().background(Color(0xFF050B12)).border(1.dp, cor.copy(alpha = .5f)).padding(14.dp)) {
                     Canvas(Modifier.size(100.dp, 160.dp)) { val w = size.width; val h = size.height
@@ -599,7 +836,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "codigo" -> { var q by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (true) { delay(70); q++ } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx37(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var q by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { while (true) { delay(70); q++ } }
                 val cols = remember { List(40) { Random.nextInt(-20, 0) } }
                 Box(Modifier.fillMaxWidth().height(190.dp).background(Color.Black)) {
                     Canvas(Modifier.fillMaxSize()) { val passo = 14.dp.toPx()
@@ -610,7 +852,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                         modifier = Modifier.align(Alignment.Center).background(Color(0xD1000A04)).border(1.dp, Color(0xFF3AFF80)).padding(horizontal = 18.dp, vertical = 12.dp))
                 }
             }
-            "alerta-vermelho" -> { val t = rememberInfiniteTransition(label = "av"); val s by t.animateFloat(0.2f, 1f, infiniteRepeatable(tween(450), RepeatMode.Reverse), label = "s")
+    }
+}
+
+@Composable
+private fun BoxScope.fx38(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = rememberInfiniteTransition(label = "av"); val s by t.animateFloat(0.2f, 1f, infiniteRepeatable(tween(450), RepeatMode.Reverse), label = "s")
                 Box(Modifier.fillMaxWidth().background(Color(0xFF12020A)).drawBehind { drawRect(Brush.radialGradient(listOf(Color(0xFFFF0028).copy(alpha = .5f * s), Color.Transparent), radius = size.width * .6f)) }.padding(vertical = 26.dp, horizontal = 40.dp), contentAlignment = Alignment.Center) {
                     Box(Modifier.align(Alignment.CenterStart).offset(x = (-28).dp).size(14.dp, 64.dp).background(Color(0xFFFF2040).copy(alpha = s)))
                     Box(Modifier.align(Alignment.CenterEnd).offset(x = 28.dp).size(14.dp, 64.dp).background(Color(0xFFFF2040).copy(alpha = 1.2f - s)))
@@ -621,7 +868,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "ia" -> { val t = rememberInfiniteTransition(label = "ia"); val o by t.animateFloat(0f, 6.28f, infiniteRepeatable(tween(1000, easing = LinearEasing)), label = "o")
+    }
+}
+
+@Composable
+private fun BoxScope.fx39(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = rememberInfiniteTransition(label = "ia"); val o by t.animateFloat(0f, 6.28f, infiniteRepeatable(tween(1000, easing = LinearEasing)), label = "o")
                 Row(Modifier.fillMaxWidth().background(Color(0xFF04080A)).border(1.dp, Color(0x593AFF80)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(62.dp).clip(Hexagono).background(Color(0x0F3AFF80)).border(1.dp, Color(0xFF3AFF80), Hexagono), contentAlignment = Alignment.Center) {
                         Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) { (0 until 7).forEach { k -> Box(Modifier.width(3.dp).height((8 + 14 * ((sin(o + k) + 1) / 2)).dp).background(Color(0xFF3AFF80))) } }
@@ -629,8 +881,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Column(Modifier.padding(start = 14.dp)) { Rot(f(0), Color(0xFF3AFF80)); Text(estilizar(c.drop(1).joinToString(" ")), fontFamily = MONO, fontSize = 14.sp, lineHeight = 21.sp, color = Color(0xFFC9FFD9)) }
                 }
             }
-            // ───── Celular ─────
-            "post" -> { var curtiu by remember { mutableStateOf(false) }; val n0 = f(2).filter { it.isDigit() }.toIntOrNull() ?: 0
+    }
+}
+
+@Composable
+private fun BoxScope.fx40(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var curtiu by remember { mutableStateOf(false) }; val n0 = f(2).filter { it.isDigit() }.toIntOrNull() ?: 0
                 Column(Modifier.fillMaxWidth().background(Color(0xFF17171D)).border(1.dp, Color(0xFF24242C)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     val user = f(0).removePrefix("@")
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -644,14 +900,24 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "jornal" -> Column(Modifier.fillMaxWidth().rotate(-0.6f).background(Brush.verticalGradient(listOf(Color(0xFFEBE3CF), Color(0xFFDDD3BA)))).padding(horizontal = 16.dp, vertical = 12.dp)) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx41(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().rotate(-0.6f).background(Brush.verticalGradient(listOf(Color(0xFFEBE3CF), Color(0xFFDDD3BA)))).padding(horizontal = 16.dp, vertical = 12.dp)) {
                 Text("O DIÁRIO DA CIDADE", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color(0xFF1C1A15), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 Box(Modifier.padding(vertical = 6.dp).fillMaxWidth().height(3.dp).background(Color(0xFF1C1A15)))
                 Text(f(0).uppercase(), fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 28.sp, lineHeight = 30.sp, color = Color(0xFF1C1A15), modifier = Modifier.entrar(0, -20f))
                 if (c.size > 1) Text(f(1), fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFF1C1A15), modifier = Modifier.padding(vertical = 6.dp))
                 c.drop(2).forEach { Text(estilizar(it), fontFamily = FontFamily.Serif, fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFF2A2720), textAlign = TextAlign.Justify) }
             }
-            "email" -> Column(Modifier.fillMaxWidth().background(Color(0xFF1A1A20)).border(1.dp, Color(0xFF24242C)).entrar()) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx42(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().background(Color(0xFF1A1A20)).border(1.dp, Color(0xFF24242C)).entrar()) {
                 Text(f(1), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color.White, modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp))
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(38.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xFF6FCF97)), contentAlignment = Alignment.Center) { Text(f(0).take(1).uppercase(), fontWeight = FontWeight.Black, color = Color.Black) }
@@ -659,7 +925,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                 }
                 c.drop(2).forEach { Text(estilizar(it), fontSize = 14.5.sp, lineHeight = 22.sp, color = Color(0xFFD7D3CC), modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp)) }
             }
-            "ligacao" -> { val t = rememberInfiniteTransition(label = "lig"); val o by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2000)), label = "o"); val bal by t.animateFloat(-14f, 14f, infiniteRepeatable(tween(260), RepeatMode.Reverse), label = "b")
+    }
+}
+
+@Composable
+private fun BoxScope.fx43(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = rememberInfiniteTransition(label = "lig"); val o by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2000)), label = "o"); val bal by t.animateFloat(-14f, 14f, infiniteRepeatable(tween(260), RepeatMode.Reverse), label = "b")
                 Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFF1A1D33), Color(0xFF0B0C16)))).padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(Modifier.size(84.dp).drawBehind { val e = 1 + o * 1.1f; drawRect(Color(0xFF6FCF97).copy(alpha = (1 - o) * .8f), Offset(size.width / 2 * (1 - e), size.height / 2 * (1 - e)), Size(size.width * e, size.height * e), style = Stroke(2f)) }
                         .background(Brush.linearGradient(listOf(Color(0xFF3A3F66), Color(0xFF1F2238)))), contentAlignment = Alignment.Center) { Text(if (f(0).contains("desconhecido", true)) "?" else f(0).take(1).uppercase(), fontSize = 32.sp, fontWeight = FontWeight.Black, color = Color.White) }
@@ -672,13 +943,23 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "busca" -> { var n by remember { mutableIntStateOf(0) }; val q = f(0); LaunchedEffect(q) { while (n < q.length) { delay(60); n++ } }
+    }
+}
+
+@Composable
+private fun BoxScope.fx44(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var n by remember { mutableIntStateOf(0) }; val q = f(0); LaunchedEffect(q) { while (n < q.length) { delay(60); n++ } }
                 Column {
                     Row(Modifier.fillMaxWidth().background(Color(0xFF1E1E25)).border(1.dp, Color(0xFF34343F)).padding(horizontal = 16.dp, vertical = 12.dp)) { Text("⌕  ", color = Color(0xFF8E8A93), fontSize = 17.sp); Text(q.take(n) + if (n < q.length) "▏" else "", fontSize = 15.5.sp, color = Color.White) }
                     if (n >= q.length) c.drop(1).forEachIndexed { k, s -> Text("⌕  $q $s", fontSize = 14.sp, color = Color(0xFFCFCBD3), modifier = Modifier.fillMaxWidth().entrar(k * 250).background(Color(0xFF1E1E25)).padding(horizontal = 18.dp, vertical = 9.dp)) }
                 }
             }
-            "voz" -> { var tocando by remember { mutableStateOf(true) }; var n by remember { mutableIntStateOf(0) }
+    }
+}
+
+@Composable
+private fun BoxScope.fx45(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var tocando by remember { mutableStateOf(true) }; var n by remember { mutableIntStateOf(0) }
                 LaunchedEffect(tocando) { while (tocando && n < 32) { delay(140); n++ }; if (n >= 32) tocando = false }
                 Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.background(Color(0xFFFF6A2B)).padding(start = 8.dp, end = 14.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -692,7 +973,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                         fontStyle = FontStyle.Italic, fontSize = 13.sp, color = Color(0xFF8E8A93), textAlign = TextAlign.End, modifier = Modifier.padding(top = 8.dp).entrar())
                 }
             }
-            "bloqueio" -> Column(Modifier.align(Alignment.Center).width(250.dp).height(400.dp).clip(RoundedCornerShape(10.dp)).border(6.dp, Color(0xFF22222A), RoundedCornerShape(10.dp))
+    }
+}
+
+@Composable
+private fun BoxScope.fx46(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.align(Alignment.Center).width(250.dp).height(400.dp).clip(RoundedCornerShape(10.dp)).border(6.dp, Color(0xFF22222A), RoundedCornerShape(10.dp))
                 .background(Brush.linearGradient(listOf(Color(0xFF3A1B6B), Color(0xFFB24A6A), Color(0xFFFF8A4B)))).padding(horizontal = 16.dp, vertical = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(f(0), fontSize = 62.sp, fontWeight = FontWeight.Light, color = Color.White, modifier = Modifier.padding(top = 20.dp))
                 c.drop(1).forEachIndexed { k, l -> val d = l.indexOf(':')
@@ -701,7 +987,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                 }
                 Spacer(Modifier.weight(1f)); Text("deslize para desbloquear", fontSize = 12.sp, color = Color(0xB3FFFFFF))
             }
-            "apagada" -> { val t = remember { Animatable(0f) }; LaunchedEffect(Unit) { delay(1800); t.animateTo(1f, tween(1400)) }
+    }
+}
+
+@Composable
+private fun BoxScope.fx47(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = remember { Animatable(0f) }; LaunchedEffect(Unit) { delay(1800); t.animateTo(1f, tween(1400)) }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     Box(Modifier.background(lerp(Color(0xFFFF6A2B), Color(0xFF23232B), t.value)).padding(horizontal = 14.dp, vertical = 10.dp)) {
                         Text(f(0), fontSize = 15.sp, color = Color.Black, modifier = Modifier.graphicsLayer { alpha = 1 - t.value; translationY = -6 * t.value * density }.blur((7 * t.value).dp))
@@ -709,7 +1000,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "digitando" -> { var fase by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { delay(1800); fase = 1; delay(900); fase = 2; delay(1800); fase = 3 }
+    }
+}
+
+@Composable
+private fun BoxScope.fx48(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var fase by remember { mutableIntStateOf(0) }; LaunchedEffect(Unit) { delay(1800); fase = 1; delay(900); fase = 2; delay(1800); fase = 3 }
                 val t = rememberInfiniteTransition(label = "dig"); val s by t.animateFloat(0f, 1f, infiniteRepeatable(tween(1000, easing = LinearEasing)), label = "s")
                 Column { Text(f(0), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF6FCF97), modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
                     Box(Modifier.background(Color(0xFF23232B)).padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -719,7 +1015,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "grupo" -> Column(Modifier.fillMaxWidth().background(Color(0xFF101015)).border(1.dp, Color(0xFF24242C))) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx49(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().background(Color(0xFF101015)).border(1.dp, Color(0xFF24242C))) {
                 Text(f(0), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White, modifier = Modifier.fillMaxWidth().padding(12.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF24242C)))
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -733,7 +1034,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "localizacao" -> { val t = rememberInfiniteTransition(label = "pino"); val o by t.animateFloat(0f, 1f, infiniteRepeatable(tween(1600)), label = "o")
+    }
+}
+
+@Composable
+private fun BoxScope.fx50(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val t = rememberInfiniteTransition(label = "pino"); val o by t.animateFloat(0f, 1f, infiniteRepeatable(tween(1600)), label = "o")
                 Column(Modifier.fillMaxWidth().background(Color(0xFF101015)).border(1.dp, Color(0xFF24242C))) {
                     Canvas(Modifier.fillMaxWidth().height(140.dp)) { drawRect(Color(0xFF1A1D26))
                         drawLine(Color(0xFF2A2F3D), Offset(0f, size.height * .8f), Offset(size.width, size.height * .2f), 10.dp.toPx()); drawLine(Color(0xFF2A2F3D), Offset(size.width * .2f, 0f), Offset(size.width * .7f, size.height), 7.dp.toPx())
@@ -747,13 +1053,22 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            // ───── Época ─────
-            "diario" -> Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFFEBDDBB), Color(0xFFD8C79B)))).drawBehind { drawRect(Color(0xFF5A3412), size = Size(10.dp.toPx(), size.height)) }
+    }
+}
+
+@Composable
+private fun BoxScope.fx51(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFFEBDDBB), Color(0xFFD8C79B)))).drawBehind { drawRect(Color(0xFF5A3412), size = Size(10.dp.toPx(), size.height)) }
                 .padding(start = 26.dp, end = 20.dp, top = 20.dp, bottom = 22.dp)) {
                 Text(f(0).uppercase(), fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, letterSpacing = 1.5.sp, color = Color(0xFF4A2E14), modifier = Modifier.padding(bottom = 10.dp))
                 c.drop(1).forEachIndexed { k, l -> Text(estilizar(l), fontFamily = FontFamily.Cursive, fontSize = 22.sp, lineHeight = 30.sp, color = Color(0xFF2B2118), modifier = Modifier.drawWithClipAtraso(300 + k * 1200)) }
             }
-            "procurado" -> Column(Modifier.align(Alignment.Center).width(260.dp).rotate(1.2f).background(Brush.radialGradient(listOf(Color(0xFFF1DFB4), Color(0xFFD2B57A)), radius = 600f)).padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx52(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.align(Alignment.Center).width(260.dp).rotate(1.2f).background(Brush.radialGradient(listOf(Color(0xFFF1DFB4), Color(0xFFD2B57A)), radius = 600f)).padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("PROCURADO", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 38.sp, letterSpacing = 2.sp, color = Color(0xFF2F1E0C), modifier = Modifier.entrar(0, -30f))
                 Box(Modifier.padding(vertical = 10.dp).size(120.dp).border(3.dp, Color(0xFF2F1E0C)).background(Brush.radialGradient(listOf(Color(0xFFC9A86A), Color(0xFF8A6A3A)))), contentAlignment = Alignment.BottomCenter) {
                     Canvas(Modifier.fillMaxSize()) { val w = size.width; val h = size.height; drawOval(Color(0xFF3B2A18), Offset(w * .16f, h * .28f), Size(w * .68f, h * .14f)); drawRect(Color(0xFF3B2A18), Offset(w * .3f, h * .12f), Size(w * .4f, h * .22f)); drawCircle(Color(0xFF3B2A18), w * .15f, Offset(w / 2, h * .52f)); drawRect(Color(0xFF3B2A18), Offset(w * .14f, h * .72f), Size(w * .72f, h * .28f)) }
@@ -764,8 +1079,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                 if (c.size > 1) Column(Modifier.padding(top = 10.dp).fillMaxWidth().border(2.dp, Color(0xFF2F1E0C)).padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("RECOMPENSA", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 3.sp, color = Color(0xFF2F1E0C)); Text(f(1), fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 30.sp, color = Color(0xFF7A1010)) }
             }
-            // ───── Estrutura ─────
-            "aviso" -> { var fechado by remember { mutableStateOf<String?>(null) }
+    }
+}
+
+@Composable
+private fun BoxScope.fx53(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var fechado by remember { mutableStateOf<String?>(null) }
                 Column(Modifier.fillMaxWidth().background(Color(0xFF17140A)).border(1.5.dp, Color(0xB3FFC94A))) {
                     Text("AVISO DE CONTEÚDO", fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = 2.sp, color = Color(0xFF1A0A00), modifier = Modifier.fillMaxWidth().background(Color(0xFFFFC94A)).padding(horizontal = 14.dp, vertical = 9.dp))
                     if (fechado != null) Text("$fechado · ver aviso de novo", fontSize = 13.sp, color = Color(0xFF8E8A93), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable { fechado = null }.padding(14.dp))
@@ -779,7 +1098,12 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     }
                 }
             }
-            "salto" -> { val g = remember { Animatable(0f) }; LaunchedEffect(Unit) { g.animateTo(1f, tween(2600, easing = FastOutSlowInEasing)) }
+    }
+}
+
+@Composable
+private fun BoxScope.fx54(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { val g = remember { Animatable(0f) }; LaunchedEffect(Unit) { g.animateTo(1f, tween(2600, easing = FastOutSlowInEasing)) }
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Canvas(Modifier.size(92.dp)) { val r = size.width / 2; drawCircle(Color(0xFF14141A), r); drawCircle(Color(0xFFFFC94A), r - 2, style = Stroke(2.5.dp.toPx()))
                         val am = g.value * 12 * 2 * PI; val ah = g.value * 2 * PI
@@ -788,22 +1112,30 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
                     Text(f(0).uppercase(), fontWeight = FontWeight.Black, fontSize = 28.sp, letterSpacing = (4 + (1 - g.value) * 20).sp, color = Color.White.copy(alpha = g.value), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
                 }
             }
-            "capitulo" -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    }
+}
+
+@Composable
+private fun BoxScope.fx55(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("CAPÍTULO", fontFamily = MONO, fontSize = 11.sp, letterSpacing = 6.sp, color = Color(0xFF8E8A93))
                 Text(f(0), fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, fontSize = 92.sp, lineHeight = 96.sp, color = Color(0xFFFFC94A),
                     style = TextStyle(drawStyle = Stroke(3f)), modifier = Modifier.entrar())
                 if (c.size > 1) Text(f(1), fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Color.White, textAlign = TextAlign.Center, modifier = Modifier.entrar(400))
                 Box(Modifier.padding(top = 12.dp).size(60.dp, 2.dp).background(Color(0xFFFFC94A)))
             }
-            "proximo" -> { var ab by remember { mutableStateOf(false) }
+    }
+}
+
+@Composable
+private fun BoxScope.fx56(nome: String, corNome: String?, resto: String, c: List<String>, f: (Int) -> String, estilo: TextStyle) {
+    when (0) { else -> { var ab by remember { mutableStateOf(false) }
                 Column(Modifier.fillMaxWidth().border(1.dp, Color(0x66FFC94A)).clickable { ab = !ab }.padding(16.dp)) {
                     Rot("No próximo capítulo", Color(0xFFFFC94A))
                     Text(estilizar(resto), fontFamily = FontFamily.Serif, fontSize = 16.sp, lineHeight = 25.sp, color = Color(0xFFDDDDDD), modifier = Modifier.padding(top = 8.dp).then(if (ab) Modifier else Modifier.blur(5.dp)))
                     Text(if (ab) "(toque para esconder)" else "(toque para espiar)", fontSize = 12.sp, color = Color(0xFF8E8A93), modifier = Modifier.padding(top = 8.dp))
                 }
             }
-            else -> Text(resto, style = estilo)
-        }
     }
 }
 

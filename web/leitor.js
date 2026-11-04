@@ -1,4 +1,5 @@
 // Leitor (biblioteca e catálogo), editor e revisão.
+import { blocoFx, inlineFx, MEGA } from "./fx.js";
 import { ligarEfeitosTexto, ligarClima, registrar, confete, reacoesHTML, ligarReacoes, fimHTML } from "./efeitos.js";
 import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas,
@@ -73,7 +74,7 @@ export function marcaCena(l) {
 }
 const ABRE = "(^|[\\s—–“\"«(])";
 function efeitosInline(h) {
-  return h.replace(new RegExp(ABRE + "!!(\\S.*?)!!", "g"), '$1<span class="grito">$2</span>')
+  return inlineFx(h).replace(new RegExp(ABRE + "!!(\\S.*?)!!", "g"), '$1<span class="grito">$2</span>')
     .replace(new RegExp(ABRE + "\\^\\^(\\S.*?)\\^\\^", "g"), '$1<span class="brilho-t">$2</span>')
     .replace(/\(\((.+?)\)\)/g, '<span class="sussurro">$1</span>')
     .replace(/\|\|(.+?)\|\|/g, '<span class="segredo" title="Toque para revelar">$1</span>')
@@ -101,6 +102,7 @@ const corNome = (n) => n.startsWith("[") ? "#FFC94A" : CORES_NOME[[...n].reduce(
 function iconeItem(n) { const l = n.toLowerCase(); return /espada|lâmina|lamina|faca|adaga|katana|sabre/.test(l) ? "🗡" : /poção|pocao|elixir|pílula|pilula/.test(l) ? "🧪" : /anel|colar|joia|amuleto/.test(l) ? "💍" : /livro|manual|técnica|tecnica|pergaminho/.test(l) ? "📜" : /escudo|armadura|elmo/.test(l) ? "🛡" : /arco|flecha/.test(l) ? "🏹" : /moeda|ouro|gema|cristal|pedra/.test(l) ? "💎" : /chave/.test(l) ? "🗝" : "✦"; }
 /** Blocos da leva 3: [classe, html] ou null. */
 function blocoEspecial(l, op) {
+  if (/^\[#/.test(l)) { const fx = blocoFx(l, (x) => efeitosInline(esc(x))); if (fx) return ["fx-bloco", fx]; }
   if (/^@@./.test(l)) { const nome = l.slice(2).trim().replace(/[.,]$/, ""); return ["ficha-cartao", `<span class="av-f" data-ficha-cartao="${esc(nome)}">${esc(nome.slice(0, 1).toUpperCase())}</span><span><b>${esc(nome)}</b><small class="sub-f"></small></span>`]; }
   if (/^>>>./.test(l)) return ["aovivo", `<span class="tag-vivo">AO VIVO</span>` + l.split("\n").map((x) => { x = x.replace(/^>>>\s*/, ""); const d = x.startsWith("[") && x.indexOf("]") > 0 ? x.indexOf("]") + 1 + Math.max(0, x.slice(x.indexOf("]") + 1).indexOf(":")) : x.indexOf(":"); const n = d > 0 ? x.slice(0, d).trim().replace(/:$/, "") : ""; return `<span class="cmt">${n ? `<b style="color:${corNome(n)}">${esc(n)}</b> ` : ""}<span${n.startsWith("[") ? ' class="const"' : ""}>${efeitosInline(esc(d > 0 ? x.slice(d + 1).trim() : x))}</span></span>`; }).join("")];
   const conv = l.match(/^>>\s*([^:\s>][^:]{0,24}):\s(.*)$/); if (conv) return ["conversa", `<small style="color:${corNome(conv[1].trim())}">${esc(conv[1].trim())}</small>${efeitosInline(esc(conv[2]))}`];
@@ -461,6 +463,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
       <div class="rotulo">No texto (selecione um trecho)</div>${linha("!!GRITO!!", "Fala gritada, grande e tremendo", "!!", 1)}${linha("((sussurro))", "Baixinho, menor e em itálico", "((", 2)}${linha("^^brilho^^", "Palavra mágica dourada", "^^", 1)}${linha("{telepatia}", "Voz mental azul", "{", 4)}${linha("~~riscado~~", "Palavra riscada", "~~", 1)}${linha("[S]", "Selo de rank (F até SSS)", "[S]")}${linha("||segredo||", "Borrado até o leitor tocar", "||", 1)}${linha("%%glitch%%", "Letras corrompidas trocando", "%%", 1)}${linha("<<voz sombria>>", "Vermelho com sombra: vilão, demônio", "<<", 3)}
       <div class="rotulo" style="margin-top:12px">Parágrafo inteiro</div>${linha("[[texto]]", "Janela azul de Sistema", "\n[[Habilidade adquirida: Punho de Ferro]]\n")}${linha("[[ [x] feito | [ ] falta ]]", "Lista de missões no Sistema", "\n[[Missões | [x] Sobreviver à noite | [ ] Achar o mestre]]\n")}${linha("[+item | raridade]", "Item obtido (comum, raro, épico, lendário, mítico)", "\n[+Espada do Vazio | lendário]\n")}${linha("{{TÍTULO | texto}}", "Pergaminho com selo", "\n{{DECRETO DA SEITA | texto do decreto}}\n")}${linha(":: local | hora", "Local e hora, abertura de cena", "\n:: Seul, Gangnam | 03:14 da manhã\n")}${linha("> frase — autor", "Epígrafe", "\n> Frase marcante — Autor\n")}${linha("@@Nome", "Cartão do personagem (puxa a ficha)", "\n@@")}${linha(">>Nome: texto", "Mensagem de outra pessoa (com nome)", "\n>>Kang: ")}${linha(">>>Nome: texto", "Comentários ao vivo (várias linhas)", "\n>>>Nome: comentário\n")}${linha("N.A.: texto", "Nota do autor", "\nN.A.: ")}${linha("[[HP 30/100]]", "Barras de status (separe com |)", "\n[[HP 30/100 | MP 80/100 | XP 45/100]]\n")}${linha("[!aviso!]", "Notificação que desliza do topo", "\n[!Você subiu de nível!]\n")}${linha("== texto", "Carta escrita à mão (várias linhas ==)", "\n== ")}${linha("## TÍTULO", "Título de impacto", "\n## ")}${linha(">> texto", "Mensagem de celular", "\n>> ")}${linha("~pausa", "Pausa dramática antes do próximo parágrafo", "\n~pausa\n")}
       <div class="rotulo" style="margin-top:12px">Efeito de cena (numa linha sozinha, vale até ~fim)</div>${Object.entries(EFEITOS_CENA).map(([k, n]) => linha("~" + k, n, `\n~${k}\n`)).join("")}${linha("~fim", "⏹ Desligar o efeito", "\n~fim\n")}
+      <div class="rotulo" style="margin-top:12px">Mega Pack · {efeito: texto} num trecho · [#efeito campo | campo] no parágrafo · cor: {fogo:azul: …} [#sistema:vermelho …]</div>${MEGA.map(([n, c, cat]) => linha(c, n, cat === "inline" ? c.replace(/texto|tradução/, "") : "\n" + c + "\n")).join("")}
       <div class="linha-botoes"><button class="btn peq" data-n>Fechar</button></div>`);
     d.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { d.close?.(); d.remove?.(); const x = b.dataset.x; if (x === "((" || x === "<<" || x === "{") { const f = x === "((" ? "))" : x === "<<" ? ">>" : "}"; const a = ta.selectionStart, z = ta.selectionEnd; ta.setRangeText(x + ta.value.slice(a, z) + f, a, z, "end"); ta.dispatchEvent(new Event("input")); ta.focus(); } else inserir(x, b.hasAttribute("data-e")); }));
   };
