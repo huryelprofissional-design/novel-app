@@ -859,10 +859,12 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         LaunchedEffect(b) {
             snapshotFlow { blocoAtual() }.collectLatest { bi ->
                 val k = (bi..bi + 3).firstOrNull { (b.getOrNull(it) as? Bloco.Paragrafo)?.tipo == "notificacao" && it !in avisados } ?: return@collectLatest
-                avisados.add(k); aviso = b[k].plano; kotlinx.coroutines.delay(3500); aviso = null
+                avisados.add(k); aviso = b[k].plano
             }
         }
-        AvisoDeslizante(aviso, Modifier.align(Alignment.TopCenter))
+        // some sozinho depois de 3,5 s (separado da rolagem, que cancelava o tempo e deixava o aviso preso na tela)
+        LaunchedEffect(aviso) { if (aviso != null) { kotlinx.coroutines.delay(3500); aviso = null } }
+        AvisoDeslizante(aviso, Modifier.align(Alignment.TopCenter)) { aviso = null }
         androidx.compose.animation.AnimatedVisibility(clima != null, Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = if (controles) 64.dp else 10.dp, end = 12.dp),
             enter = fadeIn() + slideInVertically { -it }, exit = fadeOut()) {
             var ultimoClima by remember { mutableStateOf("") }
@@ -1791,7 +1793,7 @@ private fun AvisoNoTexto(texto: AnnotatedString, extra: Modifier) {
 }
 
 @Composable
-private fun AvisoDeslizante(texto: String?, modifier: Modifier) {
+private fun AvisoDeslizante(texto: String?, modifier: Modifier, fechar: () -> Unit) {
     var ultimo by remember { mutableStateOf("") }
     texto?.let { ultimo = it }
     androidx.compose.animation.AnimatedVisibility(texto != null, modifier.statusBarsPadding().padding(top = 70.dp, start = 20.dp, end = 20.dp),
@@ -1799,7 +1801,7 @@ private fun AvisoDeslizante(texto: String?, modifier: Modifier) {
         Text("🔔  $ultimo", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDDF3FF), textAlign = TextAlign.Center,
             modifier = Modifier.shadow(20.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))
                 .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF12233A), Color(0xFF0B1626))))
-                .border(1.dp, Color(0xFF5CC8FF), RoundedCornerShape(14.dp)).padding(horizontal = 18.dp, vertical = 12.dp))
+                .border(1.dp, Color(0xFF5CC8FF), RoundedCornerShape(14.dp)).clickable(onClick = fechar).padding(horizontal = 18.dp, vertical = 12.dp))
     }
 }
 
