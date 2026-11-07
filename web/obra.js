@@ -326,7 +326,7 @@ rota("/publicar/(\\w+)", async (id) => {
   const gen = new Set((o.generos || "").split(",").map((s) => s.trim()).filter(Boolean));
   casca("escrever", `<div class="topo"><a class="voltar vidro" href="#/obra/${id}">←</a><h1>Publicar · ${esc(o.titulo)}</h1></div>
     ${pub ? `<div class="numeros" style="margin:0 0 18px"><div><b>${milhar(pub.leituras)}</b><span>leituras</span></div><div><b>${milhar(pub.seguidores)}</b><span>seguidores</span></div><div><b>${pub.numEstrelas ? (pub.somaEstrelas / pub.numEstrelas).toFixed(1).replace(".", ",") : "—"}</b><span>nota (${pub.numEstrelas || 0})</span></div><div><b>${pub.numCaps || 0}</b><span>caps no ar</span></div></div>` : ""}
-    ${falta.length ? `<div class="card aviso"><b>Antes de publicar:</b><ul>${falta.map((f) => `<li>${f}</li>`).join("")}</ul><span class="suave peq">Capa e banner: menu ⋯ Opções da obra. Sinopse: Editar título e sinopse.</span></div>` : ""}
+    <div id="faltas">${falta.length ? `<div class="card aviso"><b>Antes de publicar:</b><ul>${falta.map((f) => `<li>${f}</li>`).join("")}</ul><span class="suave peq">Capa e banner: menu ⋯ Opções da obra. Sinopse: Editar título e sinopse.</span></div>` : ""}</div>
     <div class="duas-colunas">
       <div class="card">
         <h3 style="margin-top:0">Como aparece no catálogo</h3>
@@ -348,10 +348,17 @@ rota("/publicar/(\\w+)", async (id) => {
         <p class="suave peq">Marque os capítulos. Já publicados são atualizados (republicados) com o texto atual.</p>
       </div>
     </div>`);
-  $$("[data-g]").forEach((c) => (c.onclick = () => { const g = c.dataset.g; if (gen.has(g)) gen.delete(g); else { if (gen.size >= 4) { toast("Até 4 gêneros"); return; } gen.add(g); } c.classList.toggle("on", gen.has(g)); }));
+  // o que falta é conferido na hora (antes só ao abrir: escolher o gênero não destravava o botão)
+  const conferir = () => {
+    const f = pendencias({ ...E.obras.get(id), generos: [...gen].join(",") });
+    $("#salvar").disabled = f.length > 0; $("#agora").disabled = f.length > 0;
+    $("#faltas").innerHTML = f.length ? `<div class="card aviso"><b>Antes de publicar:</b><ul>${f.map((x) => `<li>${x}</li>`).join("")}</ul><span class="suave peq">Capa e banner: menu ⋯ Opções da obra. Sinopse: Editar título e sinopse.</span></div>` : "";
+  };
+  $$("[data-g]").forEach((c) => (c.onclick = () => { const g = c.dataset.g; if (gen.has(g)) gen.delete(g); else { if (gen.size >= 4) { toast("Até 4 gêneros"); return; } gen.add(g); } c.classList.toggle("on", gen.has(g)); conferir(); }));
   $$("[data-ant]").forEach((c) => (c.onclick = async () => { $$("[data-ant]").forEach((y) => y.classList.toggle("on", y === c)); try { await definirAntecipado(id, +c.dataset.ant); toast("Acesso antecipado salvo"); } catch (e) { toast("Não deu: " + e.message); } }));
   let cl = o.classificacao || "LIVRE";
   $$("[data-c]").forEach((c) => (c.onclick = () => { cl = c.dataset.c; $$("[data-c]").forEach((y) => y.classList.toggle("on", y === c)); }));
+  conferir();
   const guardar = async () => salvarObra(id, { generos: [...gen].join(","), tagsPub: $("#tags").value.split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean).join(","), classificacao: cl, exportavel: $("#exp").checked });
   $("#salvar").onclick = async () => {
     await guardar(); if (pendencias(E.obras.get(id)).length) { toast("Falta: " + pendencias(E.obras.get(id)).join(", ")); return; }

@@ -62,6 +62,7 @@ val coresGrifo = linkedMapOf(
 fun FolhaParagrafo(
     trecho: String, marcador: Marcador?, obraId: Long, capId: Long, bloco: Int, obraTitulo: String, capTitulo: String,
     fichas: List<Ficha>, fechar: () -> Unit, abrirFicha: (Ficha) -> Unit, comentar: (() -> Unit)? = null, corObra: Long = 0, capa: String? = null,
+    ouvirDaqui: (() -> Unit)? = null,
 ) {
     val app = NovelyApp.instancia
     val repo = app.repo
@@ -85,6 +86,10 @@ fun FolhaParagrafo(
             if (marcador != null) TextButton(onClick = { app.escopo.launch { repo.excluirMarcador(marcador) }; fechar() }) { Text("Remover", color = Color(0xFFE57373)) }
         }
         OutlinedTextField(nota, { nota = it }, label = { Text("Nota (opcional)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+        // ouvir em voz alta a partir deste parágrafo (para ler uma parte específica)
+        if (ouvirDaqui != null) Button(onClick = { ouvirDaqui(); fechar() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(Color.White, Color(0xFF0B0B0E))) {
+            Text("🔊  Ouvir a partir daqui", fontWeight = FontWeight.Bold)
+        }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { salvar(if (marcador == null) "" else null); fechar() }, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque)) {
                 Text(if (marcador == null) "🔖 Marcar" else "Salvar nota")

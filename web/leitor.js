@@ -247,6 +247,11 @@ function generoFicha(f, texto, achar) {
   return fem > masc * 1.3 && fem >= 2 ? "F" : masc > fem * 1.3 && masc >= 2 ? "M" : null;
 }
 function pararVoz() { speechSynthesis.cancel(); falando = null; $$(".falando").forEach((p) => p.classList.remove("falando")); const b = $("#ouvir"); if (b) b.textContent = "▶ Ouvir"; }
+/** Primeiro parágrafo visível na tela (o Ouvir começa dele, não do começo do capítulo). */
+function blocoNaTela() {
+  const p = $$("#texto [data-b]").find((x) => x.getBoundingClientRect().bottom > 90);
+  return p ? +p.dataset.b : 0;
+}
 function ouvir(apartir = 0) {
   const pars = $$("#texto [data-b]").filter((p) => p.tagName !== "DIV");
   if (falando !== null) { pararVoz(); return; }
@@ -339,7 +344,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   const ligar = () => {
     ligarNomes(fs, async (f) => (f.imagemHash ? (await import("./nucleo.js")).imagemMinha(f.id + "-foto") : null));
     fichasVoz = fs; traduzirTela();
-    $("#ouvir").onclick = () => ouvir(0);
+    $("#ouvir").onclick = () => ouvir(blocoNaTela());
     $("#aj").onclick = () => painelAjustes(() => { $(".leitor").setAttribute("style", estiloLeitura()); });
     $("#lcaps").onclick = () => painelCapitulos(caps, capId, (x) => `#/ler/${obraId}/${x.id}`);
     const cc = $("#concluir"); if (cc) cc.onclick = async () => { await salvarObra(obraId, { status: "CONCLUIDA" }); toast("Obra marcada como lida"); cc.remove(); };
@@ -552,7 +557,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
       <div id="lcom">${coms.map((m) => `<div class="comentario"><span class="av" style="width:34px;height:34px">${esc((m.nome || "?").slice(0, 1))}</span><div style="flex:1"><b>${esc(m.nome)}</b> <span class="suave peq">${haQuanto(m.em)}</span><div>${esc(m.texto)}</div></div>${m.uid === E.usuario.uid || o.autorUid === E.usuario.uid ? `<button class="btn2 peq" data-ac="${m.id}">Apagar</button>` : ""}</div>`).join("") || `<p class="suave">Seja o primeiro a comentar.</p>`}</div></div></div>`);
   ligarNomes(fichasLista);
   fichasVoz = fichasLista; traduzirTela();
-  $("#ouvir").onclick = () => ouvir(0);
+  $("#ouvir").onclick = () => ouvir(blocoNaTela());
   $("#aj").onclick = () => painelAjustes(() => $(".leitor").setAttribute("style", estiloLeitura()));
   $("#lcaps").onclick = () => painelCapitulos(caps, cid, (x) => `#/publer/${pid}/${x.id}`);
   $("#curtir").onclick = async (e) => { const b = e.currentTarget; const sim = !b.classList.contains("on"); b.classList.toggle("on", sim); b.firstChild.textContent = sim ? "♥ " : "♡ "; $("#nc").textContent = (+$("#nc").textContent) + (sim ? 1 : -1); try { await curtir(pid, cid, sim); } catch (_) {} };

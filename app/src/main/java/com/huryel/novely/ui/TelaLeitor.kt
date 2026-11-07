@@ -611,6 +611,11 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         escopo.launch { prepararVoz(); com.huryel.novely.data.Narrador.tocar(ini) }
     }
     fun pausar() = com.huryel.novely.data.Narrador.pausar()
+    /** Ouvir a partir de um parágrafo escolhido (menu do parágrafo ou "Ouvir o que está na tela"). */
+    fun tocarDe(bloco: Int) {
+        val ini = falaveis.firstOrNull { it >= bloco } ?: return
+        escopo.launch { prepararVoz(); com.huryel.novely.data.Narrador.tocar(ini) }
+    }
 
     // ── Busca ──
     var consulta by remember { mutableStateOf(consultaInicial) }
@@ -990,7 +995,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     { val px = falaveis.firstOrNull { it > falando }; if (px != null) com.huryel.novely.data.Narrador.irPara(px) },
                     { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it) },
                     nar.timerFim, { min -> com.huryel.novely.data.Narrador.timer(min) },
-                    vozesPersonagens, { prefs.vozesPersonagens.definir(it) }, c.obraId, { prepararVoz() })
+                    vozesPersonagens, { prefs.vozesPersonagens.definir(it) }, c.obraId, { prepararVoz() },
+                    daTela = if (falando >= 0 && kotlin.math.abs(blocoAtual() - falando) > 2) ({ tocarDe(blocoAtual()) }) else null)
             }
             AnimatedVisibility(controles && painel == Painel.BUSCA, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 PainelBusca(consulta, { consulta = it; achadoAtual = 0 }, achados.size, achadoAtual,
@@ -1056,7 +1062,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         FolhaParagrafo(b[blocoSel].plano, marcasPorBloco[blocoSel], c.obraId, c.id, blocoSel, obra?.titulo ?: "", c.titulo, fichas,
             fechar = { blocoSel = -1 }, abrirFicha = { blocoSel = -1; fichaVer = it },
             comentar = if (social != null) ({ val bi = blocoSel; blocoSel = -1; trechoComentar = bi }) else null,
-            corObra = obra?.corBase ?: 0, capa = obra?.capa)
+            corObra = obra?.corBase ?: 0, capa = obra?.capa,
+            ouvirDaqui = { val bi = blocoSel; tocarDe(bi) })
     }
     if (trechoComentar >= 0 && social != null && trechoComentar in b.indices) ModalBottomSheet(onDismissRequest = { trechoComentar = -1; recarregarComs++ }, containerColor = p.superficie) {
         FolhaComentarios(social.first, social.second, trechoComentar, b[trechoComentar].plano) { }
@@ -1391,7 +1398,8 @@ private fun BotaoHud(icone: androidx.compose.ui.graphics.vector.ImageVector, des
 @Composable
 private fun PainelVoz(pronta: Boolean, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit,
                       narrador: String, definirNarrador: (String) -> Unit, timerFim: Long, definirTimer: (Int) -> Unit,
-                      vozesPersonagens: Boolean, definirVozesPersonagens: (Boolean) -> Unit, obraId: Long, preparar: suspend () -> Unit) {
+                      vozesPersonagens: Boolean, definirVozesPersonagens: (Boolean) -> Unit, obraId: Long, preparar: suspend () -> Unit,
+                      daTela: (() -> Unit)? = null) {
     val p = LocalPaleta.current
     var escolhendo by remember { mutableStateOf(false) }
     var elenco by remember { mutableStateOf(false) }
@@ -1404,6 +1412,9 @@ private fun PainelVoz(pronta: Boolean, tocando: Boolean, velocidade: Float, alte
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(com.huryel.novely.data.Narrador.erro ?: if (tocando) "Lendo em voz alta · continua com a tela apagada" else "Ouvir a partir daqui", fontWeight = FontWeight.Bold, color = p.destaque, fontSize = 13.sp)
+        // a voz está num lugar e a tela em outro: ouvir o que está na tela
+        if (daTela != null) Text("▶  Ouvir a partir do que está na tela", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0B0B0E),
+            modifier = Modifier.fillMaxWidth().clip(forma(14.dp)).background(Color.White).clickable(onClick = daTela).padding(horizontal = 14.dp, vertical = 10.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = { definirVel(when { velocidade < 0.95f -> 1.0f; velocidade < 1.15f -> 1.25f; velocidade < 1.4f -> 1.5f; velocidade < 1.9f -> 2.0f; else -> 0.8f }) }) {
                 Text("${"%.2f".format(velocidade).trimEnd('0').trimEnd(',', '.')}×", fontWeight = FontWeight.Bold)
