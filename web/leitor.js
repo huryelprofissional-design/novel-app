@@ -433,9 +433,14 @@ function ouvir(apartir = 0) {
   const neuralDe = (s) => { const e = vozesPers && s.quem ? elenco.get(s.quem) : null; return e ? e.neural || null : narrN; };
   const cachePed = new Map();
   const pedacos = (j) => {
-    if (!cachePed.has(j)) cachePed.set(j, (segs[j] || []).flatMap((s) => (neuralDe(s) ? NV.frases(s.texto).map((t) => ({ ...s, texto: t })) : [s])));
+    if (!cachePed.has(j)) {
+      let ps = (segs[j] || []).flatMap((s) => (neuralDe(s) ? NV.frases(s.texto).map((t) => ({ ...s, texto: t })) : [s]));
+      if (j === inicio && ps.length && neuralDe(ps[0])) ps = [...NV.inicioCurto(ps[0].texto).map((t) => ({ ...ps[0], texto: t })), ...ps.slice(1)];
+      cachePed.set(j, ps);
+    }
     return cachePed.get(j);
   };
+  const inicio = i;
   if (narrN) NV.aquecer(narrN);
   const prox = () => {
     const minha = ++geracao; // pular ou parar invalida as falas antigas (o cancel do navegador dispara onend/onerror)

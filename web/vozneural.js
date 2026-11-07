@@ -73,8 +73,9 @@ let fonemas = null;
 const geradores = {}; // pacote → [{ chamar, ocupado }]
 function pool(pacote) {
   if (geradores[pacote]) return geradores[pacote];
-  // o Kokoro é pesado: vários geradores em paralelo (cada um prepara um trecho) para acompanhar a leitura
-  const n = pacote === "kokoro" ? Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 4) - 2)) : 1;
+  // vários geradores em paralelo (cada um prepara uma frase) para a voz acompanhar a leitura sem pausas
+  const nucleos = navigator.hardwareConcurrency || 4;
+  const n = pacote === "kokoro" ? Math.max(1, Math.min(3, nucleos - 2)) : Math.max(1, Math.min(3, nucleos - 1));
   geradores[pacote] = Array.from({ length: n }, () => ({ chamar: canal(new Worker(new URL("voz/tts-worker.js", location.href))), carregado: null, fila: Promise.resolve() }));
   return geradores[pacote];
 }
@@ -105,6 +106,11 @@ export function aquecer(v) {
   fonemas ||= canal(new Worker(new URL("voz/fonemas-worker.js", location.href)));
   fonemas({ texto: "a", lingua: "pt-br" }).catch(() => {});
   for (const g of pool(v.pacote)) carregar(g, v.pacote).catch(() => {});
+}
+/** O primeiro pedaço bem curto (até a primeira vírgula): o som começa logo. */
+export function inicioCurto(t) {
+  const m = t.match(/^(.{12,70}?[,;:—])\s+(.+)$/s);
+  return m ? [m[1], m[2]] : [t];
 }
 /** Divide em frases (juntando as curtas até ~140 letras): o primeiro áudio sai bem antes. */
 export function frases(t) {
