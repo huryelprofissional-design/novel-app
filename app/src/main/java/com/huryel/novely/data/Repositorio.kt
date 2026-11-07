@@ -477,6 +477,8 @@ class Preferencias(ctx: Context) {
     val reduzirAnimacoes = bool("reduzirAnimacoes", false)
     /** Alto contraste: textos secundários e bordas bem mais visíveis. */
     val altoContraste = bool("altoContraste", false)
+    /** Botões escondidos na barra de baixo do leitor: "OUVIR,ROLAR"… */
+    val ocultosHud = texto("ocultosHud", "")
     val telaLigada = bool("telaLigada", true)
     val velocidadeVoz = real("voz", 1.0f)
     val narrador = texto("narrador", "")

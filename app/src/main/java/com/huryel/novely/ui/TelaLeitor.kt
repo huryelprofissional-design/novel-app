@@ -1003,10 +1003,12 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     // HUD inferior (protótipo "Reader HUD"): 64 dp, cantos de 32 dp, máx. 440 dp
                     Row(Modifier.widthIn(max = 440.dp).fillMaxWidth().height(64.dp).vidroLiquido(vidro, 32.dp, tinta = Color(0xBF1A1D24)).padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
-                        BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, IconesHud.ouvir) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
-                        BotaoBarra("Buscar", painel == Painel.BUSCA, IconesHud.buscar) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
-                        BotaoBarra("Capítulos", false, IconesHud.capitulos) { mostrarCapitulos = true }
-                        if (!modoPaginas) BotaoBarra("Rolar", rolando, IconesHud.rolar) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
+                        val ocultosHud by prefs.ocultosHud.estado.collectAsState()
+                        val esconde = remember(ocultosHud) { ocultosHud.split(',').toSet() }
+                        if ("OUVIR" !in esconde) BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, IconesHud.ouvir) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
+                        if ("BUSCAR" !in esconde) BotaoBarra("Buscar", painel == Painel.BUSCA, IconesHud.buscar) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
+                        if ("CAPITULOS" !in esconde) BotaoBarra("Capítulos", false, IconesHud.capitulos) { mostrarCapitulos = true }
+                        if (!modoPaginas && "ROLAR" !in esconde) BotaoBarra("Rolar", rolando, IconesHud.rolar) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
                         BotaoBarra("Leitura", false, IconesHud.leitura) { mostrarAjustes = true }
                     }
                 }
@@ -1557,6 +1559,17 @@ fun AjustesLeitura() {
             Chip("Páginas (livro)", paginas) { prefs.modoPaginas.definir(true) }
         }
         if (paginas) Text("Vire a página deslizando para o lado ou tocando nas bordas. Toque no meio para mostrar os botões.", fontSize = 12.sp, color = p.textoSuave)
+        // botões da barra de baixo (Leitura sempre fica: é por ela que se volta aqui)
+        val ocultos by prefs.ocultosHud.estado.collectAsState()
+        Text("BOTÕES DA BARRA", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("OUVIR" to "Ouvir", "BUSCAR" to "Buscar", "CAPITULOS" to "Capítulos", "ROLAR" to "Rolar").forEach { (k, n) ->
+                val on = k !in ocultos.split(',')
+                Chip((if (on) "✓ " else "") + n, on) {
+                    val l = ocultos.split(',').filter { it.isNotBlank() }.toMutableSet(); if (on) l.add(k) else l.remove(k); prefs.ocultosHud.definir(l.joinToString(","))
+                }
+            }
+        }
         LinhaInterruptor("Destacar falas de personagens", falas) { prefs.destacarFalas.definir(it) }
         val nomes by prefs.destacarNomes.estado.collectAsState()
         LinhaInterruptor("Destacar nomes das fichas (toque abre)", nomes) { prefs.destacarNomes.definir(it) }
