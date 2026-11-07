@@ -1,6 +1,6 @@
 // Novely para PC/navegador — mesma conta e mesmos dados do app Android.
 import {
-  E, $, esc, raiz, agora, toast, milhar, haQuanto, recente, corHex, local, lista, capaHTML, preencherCapas, casca, carregando, rotas, rota, ir,
+  E, $, $$, esc, raiz, agora, toast, milhar, haQuanto, recente, corHex, local, lista, capaHTML, preencherCapas, casca, carregando, rotas, rota, ir,
   auth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   eu, colObras, getDoc, onSnapshot, doc, db, catalogo, urlBlob, notaTxt, imagemPub, imagemMinha, nomeAutor, novaObra, perguntar, dialogo,
   salvarPerfil, escolherArquivo, comprimirArquivo, enviarImagemMinha, publicarPerfil, STATUS_NOME, salvarObra, confirmar, apagarObra, perfilPub,
@@ -8,6 +8,7 @@ import {
 } from "./nucleo.js";
 import { cartaoNivelHTML, ligarBau } from "./efeitos.js";
 import "./obra.js";
+import * as X from "./extras.js";
 import "./leitor.js";
 import "./catalogo.js";
 import "./ia.js";
@@ -143,6 +144,7 @@ rota("/escrever", async () => {
   const minhas = lista().filter((o) => o.minha && !o.trancada).sort((a, b) => b.atualizadaEm - a.atualizadaEm);
   casca("escrever", `<div class="topo"><h1>Escrever</h1><button class="btn2" id="importar">Importar TXT ou Word</button><button class="btn" id="nova">+ Nova obra</button></div>
     ${minhas.length ? `<div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : STATUS_NOME[o.status] || "")).join("")}</div>` : `<div class="card vazio"><b>Crie sua primeira obra.</b><span class="suave">Ela aparece no celular também.</span></div>`}
+    <div class="sec"><h2>Sua escrita</h2></div>${X.numerosHTML()}
     <div class="sec"><h2>Ferramentas</h2></div>
     <div class="ferramentas">
       ${minhas.length ? `<a class="card ferr ferr-ia" href="#/ia/${minhas[0].id}"><b>✨ Estúdio de IA</b><span class="suave peq">Prompts com todo o contexto da obra</span></a>` : ""}
@@ -221,13 +223,21 @@ rota("/ajustes", async () => {
   casca("perfil", `<div class="topo"><a class="voltar vidro" href="#/perfil">←</a><h1>Ajustes</h1></div>
     <div class="lista-ajustes">
       <div class="card"><b>Conta</b><div class="suave peq" style="margin:4px 0 12px">${esc(E.usuario.email || "")} — tudo fica salvo na nuvem e aparece no celular.</div><button class="btn2 peq" id="sair">Sair da conta</button></div>
+      <div class="card"><b>📱 Aparelhos conectados</b><div id="aparelhos" class="suave peq" style="margin-top:8px">Carregando…</div><div class="suave peq" style="margin-top:8px">Perdeu um celular? Desconecte aqui: ele sai da conta na próxima vez que ligar a internet.</div></div>
+      <a class="card" href="#/lixeira"><b>🗑 Lixeira</b><div class="suave peq" style="margin-top:4px">Capítulos, fichas e obras apagados nos últimos 30 dias</div></a>
       <div class="card"><b>Conteúdo adulto</b><div class="suave peq" style="margin:4px 0 12px">Obras +18 pedem confirmação antes de abrir.</div>
         <label class="troca"><input type="checkbox" id="m18" ${local.ler("maior18", false) ? "checked" : ""}> Tenho 18 anos ou mais</label></div>
       <div class="card"><b>Instalar no Windows</b><div class="suave peq" style="margin-top:4px">No Chrome ou Edge: menu ⋯ › Aplicativos › Instalar este site como um aplicativo. O Novely abre como um programa e funciona sem internet com o que já foi aberto.</div></div>
       <div class="card"><b>App para Android</b><div class="suave peq" style="margin:4px 0 12px">Mesma conta, tudo sincronizado.</div><a class="btn2 peq" href="https://github.com/huryelprofissional-design/novel-app/releases/latest/download/app-debug.apk">⬇ Baixar APK</a></div>
       ${(E.usuario.email || "").toLowerCase() === "huryelprofissional@gmail.com" ? `<a class="card" href="#/dono"><b>Painel de dono</b><div class="suave peq" style="margin-top:4px">Obras do catálogo e pessoas</div></a>` : ""}
     </div>`);
-  $("#sair").onclick = async () => { if (await confirmar("Sair da conta?", "Suas obras continuam salvas na nuvem.", "Sair")) signOut(auth); };
+  $("#sair").onclick = async () => { if (await confirmar("Sair da conta?", "Suas obras continuam salvas na nuvem.", "Sair")) { await X.sairDesteAparelho(); signOut(auth); } };
+  const pintarAp = async () => {
+    const caixa = $("#aparelhos"); if (!caixa) return;
+    try { caixa.innerHTML = X.aparelhosHTML(await X.listaAparelhos()); } catch (_) { caixa.textContent = "Não deu para carregar agora."; }
+    $$("[data-desc-ap]", caixa).forEach((b) => (b.onclick = async () => { if (!(await confirmar("Desconectar este aparelho?", "Ele sai da conta na próxima vez que tiver internet. As obras continuam na nuvem.", "Desconectar", true))) return; await X.desconectarAparelho(b.dataset.descAp); pintarAp(); }));
+  };
+  pintarAp();
   $("#m18").onchange = (e) => local.gravar("maior18", e.target.checked);
 });
 
@@ -279,6 +289,7 @@ onAuthStateChanged(auth, async (u) => {
   if (!u) return desenhar();
   try { E.perfil = (await getDoc(eu())).data() || {}; } catch (_) { E.perfil = {}; }
   if (!E.perfil.nome && u.displayName) E.perfil.nome = u.displayName;
+  X.registrarAparelho(); clearInterval(window.__vidaAp); window.__vidaAp = setInterval(() => X.registrarAparelho(), 180000);
   carteira(true).then(() => diarioMoedas()).then((n) => n && toast(`🪙 +${n} moedas de hoje`)).catch(() => {});
   let primeira = true;
   pararObras = onSnapshot(colObras(), (s) => {

@@ -1,5 +1,5 @@
 // Leitor (biblioteca e catálogo), editor e revisão.
-import { blocoFx, inlineFx, MEGA } from "./fx.js";
+import { blocoFx, inlineFx, MEGA, ligarFx } from "./fx.js";
 import { ligarEfeitosTexto, ligarClima, registrar, confete, reacoesHTML, ligarReacoes, fimHTML } from "./efeitos.js";
 import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas, confianca, LIMIAR_FORTE, LIMIAR_LEVE, ignoradosNome,
@@ -8,6 +8,7 @@ import {
   collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra, carteira, liberado, ganharMoedas,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
+import * as X from "./extras.js";
 
 // ───────── preferências de leitura ─────────
 const PADRAO = { tam: 20, fonte: "serif", altura: 1.75, largura: 760, tema: "escuro", justificar: false, capitular: true, maratona: false };
@@ -119,13 +120,16 @@ export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
   // linhas ~chuva … ~fim ligam um efeito de cena e não aparecem no texto
   // ~pausa deixa o próximo parágrafo devagar; linhas "== …" seguidas viram uma carta só
   let clima = "", pausa = false; const climas = [], pausas = [], linhas = [];
-  for (const l of limparMarcas(t).split("\n").map((x) => x.trim()).filter(Boolean)) {
+  const brutas = limparMarcas(t).split("\n"), origens = [];
+  for (let k = 0; k < brutas.length; k++) {
+    const l = brutas[k].trim(); if (!l) continue;
     if (/^~pausa$/i.test(l)) { pausa = true; continue; }
     const m = marcaCena(l); if (m !== null) { clima = m; continue; }
     if (/^==./.test(l) && /^==/.test(linhas[linhas.length - 1] || "")) { linhas[linhas.length - 1] += "\n" + l; continue; }
     if (/^>>>./.test(l) && /^>>>/.test(linhas[linhas.length - 1] || "")) { linhas[linhas.length - 1] += "\n" + l; continue; }
-    linhas.push(l); climas.push(clima); pausas.push(pausa); pausa = false;
+    linhas.push(l); origens.push(k); climas.push(clima); pausas.push(pausa); pausa = false;
   }
+  if (op.origens) op.origens.push(...origens); // linha do texto de cada bloco (a prévia do editor usa)
   // palavra solta (parte do nome) não vale colada a outro nome: em "Gwon Jang-ho" o "Gwon" é de outra pessoa
   const lista = [...nomes.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (n.trim().includes(" ") ? "" : "(?!\\s\\p{Lu}\\p{Ll})"));
   const rxNomes = lista.length ? new RegExp(`(?<![\\p{L}\\p{N}'’-])(${lista.join("|")})(?![\\p{L}\\p{N}]|[-'’]\\p{L})`, "gu") : null;
@@ -418,14 +422,15 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     <div class="ferramentas-ed vidro">
       <button data-ins="@" class="cor-nome" title="Personagem">@</button><button data-ins="&" class="cor-lugar" title="Lugar">&amp;</button><span class="div"></span>
       <button data-fala title="Nova fala">—</button><button data-env="**" title="Negrito (Ctrl+B)"><b>B</b></button><button data-env="*" title="Itálico (Ctrl+I)"><i>I</i></button><button data-ins="“" title="Aspas">“ ”</button>
-      <button data-ins="\n\n* * *\n\n" title="Separador de cena">◆</button><button data-ins="\n# " title="Subtítulo">H</button><button id="befx" title="Efeitos de escrita (chuva, grito, sistema…)" style="color:#FFC94A">✦ Efeitos</button><span class="div"></span>
-      <button id="bbusca" title="Buscar e substituir (Ctrl+F)">⌕ Buscar</button><button id="bfichas" title="Personagens">☺ Fichas</button><button id="bfoco" title="Modo foco">⛶ Foco</button><button id="bmaq" title="Máquina de escrever: som de tecla, papel e a linha sempre no meio">⌨ Máquina</button><button id="bia" class="ia-btn" title="Estúdio de IA">✨ IA</button><button id="bvivo" title="Escrever junto ao vivo com coautores">👥 Ao vivo</button>
+      <button data-ins="\n\n* * *\n\n" title="Separador de cena">◆</button><button data-ins="\n# " title="Subtítulo">H</button><button id="befx" title="Efeitos com prévia (Ctrl+E)" style="color:#FFC94A">✦ Efeitos</button><button id="bprev" title="Prévia: ver como o leitor vê (Ctrl+P)">👁 Prévia</button><span class="div"></span>
+      <button id="bbusca" title="Buscar e substituir (Ctrl+F)">⌕ Buscar</button><button id="bfichas" title="Personagens">☺ Fichas</button><button id="bfoco" title="Modo foco">⛶ Foco</button><button id="bmaq" title="Máquina de escrever: som de tecla, papel e a linha sempre no meio">⌨ Máquina</button><button id="bia" class="ia-btn" title="Estúdio de IA">✨ IA</button><button id="bvivo" title="Escrever junto ao vivo com coautores">👥 Ao vivo</button><button id="bver" title="Guardar uma versão com nome / ver versões">★ Versões</button>
     </div>
     <div class="busca-ed vidro" id="busca" hidden><input class="campo" id="q" placeholder="Buscar…"><input class="campo" id="r" placeholder="Substituir por…"><span class="suave peq" id="qn"></span>
       <button class="btn2 peq" id="qant">‹</button><button class="btn2 peq" id="qprox">›</button><button class="btn2 peq" id="rum">Substituir</button><button class="btn2 peq" id="rtodos">Todos</button><button class="btn2 peq" id="qx">✕</button></div>
     <div class="sugestoes-ed" id="sug" hidden></div>
     <textarea id="txt" spellcheck="true" placeholder="Escreva aqui… (@Personagem, descrição · &Lugar, descrição)"></textarea>
-    <div class="rodape-ed suave peq"><span id="cont"></span><span id="sessao"></span></div></div>`);
+    <div class="texto previa-ed" id="prev" hidden></div>
+    <div class="rodape-ed suave peq"><span id="cont" style="cursor:pointer" title="Contagem completa"></span><span id="sessao"></span></div></div>`);
   const ta = $("#txt"), ti = $("#titulo"), est = $("#estado"), cont = $("#cont");
   ta.value = original;
   const base = contarPalavras(original);
@@ -435,7 +440,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   let ultN = null;
   const fogueira = (n) => {
     const d = new Date().toISOString().slice(0, 10); let h = local.ler("palavrasHoje", { d, n: 0 }); if (h.d !== d) h = { d, n: 0 };
-    if (ultN !== null && n > ultN) { const antes = h.n; h.n += n - ultN; local.gravar("palavrasHoje", h); const dez = Math.floor(h.n / 10) - Math.floor(antes / 10); if (dez > 0) registrar("escrever", dez * 10); }
+    if (ultN !== null && n > ultN) { const antes = h.n; h.n += n - ultN; local.gravar("palavrasHoje", h); X.registrarDia(n - ultN); const dez = Math.floor(h.n / 10) - Math.floor(antes / 10); if (dez > 0) registrar("escrever", dez * 10); }
     ultN = n;
     const meta = local.ler("metaDiaria", 1000), f = Math.min(1, h.n / meta);
     fog.querySelector(".anel-xp").style.setProperty("--f", f); fog.querySelector("b").style.fontSize = 14 + 16 * f + "px"; fog.classList.toggle("batida", f >= 1);
@@ -447,7 +452,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     if (gravando || (ta.value === salvo && ti.value === tituloSalvo)) return;
     gravando = true; est.textContent = "Salvando…"; est.style.color = "var(--amb)";
     const t = ta.value, tt = ti.value.trim();
-    try { await salvarTexto(obraId, c, t, tt); salvo = t; tituloSalvo = ti.value; est.textContent = "Salvo"; est.style.color = "var(--verde)"; }
+    try { await salvarTexto(obraId, c, t, tt); salvo = t; tituloSalvo = ti.value; est.textContent = "Salvo"; est.style.color = "var(--verde)"; if (ta.value === salvo) X.apagarRascunho(capId); }
     catch (e) { est.textContent = "Sem conexão — tentando de novo"; est.style.color = "var(--erro)"; setTimeout(agendar, 4000); }
     gravando = false;
     if (ta.value !== salvo || ti.value !== tituloSalvo) agendar();
@@ -467,6 +472,14 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   $$("[data-ins]").forEach((b) => (b.onclick = () => inserir(b.dataset.ins.replace(/\\n/g, "\n"))));
   $$("[data-env]").forEach((b) => (b.onclick = () => inserir(b.dataset.env, true)));
   $("#befx").onclick = () => {
+    const a = ta.selectionStart, z = ta.selectionEnd;
+    X.painelEfeitos(ta.value.slice(a, z), (sintaxe, bloco) => {
+      let ins = sintaxe;
+      if (bloco) { if (a > 0 && ta.value[a - 1] !== "\n") ins = "\n" + ins; if (z < ta.value.length && ta.value[z] !== "\n") ins += "\n"; }
+      ta.focus(); ta.setRangeText(ins, a, z, "end"); ta.dispatchEvent(new Event("input"));
+    }, verTodos);
+  };
+  const verTodos = () => {
     const linha = (ex, d, ins, env) => `<button class="efx" data-x="${esc(ins)}" ${env ? "data-e" : ""}><code>${esc(ex)}</code><span>${esc(d)}</span></button>`;
     const d = dialogo(`<h3 style="margin-top:0">Efeitos de escrita</h3><p class="suave peq">Escreva os símbolos e o leitor faz o efeito sozinho (no PC e no celular). Clique para inserir.</p>
       <div class="rotulo">No texto (selecione um trecho)</div>${linha("!!GRITO!!", "Fala gritada, grande e tremendo", "!!", 1)}${linha("((sussurro))", "Baixinho, menor e em itálico", "((", 2)}${linha("^^brilho^^", "Palavra mágica dourada", "^^", 1)}${linha("{telepatia}", "Voz mental azul", "{", 4)}${linha("~~riscado~~", "Palavra riscada", "~~", 1)}${linha("[S]", "Selo de rank (F até SSS)", "[S]")}${linha("||segredo||", "Borrado até o leitor tocar", "||", 1)}${linha("%%glitch%%", "Letras corrompidas trocando", "%%", 1)}${linha("<<voz sombria>>", "Vermelho com sombra: vilão, demônio", "<<", 3)}
@@ -525,9 +538,56 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i" && document.activeElement === ta) { e.preventDefault(); inserir("*", true); }
     if (e.key === "Escape") { sug.hidden = true; document.body.classList.remove("foco"); }
   };
+  // ── vindos do celular: salva a cada 5 s digitando, rascunho de emergência, versões, contagem e prévia ──
+  const cada5 = setInterval(() => { if (!gravando && (ta.value !== salvo || ti.value !== tituloSalvo)) salvar(); }, 5000);
+  let tRasc = null;
+  ta.addEventListener("input", () => { clearTimeout(tRasc); tRasc = setTimeout(() => { if (ta.value !== salvo) X.gravarRascunho(capId, ta.value); }, 600); });
+  const rasc = X.lerRascunho(capId);
+  if (rasc && rasc.texto && rasc.texto !== original) {
+    const quando = new Date(rasc.quando).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    confirmar("Texto não salvo encontrado", `Da última vez a página fechou antes de salvar. Achei um rascunho de ${quando} com ${contarPalavras(rasc.texto).toLocaleString("pt-BR")} palavras (o salvo tem ${base.toLocaleString("pt-BR")}). Recuperar? O texto salvo vira uma versão antes.`, "Recuperar")
+      .then((ok) => { if (ok) { X.guardarVersao(capId, original, "Antes de recuperar o rascunho"); ta.value = rasc.texto; ta.dispatchEvent(new Event("input")); } else X.apagarRascunho(capId); });
+  }
+  cont.onclick = () => X.mostrarContagem(ta.value, ta.value.slice(ta.selectionStart, ta.selectionEnd));
+  $("#bver").onclick = async () => {
+    const d = dialogo(`<h3 style="margin-top:0">Versões</h3><p class="suave peq">Guarde o texto como está agora, com um nome, antes de mexer pesado.</p><input class="campo" id="vnome" placeholder="Ex.: Antes de reescrever o final"><div class="linha-botoes"><button class="btn2 peq" id="vlista">Ver versões</button><button class="btn peq" id="vok">Guardar versão</button></div>`);
+    $("#vok", d).onclick = () => { const ok = X.guardarVersao(capId, ta.value, $("#vnome", d).value.trim()); d.close(); toast(ok ? "★ Versão guardada" : "Sem espaço no navegador para guardar"); };
+    $("#vlista", d).onclick = () => { d.close(); X.mostrarVersoes(capId, (t) => { X.guardarVersao(capId, ta.value, "Antes de restaurar"); ta.value = t; ta.dispatchEvent(new Event("input")); toast("Versão restaurada"); }); };
+  };
+  // Prévia: o capítulo desenhado como o leitor vê; clicar num efeito oferece tirá-lo (o texto fica)
+  const prev = $("#prev"); let pararPrev = null;
+  const mostrarPrevia = (sim) => {
+    prev.hidden = !sim; ta.hidden = sim; $("#bprev").classList.toggle("on", sim);
+    pararPrev?.(); pararPrev = null;
+    if (!sim) { ta.focus(); return; }
+    const origens = [];
+    prev.innerHTML = htmlTexto(ta.value, mapaNomes(fs), new Map(), { enfeite: o.enfeite, autor: o.autor || nomeAutor(), origens });
+    try { pararPrev = ligarFx(prev); } catch (_) { pararPrev = null; }
+    $$("[data-b]", prev).forEach((el) => {
+      const i = origens[+el.dataset.b] ?? -1; const ln = ta.value.split("\n")[i] ?? "";
+      const temFx = ln.trim() && X.semEfeito(ln) !== ln.trim();
+      el.style.cursor = "pointer";
+      el.title = temFx ? "Clique: remover efeito ou ver os símbolos" : "Clique: ver no texto";
+      el.onclick = async () => {
+        const linhas = ta.value.split("\n");
+        const irTexto = () => { mostrarPrevia(false); const ini = linhas.slice(0, i).join("\n").length + (i ? 1 : 0); ta.setSelectionRange(ini, ini + (linhas[i] || "").length); ta.scrollTop = Math.max(0, (i - 5) * 33); };
+        if (!temFx) { irTexto(); return; }
+        const d = dialogo(`<h3 style="margin-top:0">Efeito neste parágrafo</h3><p class="suave peq">${esc(ln.slice(0, 120))}</p><div class="linha-botoes"><button class="btn2 peq" id="pv-ver">Ver os símbolos</button><button class="btn peq" id="pv-tirar" style="background:var(--erro)">Remover efeito (o texto fica)</button></div>`);
+        $("#pv-ver", d).onclick = () => { d.close(); irTexto(); };
+        $("#pv-tirar", d).onclick = () => { d.close(); X.guardarVersao(capId, ta.value, "Antes de remover um efeito"); linhas[i] = X.semEfeito(linhas[i]); ta.value = linhas.join("\n"); ta.dispatchEvent(new Event("input")); mostrarPrevia(true); toast("Efeito removido (a versão de antes ficou em ★ Versões)"); };
+      };
+    });
+  };
+  $("#bprev").onclick = () => mostrarPrevia(prev.hidden);
+  const atalhosExtra = (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key.toLowerCase() === "e") { e.preventDefault(); $("#befx")?.click(); }
+    if (e.key.toLowerCase() === "p") { e.preventDefault(); $("#bprev")?.click(); }
+  };
+  window.addEventListener("keydown", atalhosExtra);
   contar(); ta.focus();
   window.onbeforeunload = (e) => { if (ta.value !== salvo) { salvar(); e.preventDefault(); } };
-  E.saindo = async () => { fog.remove(); window.onbeforeunload = null; document.body.classList.remove("foco"); clearTimeout(tempo); await salvar(); };
+  E.saindo = async () => { fog.remove(); clearInterval(cada5); window.removeEventListener("keydown", atalhosExtra); pararPrev?.(); window.onbeforeunload = null; document.body.classList.remove("foco"); clearTimeout(tempo); await salvar(); };
 });
 
 // ───────── LEITOR DO CATÁLOGO ─────────

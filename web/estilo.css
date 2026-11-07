@@ -1303,3 +1303,13 @@ span.fx.fxi { display:inline; }
 /* alto contraste: quando o sistema pede (Windows/Mac) ou com o atalho no Perfil (classe no <html>) */
 @media (prefers-contrast: more) { :root { --suave: #E2E2E2; --fraco: #BDBDBD; --borda: #9A9A9A; --sup: #111; --amb: #FF8A4C; } }
 html.contraste { --suave: #E2E2E2; --fraco: #BDBDBD; --borda: #9A9A9A; --sup: #111; --amb: #FF8A4C; }
+/* painel de efeitos com prévia (editor do PC) */
+.painel-fx { display: flex; flex-direction: column; gap: 12px; min-width: min(560px, 86vw); }
+.pfx-previa { position: relative; min-height: 120px; max-height: 260px; overflow: auto; border-radius: 18px; background: #050507; border: 1px solid #26282f; padding: 28px 16px 14px; }
+.pfx-previa .rotulo { position: absolute; top: 8px; left: 14px; margin: 0; }
+.pfx-cor { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+.pfx-cor.on { border-color: #fff; box-shadow: 0 0 0 2px #111216 inset; }
+.pfx-alerta { padding: 10px 12px; border-radius: 14px; background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.35); color: #FDE68A; font-size: 13px; }
+.editor .previa-ed { flex: 1; overflow: auto; padding: 18px 8px 120px; }
+.editor .previa-ed [data-b]:hover { outline: 1px dashed rgba(255,255,255,.25); outline-offset: 4px; border-radius: 6px; }
+#bprev.on { background: #fff; color: #000; }

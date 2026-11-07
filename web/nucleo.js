@@ -15,7 +15,7 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
 export { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut };
-export { collection, doc, getDoc, getDocs, setDoc, onSnapshot, query, where, orderBy, limit, updateDoc, addDoc, deleteDoc, increment };
+export { collection, doc, getDoc, getDocs, setDoc, onSnapshot, query, where, orderBy, limit, updateDoc, addDoc, deleteDoc, increment, serverTimestamp };
 
 export const EMAIL_DONO = "huryelprofissional@gmail.com";
 
