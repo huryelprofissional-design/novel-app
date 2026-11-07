@@ -12,3 +12,6 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
 -dontwarn org.checkerframework.**
+
+# vozes neurais (sherpa-onnx): o código nativo acessa as classes e campos pelo nome
+-keep class com.k2fsa.sherpa.onnx.** { *; }

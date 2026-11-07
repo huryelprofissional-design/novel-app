@@ -71,6 +71,8 @@ ksp {
 }
 
 dependencies {
+    // vozes neurais do Novely (Piper e Kokoro, sem internet). O AAR é baixado pelo CI (não vai para o repositório).
+    implementation(files("libs/sherpa-onnx.aar"))
     val bom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(bom)
     implementation("androidx.core:core-ktx:1.15.0")

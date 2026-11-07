@@ -118,10 +118,15 @@ object Narrador {
     var velocidade = 1f
     var vozesPersonagens = true
     private var timer: Job? = null
+    /** Leitura com as vozes do Novely (neurais): um trecho de cada vez, gerando o próximo com antecedência. */
+    private var jobMisto: Job? = null
+    private val esperas = HashMap<String, kotlinx.coroutines.CompletableDeferred<Unit>>()
+    private var nEspera = 0
 
     fun iniciar(ctx: Context) {
         if (tts != null) return
         ctxApp = ctx.applicationContext
+        VozNeural.iniciar(ctxApp)
         tts = TextToSpeech(ctxApp) { st ->
             if (st == TextToSpeech.SUCCESS) {
                 val r = tts?.setLanguage(Locale("pt", "BR"))
@@ -131,8 +136,8 @@ object Narrador {
         }
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {}
-            override fun onDone(id: String?) { escopo.launch { terminou(id) } }
-            @Deprecated("Deprecated in Java") override fun onError(id: String?) { escopo.launch { terminou(id) } }
+            override fun onDone(id: String?) { escopo.launch { if (id?.startsWith("m:") == true) esperas.remove(id)?.complete(Unit) else terminou(id) } }
+            @Deprecated("Deprecated in Java") override fun onError(id: String?) { escopo.launch { if (id?.startsWith("m:") == true) esperas.remove(id)?.complete(Unit) else terminou(id) } }
         })
     }
 
@@ -172,9 +177,12 @@ object Narrador {
         val falam = blocos.flatten().mapNotNull { it.quem }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
         val texto = paragrafos.joinToString("\n")
         val escolhidas = app.prefs.vozesElenco(obraId)
-        val disponiveis = vozesDisponiveis()
-        val fem = disponiveis.filter { generoDaVoz(it.name) == 'F' && it.name != narrador }.ifEmpty { disponiveis }
-        val masc = disponiveis.filter { generoDaVoz(it.name) == 'M' && it.name != narrador }.ifEmpty { disponiveis }
+        // vozes do Novely já baixadas vêm primeiro (soam melhor); depois as do Android
+        val neurais = VozNeural.VOZES.filter { VozNeural.instalada(it) && it.id != narrador }
+        val android = vozesDisponiveis()
+        val disponiveis = neurais.map { it.id } + android.map { it.name }
+        val fem = (neurais.filter { it.feminina }.map { it.id } + android.filter { generoDaVoz(it.name) == 'F' && it.name != narrador }.map { it.name }).ifEmpty { disponiveis }
+        val masc = (neurais.filter { !it.feminina }.map { it.id } + android.filter { generoDaVoz(it.name) == 'M' && it.name != narrador }.map { it.name }).ifEmpty { disponiveis }
         val tons = listOf(1.0f, 0.86f, 1.14f, 0.93f, 1.07f)
         var nf = 0; var nm = 0; var nx = 0
         vozes = falam.associateWith { id ->
@@ -183,7 +191,7 @@ object Narrador {
                 val g = f?.let { Elenco.genero(it, texto, nomes) }
                 val lista = when (g) { 'F' -> fem; 'M' -> masc; else -> disponiveis }
                 val k = when (g) { 'F' -> nf++; 'M' -> nm++; else -> nx++ }
-                val v = lista.getOrNull(k % lista.size.coerceAtLeast(1))?.name ?: ""
+                val v = lista.getOrNull(k % lista.size.coerceAtLeast(1)) ?: ""
                 VozPersonagem(v, tons[(k / lista.size.coerceAtLeast(1) + (if (g == null) 2 else 0)) % tons.size])
             }
         }
@@ -200,6 +208,7 @@ object Narrador {
 
     /** Ouve uma frase com a voz escolhida (para testar no Elenco). */
     fun amostra(v: VozPersonagem, frase: String) {
+        VozNeural.voz(v.voz)?.takeIf { VozNeural.instalada(it) }?.let { n -> tts?.stop(); escopo.launch { try { VozNeural.tocar(VozNeural.gerar(n, frase, velocidade)) } catch (_: Exception) {} }; return }
         val t = tts ?: return
         aplicar(v.voz, v.tom); t.setSpeechRate(velocidade)
         t.speak(frase, TextToSpeech.QUEUE_FLUSH, null, "amostra")
@@ -232,8 +241,9 @@ object Narrador {
             } catch (_: Exception) {}
         }
     }
-    fun pausar() { _estado.value = _estado.value.copy(tocando = false); tts?.stop(); ServicoVoz.atualizar(ctxApp) }
-    fun parar() { tts?.stop(); timer?.cancel(); _estado.value = Estado(); if (::ctxApp.isInitialized) ServicoVoz.atualizar(ctxApp) }
+    fun pausar() { _estado.value = _estado.value.copy(tocando = false); calarTudo(); ServicoVoz.atualizar(ctxApp) }
+    fun parar() { calarTudo(); timer?.cancel(); _estado.value = Estado(); if (::ctxApp.isInitialized) ServicoVoz.atualizar(ctxApp) }
+    private fun calarTudo() { jobMisto?.cancel(); jobMisto = null; VozNeural.calar(); tts?.stop(); esperas.values.forEach { it.cancel() }; esperas.clear() }
     fun irPara(bloco: Int) { _estado.value = _estado.value.copy(bloco = bloco); if (_estado.value.tocando) falarAtual() }
     fun proximo() = proximoFalavel(_estado.value.bloco + 1)?.let { irPara(it) }
     fun anterior() = (_estado.value.bloco - 1 downTo 0).firstOrNull { falavel(it) }?.let { irPara(it) }
@@ -259,12 +269,20 @@ object Narrador {
         t.setPitch(tom)
     }
 
+    /** Voz (nome) e tom de um trecho: a do personagem ou a do narrador. */
+    private fun vozDoTrecho(tr: Elenco.Trecho): Pair<String, Float> {
+        val v = if (vozesPersonagens && tr.quem != null) vozes[tr.quem] else null
+        return (v?.voz?.takeIf { it.isNotEmpty() } ?: narrador) to (v?.tom ?: 1f)
+    }
+    private fun neuralPronta(nome: String) = VozNeural.voz(nome)?.takeIf { VozNeural.instalada(it) }
+
     private fun falarAtual() {
         val t = tts ?: return
         val i = _estado.value.bloco
         if (!falavel(i)) { val p = proximoFalavel(i); if (p == null) { fim(); return }; _estado.value = _estado.value.copy(bloco = p); return falarAtual() }
         guardarPosicao(i)
-        t.stop()
+        calarTudo()
+        if (blocos[i].any { neuralPronta(vozDoTrecho(it).first) != null }) { falarMisto(i); return }
         val trechos = blocos[i]
         t.setSpeechRate(velocidade)
         trechos.forEachIndexed { k, tr ->
@@ -273,6 +291,38 @@ object Narrador {
             t.speak(tr.texto.take(3900), if (k == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, Bundle(), "$i:$k:${trechos.size}")
         }
         aplicar(narrador, 1f)
+    }
+
+    /** Gera com antecedência os trechos com voz do Novely deste parágrafo e do próximo. */
+    private fun prepararBloco(b: Int) {
+        blocos.getOrNull(b)?.forEach { tr -> neuralPronta(vozDoTrecho(tr).first)?.let { VozNeural.preparar(it, tr.texto.take(3900), velocidade) } }
+    }
+
+    /** Fala o parágrafo trecho a trecho, misturando vozes do Novely e do Android. */
+    private fun falarMisto(i: Int) {
+        val t = tts ?: return
+        jobMisto = escopo.launch {
+            try {
+                prepararBloco(i); proximoFalavel(i + 1)?.let { prepararBloco(it) }
+                for (tr in blocos[i]) {
+                    val (nome, tom) = vozDoTrecho(tr)
+                    val n = neuralPronta(nome)
+                    if (n != null) VozNeural.tocar(VozNeural.preparar(n, tr.texto.take(3900), velocidade).await())
+                    else {
+                        val id = "m:${nEspera++}"
+                        val fim = kotlinx.coroutines.CompletableDeferred<Unit>(); esperas[id] = fim
+                        aplicar(nome, tom); t.setSpeechRate(velocidade)
+                        t.speak(tr.texto.take(3900), TextToSpeech.QUEUE_FLUSH, Bundle(), id)
+                        fim.await()
+                    }
+                }
+                val e = _estado.value
+                if (!e.tocando || e.bloco != i) return@launch
+                val prox = proximoFalavel(i + 1)
+                if (prox == null) { Progresso.registrar("ouvir"); fim() } else { _estado.value = e.copy(bloco = prox); falarAtual() }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { erro = "A voz do Novely falhou: ${e.message}"; pausar() }
+        }
     }
 
     private fun terminou(id: String?) {

@@ -1429,6 +1429,10 @@ private fun PainelVoz(pronta: Boolean, tocando: Boolean, velocidade: Float, alte
                 TextButton(onClick = { escolhendo = true }, enabled = pronta) { Text("Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                 DropdownMenu(escolhendo, { escolhendo = false }, modifier = Modifier.heightIn(max = 380.dp)) {
                     val lista = remember(pronta) { com.huryel.novely.data.Narrador.vozesDisponiveis() }
+                    com.huryel.novely.data.VozNeural.VOZES.filter { com.huryel.novely.data.VozNeural.instalada(it) }.forEach { v ->
+                        DropdownMenuItem(text = { Text("✦ " + v.nome + " (Novely)", fontWeight = if (v.id == narrador) FontWeight.Bold else FontWeight.Normal, color = if (v.id == narrador) p.destaque else p.texto) },
+                            onClick = { escolhendo = false; definirNarrador(v.id) })
+                    }
                     if (lista.isEmpty()) DropdownMenuItem(text = { Text("Nenhuma voz brasileira offline. Instale em Configurações › Saída de texto para voz.") }, onClick = { escolhendo = false })
                     var mulher = 0; var homem = 0; var outra = 0
                     lista.forEach { v ->
@@ -1462,8 +1466,11 @@ private fun PainelVoz(pronta: Boolean, tocando: Boolean, velocidade: Float, alte
             }
             Switch(vozesPersonagens, definirVozesPersonagens)
         }
+        var vozesNovely by remember { mutableStateOf(false) }
+        Text("✦ Vozes do Novely · mais humanas, sem internet", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0B0B0E),
+            modifier = Modifier.fillMaxWidth().clip(forma(14.dp)).background(Color.White).clickable { vozesNovely = true }.padding(horizontal = 14.dp, vertical = 11.dp))
         if (vozesPersonagens) TextButton(onClick = { escopoV.launch { preparar(); elenco = true } }, enabled = pronta) { Text("🎭 Elenco: escolher as vozes", color = p.destaque, fontWeight = FontWeight.Bold) }
-        if (narrador.isNotEmpty()) Text("Para mais vozes: Configurações do Android › Saída de texto para voz.", fontSize = 11.sp, color = p.textoSuave)
+        if (vozesNovely) DialogoVozesNovely(narrador, velocidade, { definirNarrador(it); vozesNovely = false }) { vozesNovely = false }
     }
     if (elenco) DialogoElenco(obraId) { elenco = false }
 }
@@ -1493,9 +1500,14 @@ private fun DialogoElenco(obraId: Long, fechar: () -> Unit) {
                                 Box {
                                     val i = vozes.indexOfFirst { it.name == v.voz }
                                     val g = vozes.getOrNull(i)?.let { nar.generoDaVoz(it.name) }
-                                    Text((if (g == 'F') "♀ " else if (g == 'M') "♂ " else "") + if (i >= 0) "Voz ${i + 1}" else "Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    val nv0 = com.huryel.novely.data.VozNeural.voz(v.voz)
+                                    Text(if (nv0 != null) "✦ ${nv0.nome}" else (if (g == 'F') "♀ " else if (g == 'M') "♂ " else "") + if (i >= 0) "Voz ${i + 1}" else "Narrador", fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                         modifier = Modifier.clip(forma(10.dp)).background(p.borda).clickable { abrir = true }.padding(horizontal = 10.dp, vertical = 6.dp))
                                     DropdownMenu(abrir, { abrir = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+                                        com.huryel.novely.data.VozNeural.VOZES.filter { com.huryel.novely.data.VozNeural.instalada(it) }.forEach { n ->
+                                            DropdownMenuItem(text = { Text("✦ ${n.nome} · ${n.descricao}") },
+                                                onClick = { abrir = false; val nv = v.copy(voz = n.id, tom = 1f); nar.mudarVoz(obraId, id, nv); versao++; nar.amostra(nv, "Assim?") })
+                                        }
                                         vozes.forEachIndexed { k, vz ->
                                             val gg = nar.generoDaVoz(vz.name)
                                             DropdownMenuItem(text = { Text((if (gg == 'F') "♀ Mulher" else if (gg == 'M') "♂ Homem" else "◦") + " · voz ${k + 1}") },
