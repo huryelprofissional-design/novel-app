@@ -58,7 +58,7 @@ class MegaPackTest {
     @Test fun blocoFx() {
         val b = montarBlocos("[#evolucao:dourado Nv 11 > 12 | Força 14 > 17]\n\n[#post kang | oi @todos | 10]\n\n[#naoexiste x]")
         assertEquals("fx", (b[0] as Bloco.Paragrafo).tipo)
-        assertEquals("evolucao\u0000dourado\u0000Nv 11 > 12 | Força 14 > 17", (b[0] as Bloco.Paragrafo).extra)
+        assertEquals("evolucao\u0000dourado\u0000Nv 11 > 12 | Força 14 > 17\u00000", (b[0] as Bloco.Paragrafo).extra)
         assertEquals("fx", (b[1] as Bloco.Paragrafo).tipo)
         assertEquals("", (b[2] as Bloco.Paragrafo).tipo)
         assertEquals(listOf("Caso", "Nome: ||Han||", "ok"), camposFx("Caso | Nome: ||Han|| | ok"))
@@ -67,5 +67,22 @@ class MegaPackTest {
         val t = estilizar("Ele gritou: {fogo:azul: BOLA} e {telepatia normal} e {runa: abc}")
         assertEquals("Ele gritou: BOLA e telepatia normal e ᚨᚩᚲ".length, t.text.length)
         assertEquals(listOf("fogo", "runa"), t.getStringAnnotations("fx", 0, t.length).map { it.item })
+    }
+    @Test fun intensidade() {
+        val b = montarBlocos("[#sistema+:vermelho Você morreu]\n\n[#perigo- Algo se move]\n\n[#missao-ok Sobreviver]")
+        assertEquals("sistema\u0000vermelho\u0000Você morreu\u00001", (b[0] as Bloco.Paragrafo).extra)
+        assertEquals("perigo\u0000\u0000Algo se move\u0000-1", (b[1] as Bloco.Paragrafo).extra)
+        assertEquals("missao-ok\u0000\u0000Sobreviver\u00000", (b[2] as Bloco.Paragrafo).extra)
+        val f = lerInlineFx("{fogo+:azul: chamas}", 0)!!
+        assertEquals(listOf("fogo", "azul", "chamas", "1"), listOf(f.nome, f.cor, f.texto, f.forca.toString()))
+        assertEquals(-1, lerInlineFx("{neon-: luz}", 0)!!.forca)
+        assertEquals(0, lerInlineFx("{neon: luz}", 0)!!.forca)
+        val t = estilizar("as {fogo+: chamas} sobem")
+        assertEquals("as chamas sobem", t.text)
+        // origem de cada bloco (para a prévia do editor achar a linha)
+        val origens = ArrayList<Int>()
+        val bs = montarBlocos("Primeiro.\n\n[[Sistema]]\n\nTerceiro.", origens)
+        assertEquals(bs.size, origens.size)
+        assertEquals(listOf(0, 2, 4), origens)
     }
 }
