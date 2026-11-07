@@ -1313,3 +1313,19 @@ html.contraste { --suave: #E2E2E2; --fraco: #BDBDBD; --borda: #9A9A9A; --sup: #1
 .editor .previa-ed { flex: 1; overflow: auto; padding: 18px 8px 120px; }
 .editor .previa-ed [data-b]:hover { outline: 1px dashed rgba(255,255,255,.25); outline-offset: 4px; border-radius: 6px; }
 #bprev.on { background: #fff; color: #000; }
+/* HUD do leitor (protótipo "Reader HUD"): pílula de vidro em cima, barra de 5 botões embaixo */
+.leitor .hud-topo { max-width: 440px; margin-left: auto; margin-right: auto; height: 52px; padding: 0 8px; border-radius: 26px; background: rgba(26,29,36,.75); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 16px 32px rgba(0,0,0,.5); }
+.leitor .hud-topo .tt { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.9); }
+.hud-ic { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.75); flex-shrink: 0; }
+.hud-ic:hover { color: #fff; background: rgba(255,255,255,.1); }
+.hud-baixo { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 6; width: min(440px, calc(100vw - 32px)); height: 64px; border-radius: 32px; display: flex; align-items: center; justify-content: space-around; padding: 0 8px;
+  background: rgba(26,29,36,.75); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 16px 32px rgba(0,0,0,.5); }
+.hud-bt { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: transparent; border: 0; color: rgba(255,255,255,.65); cursor: pointer; font: inherit; transition: color .2s, transform .1s; }
+.hud-bt:hover, .hud-bt.on { color: #fff; }
+.hud-bt.on { color: var(--amb); }
+.hud-bt:active { transform: scale(.92); }
+.hud-bt .rot-hud { font-size: 10px; font-weight: 500; letter-spacing: -.1px; }
+.leitor .dica-leitor { margin-bottom: 96px; }
+#texto mark.achado { background: rgba(255,201,74,.35); color: inherit; border-radius: 3px; }
+#texto mark.achado.atual { background: #ffc94a; color: #111; }
+@media (prefers-reduced-motion: reduce) { .hud-bt { transition: none; } .hud-bt:active { transform: none; } }

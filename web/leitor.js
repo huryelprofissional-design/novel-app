@@ -23,6 +23,50 @@ function estiloLeitura() {
 }
 async function corDoLeitor(url, base) { acentoLeitura = usarCorDaObra() ? ((url && await corDaImagem(url)) || (base ? corDaBase(base) : null)) : null; }
 const cartaoAnterior = (c) => c?.resumo ? `<div class="anteriormente"><div class="rotulo">Anteriormente…</div><p>${esc(c.resumo)}</p><span class="suave peq">${esc(c.titulo || "")}</span></div>` : "";
+// ───────── HUD do leitor (protótipo "Reader HUD"): barra de vidro em cima e embaixo ─────────
+const ICO = {
+  voltar: '<path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>', editar: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+  ouvir: '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
+  buscar: '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>', capitulos: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  rolar: '<path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>', leitura: '<path d="M4 19L10 5h4l6 14"/><path d="M6.5 14h11"/>',
+};
+const svg = (k, t = 20) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]}</svg>`;
+const ocultosHud = () => new Set(local.ler("ocultosHud", []));
+function hudTopo(voltar, titulo, editar) {
+  return `<div class="controles vidro hud-topo"><a class="hud-ic" href="${voltar}" title="Voltar" aria-label="Voltar">${svg("voltar")}</a><span class="tt">${titulo}</span>${editar ? `<a class="hud-ic" href="${editar}" title="Editar" aria-label="Editar capítulo">${svg("editar", 18)}</a>` : ""}</div>`;
+}
+function hudBaixo() {
+  const o = ocultosHud();
+  const b = (id, k, rot) => o.has(k) ? "" : `<button class="hud-bt" id="${id}" aria-label="${rot}">${svg(k)}<span class="rot-hud">${rot}</span></button>`;
+  return `<nav class="hud-baixo vidro">${b("ouvir", "ouvir", "Ouvir")}${b("lbusca", "buscar", "Buscar")}${b("lcaps", "capitulos", "Capítulos")}${b("lrolar", "rolar", "Rolar")}<button class="hud-bt" id="aj" aria-label="Leitura">${svg("leitura")}<span class="rot-hud">Leitura</span></button></nav>`;
+}
+let rolagem = null;
+function pararRolagem() { if (rolagem) { clearInterval(rolagem); rolagem = null; $("#lrolar")?.classList.remove("on"); } }
+/** Buscar no capítulo (marca todas e vai passando) e Rolar sozinho. */
+function ligarHud() {
+  pararRolagem();
+  const r = $("#lrolar");
+  if (r) r.onclick = () => { if (rolagem) { pararRolagem(); return; } r.classList.add("on"); rolagem = setInterval(() => scrollBy(0, 1), 28); };
+  addEventListener("wheel", pararRolagem, { passive: true, once: true });
+  let termo = "", achados = [], k = 0;
+  const bb = $("#lbusca");
+  if (bb) bb.onclick = async () => {
+    const t = await perguntar("Buscar neste capítulo", termo, "nome, frase…"); if (t === null || !t.trim()) return;
+    if (t.trim().toLowerCase() !== termo.toLowerCase()) {
+      termo = t.trim(); k = 0;
+      $$("#texto mark.achado").forEach((m) => m.replaceWith(document.createTextNode(m.textContent)));
+      const rx = new RegExp(termo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+      const andar = document.createTreeWalker($("#texto"), NodeFilter.SHOW_TEXT); const nos = []; while (andar.nextNode()) nos.push(andar.currentNode);
+      nos.forEach((n) => { if (!rx.test(n.textContent)) return; rx.lastIndex = 0; const f = document.createElement("span");
+        f.innerHTML = esc(n.textContent).replace(new RegExp(esc(termo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (m) => `<mark class="achado">${m}</mark>`); n.replaceWith(f); });
+      achados = $$("#texto mark.achado");
+    } else k = (k + 1) % Math.max(1, achados.length);
+    if (!achados.length) { toast("Não achei “" + termo + "”"); return; }
+    achados.forEach((m, j) => m.classList.toggle("atual", j === k)); achados[k].scrollIntoView({ block: "center", behavior: "smooth" });
+    toast(`${k + 1} de ${achados.length} · toque em Buscar de novo para o próximo`);
+  };
+}
+
 function painelAjustes(aoMudar) {
   const p = pref();
   const d = dialogo(`<h3 style="margin-top:0">Leitura</h3>
@@ -36,6 +80,8 @@ function painelAjustes(aoMudar) {
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="mara" ${p.maratona ? "checked" : ""}> Maratona: próximo capítulo começa sozinho</label>
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="cobra" ${usarCorDaObra() ? "checked" : ""}> Cores da capa da obra</label>
     <label class="troca" style="margin-top:10px"><input type="checkbox" id="clima" ${local.ler("climaCena", true) ? "checked" : ""}> Clima da cena (chuva, neve, fogo…)</label>
+    <label class="rot" style="margin-top:14px">Botões da barra de baixo</label><div class="chips">${[["ouvir", "Ouvir"], ["buscar", "Buscar"], ["capitulos", "Capítulos"], ["rolar", "Rolar"]].map(([k, n]) => `<span class="chip ${ocultosHud().has(k) ? "" : "on"}" data-hud="${k}">${n}</span>`).join("")}</div>
+    <span class="suave peq">Vale ao abrir o próximo capítulo.</span>
     <label class="rot" style="margin-top:14px">Ouvir</label>
     <label class="troca"><input type="checkbox" id="vpers" ${local.ler("vozesPersonagens", true) ? "checked" : ""}> Uma voz para cada personagem (pelo “disse Fulano”)</label>
     <select class="campo" id="narr" style="margin-top:8px"><option value="">Narrador: voz padrão</option>${speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt")).map((v) => `<option value="${esc(v.name)}" ${v.name === local.ler("narradorPC", "") ? "selected" : ""}>Narrador: ${esc(v.name)}</option>`).join("")}</select>
@@ -55,6 +101,7 @@ function painelAjustes(aoMudar) {
   $("#clima", d).onchange = (e) => { local.gravar("climaCena", e.target.checked); window.redesenhar(); };
   $("#narr", d).onchange = (e) => local.gravar("narradorPC", e.target.value);
   $("#idi", d).onchange = (e) => { local.gravar("idiomaLeitura", e.target.value); d.close(); window.redesenhar(); };
+  $$("[data-hud]", d).forEach((c) => (c.onclick = () => { const o = ocultosHud(); const k = c.dataset.hud; if (o.has(k)) o.delete(k); else o.add(k); local.gravar("ocultosHud", [...o]); c.classList.toggle("on", !o.has(k)); }));
   $$("[data-fonte]", d).forEach((c) => (c.onclick = () => { grava("fonte", c.dataset.fonte); $$("[data-fonte]", d).forEach((x) => x.classList.toggle("on", x === c)); }));
   $$("[data-tema]", d).forEach((c) => (c.onclick = () => { grava("tema", c.dataset.tema); $$("[data-tema]", d).forEach((x) => x.classList.toggle("on", x === c)); }));
   $("#pad", d).onclick = () => { local.gravar("leitura", {}); aoMudar(); d.close(); };
@@ -250,7 +297,7 @@ function generoFicha(f, texto, achar) {
   for (const m of achar(texto).filter((x) => x.id === f.id).slice(0, 80)) { const p = texto.slice(m.fim, m.fim + 70); fem += (p.match(FEM) || []).length; masc += (p.match(MASC) || []).length; }
   return fem > masc * 1.3 && fem >= 2 ? "F" : masc > fem * 1.3 && masc >= 2 ? "M" : null;
 }
-function pararVoz() { speechSynthesis.cancel(); falando = null; $$(".falando").forEach((p) => p.classList.remove("falando")); const b = $("#ouvir"); if (b) b.textContent = "▶ Ouvir"; }
+function pararVoz() { speechSynthesis.cancel(); falando = null; $$(".falando").forEach((p) => p.classList.remove("falando")); const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Ouvir"; $("#ouvir")?.classList.remove("on"); }
 /** Primeiro parágrafo visível na tela (o Ouvir começa dele, não do começo do capítulo). */
 function blocoNaTela() {
   const p = $$("#texto [data-b]").find((x) => x.getBoundingClientRect().bottom > 90);
@@ -289,7 +336,7 @@ function ouvir(apartir = 0) {
     };
     falando = i; fala();
   };
-  falando = 0; const b = $("#ouvir"); if (b) b.textContent = "■ Parar"; prox();
+  falando = 0; const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Parar"; $("#ouvir")?.classList.add("on"); prox();
 }
 
 /** Liga clique nos nomes (abre a ficha). */
@@ -334,8 +381,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   await corDoLeitor(o.capaHash ? await imagemMinha(obraId + "-capa") : null, o.corBase);
   const desenhar = () => {
     casca(aba, `<div class="prog" id="prog"></div><div class="leitor tema-leitura" style="${estiloLeitura()}">
-      <div class="controles vidro"><a class="voltar" href="#/obra/${obraId}" title="Voltar">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span>
-        <button class="btn2 peq" id="ouvir">▶ Ouvir</button><button class="btn2 peq" id="lcaps" title="Capítulos">☰</button><button class="btn2 peq" id="aj" title="Leitura">Aa</button>${pode ? `<a class="btn2 peq" href="#/editar/${obraId}/${capId}">✎ Editar</a>` : ""}</div>
+      ${hudTopo(`#/obra/${obraId}`, `${esc(o.titulo)} · ${esc(c.titulo)}`, pode ? `#/editar/${obraId}/${capId}` : "")}${hudBaixo()}
       <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo || "Sem título")}</h1><div class="suave peq">${palavrasFmt(c.palavras || 0)} palavras · ◷ ${Math.max(1, Math.round((c.palavras || 0) / 230))} min</div></div>
       ${(c.progresso || 0) < .05 ? cartaoAnterior(ant) : ""}
       <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fs), grifos, { enfeite: o.enfeite, autor: o.autor || nomeAutor() }) || '<p class="suave">Capítulo vazio.</p>'}</div>
@@ -348,9 +394,10 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   const ligar = () => {
     ligarNomes(fs, async (f) => (f.imagemHash ? (await import("./nucleo.js")).imagemMinha(f.id + "-foto") : null));
     fichasVoz = fs; traduzirTela();
-    $("#ouvir").onclick = () => ouvir(blocoNaTela());
+    if ($("#ouvir")) $("#ouvir").onclick = () => ouvir(blocoNaTela());
+    ligarHud();
     $("#aj").onclick = () => painelAjustes(() => { $(".leitor").setAttribute("style", estiloLeitura()); });
-    $("#lcaps").onclick = () => painelCapitulos(caps, capId, (x) => `#/ler/${obraId}/${x.id}`);
+    if ($("#lcaps")) $("#lcaps").onclick = () => painelCapitulos(caps, capId, (x) => `#/ler/${obraId}/${x.id}`);
     const cc = $("#concluir"); if (cc) cc.onclick = async () => { await salvarObra(obraId, { status: "CONCLUIDA" }); toast("Obra marcada como lida"); cc.remove(); };
     // grifar: botão direito num parágrafo
     $("#texto").oncontextmenu = (e) => {
@@ -604,8 +651,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   const [gostei, coms] = await Promise.all([curtiu(pid, cid), comentarios(pid, cid).catch(() => [])]);
   const fichasLista = fs.map((f) => ({ ...f, id: f.id }));
   const porTrecho = new Map(); for (const m of coms) if ((m.bloco ?? -1) >= 0) porTrecho.set(m.bloco, (porTrecho.get(m.bloco) || 0) + 1);
-  casca("descobrir", `<div class="prog" id="prog"></div><div class="leitor tema-leitura" style="${estiloLeitura()}"><div class="controles vidro"><a class="voltar" href="#/pub/${pid}">←</a><span class="tt">${esc(o.titulo)} · ${esc(c.titulo)}</span>
-      <button class="btn2 peq" id="ouvir">▶ Ouvir</button><button class="btn2 peq" id="lcaps">☰</button><button class="btn2 peq" id="aj">Aa</button></div>
+  casca("descobrir", `<div class="prog" id="prog"></div><div class="leitor tema-leitura" style="${estiloLeitura()}">${hudTopo(`#/pub/${pid}`, `${esc(o.titulo)} · ${esc(c.titulo)}`, "")}${hudBaixo()}
     <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo)}</h1><div class="suave peq">por <a href="#/autor/${esc(o.autorUid)}" style="text-decoration:underline">${esc(o.autorNome)}</a> · ${palavrasFmt(c.palavras)} palavras</div></div>
     ${cartaoAnterior(ant)}
     <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fichasLista), new Map(), { enfeite: o.enfeite, coms: porTrecho, autor: o.autorNome })}</div>
@@ -617,9 +663,10 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
       <div id="lcom">${coms.map((m) => `<div class="comentario"><span class="av" style="width:34px;height:34px">${esc((m.nome || "?").slice(0, 1))}</span><div style="flex:1"><b>${esc(m.nome)}</b> <span class="suave peq">${haQuanto(m.em)}</span><div>${esc(m.texto)}</div></div>${m.uid === E.usuario.uid || o.autorUid === E.usuario.uid ? `<button class="btn2 peq" data-ac="${m.id}">Apagar</button>` : ""}</div>`).join("") || `<p class="suave">Seja o primeiro a comentar.</p>`}</div></div></div>`);
   ligarNomes(fichasLista);
   fichasVoz = fichasLista; traduzirTela();
-  $("#ouvir").onclick = () => ouvir(blocoNaTela());
+  if ($("#ouvir")) $("#ouvir").onclick = () => ouvir(blocoNaTela());
+  ligarHud();
   $("#aj").onclick = () => painelAjustes(() => $(".leitor").setAttribute("style", estiloLeitura()));
-  $("#lcaps").onclick = () => painelCapitulos(caps, cid, (x) => `#/publer/${pid}/${x.id}`);
+  if ($("#lcaps")) $("#lcaps").onclick = () => painelCapitulos(caps, cid, (x) => `#/publer/${pid}/${x.id}`);
   $("#curtir").onclick = async (e) => { const b = e.currentTarget; const sim = !b.classList.contains("on"); b.classList.toggle("on", sim); b.firstChild.textContent = sim ? "♥ " : "♡ "; $("#nc").textContent = (+$("#nc").textContent) + (sim ? 1 : -1); try { await curtir(pid, cid, sim); } catch (_) {} };
   $("#enviar").onclick = async () => { const t = $("#com").value.trim(); if (!t) return; await comentar(pid, cid, t); registrar("comentar"); toast("Comentário enviado"); window.redesenhar(); };
   ligarReacoes();
