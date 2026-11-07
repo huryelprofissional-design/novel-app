@@ -32,3 +32,17 @@ class AncoraTest {
         assertEquals(1, Ancora.ancorar(depois, 1, "trecho que sumiu do capítulo inteiro"))
     }
 }
+
+class NumerosEscritaTest {
+    @Test fun semanaMesMedia() {
+        // quarta-feira, 11/11/2026
+        val hoje = java.util.Calendar.getInstance().apply { set(2026, java.util.Calendar.NOVEMBER, 11) }
+        val dias = mapOf("20261109" to 500, "20261110" to 0, "20261111" to 300, "20261108" to 1000, "20261031" to 200)
+        val r = NumerosEscrita.resumo(dias, hoje)
+        assertEquals(800, r.semana)        // seg 9 + qua 11 (dom 8 é da semana passada)
+        assertEquals(1800, r.mes)          // 8, 9 e 11 de novembro
+        assertEquals(3, r.diasNoMes)
+        assertEquals(500, r.mediaDiaEscrito) // (500+300+1000+200)/4
+        assertEquals("20261108" to 1000, r.melhorDia)
+    }
+}

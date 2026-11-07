@@ -97,8 +97,8 @@ fun forma(topStart: Dp = 0.dp, topEnd: Dp = 0.dp, bottomEnd: Dp = 0.dp, bottomSt
 fun titulo(t: String): String = if (LocalPaleta.current.maiusculas) t.uppercase() else t
 
 @Composable
-fun NovelyTheme(tema: TemaLeitura = TemaLeitura.OLED, content: @Composable () -> Unit) {
-    val p = tema.paleta
+fun NovelyTheme(tema: TemaLeitura = TemaLeitura.OLED, altoContraste: Boolean = false, content: @Composable () -> Unit) {
+    val p = if (altoContraste) altoContraste(tema.paleta) else tema.paleta
     val esquema = if (p.escuro) darkColorScheme(
         primary = p.destaque, onPrimary = p.sobreDestaque, secondary = p.destaque2,
         background = p.fundo, onBackground = p.texto, surface = p.fundo, onSurface = p.texto,
@@ -134,6 +134,13 @@ fun NovelyTheme(tema: TemaLeitura = TemaLeitura.OLED, content: @Composable () ->
         MaterialTheme(colorScheme = esquema, typography = tipografia, shapes = formas, content = content)
     }
 }
+
+/** Alto contraste: texto secundário quase branco, bordas visíveis e superfícies separadas do fundo (todos ≥ 7:1 no preto). */
+fun altoContraste(p: Paleta): Paleta = p.copy(
+    nome = p.nome + " · alto contraste", fundo = Color(0xFF000000), superficie = Color(0xFF111111), borda = Color(0xFF9A9A9A),
+    texto = Color(0xFFFFFFFF), textoSuave = Color(0xFFE2E2E2), destaque = Color(0xFFFF8A4C), sobreDestaque = Color(0xFF000000),
+    destaque2 = Color(0xFFD9A3FF), destaque3 = Color(0xFF8CC2FF), brilho = false,
+)
 
 // ───────── peças do estilo Pôster ─────────
 val Laranja = Color(0xFFFF6A2B)

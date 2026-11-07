@@ -75,6 +75,7 @@ fun ConteudoBiblia(res: Biblia.Resultado, abaInicial: String, abrirCap: (Long) -
                    porNaFicha: (com.huryel.novely.data.Ficha, Biblia.Fato) -> Unit) {
     val p = LocalPaleta.current
     var aba by remember { mutableStateOf(abaInicial) }
+    var filtroNivel by remember { mutableStateOf<com.huryel.novely.data.Biblia.Nivel?>(null) }
     var aberto by remember { mutableStateOf<Long?>(null) }
     var relAberta by remember { mutableStateOf<String?>(null) }
     val estadoPessoas = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -103,7 +104,33 @@ fun ConteudoBiblia(res: Biblia.Resultado, abaInicial: String, abrirCap: (Long) -
                         Text("Idades, olhos, cabelo, mortes, ferimentos, níveis e nomes estão batendo.", fontSize = 13.sp, color = p.textoSuave)
                     }
                 }
-                items(res.alertas, key = { it.chave }) { a ->
+                // relatório por gravidade: contagem, filtro e cópia do relatório inteiro
+                if (res.alertas.isNotEmpty()) item {
+                    val ctxRel = androidx.compose.ui.platform.LocalContext.current
+                    Column(Modifier.fillMaxWidth().clip(forma(18.dp)).background(p.superficie).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("RELATÓRIO DE REVISÃO", fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, color = p.textoSuave)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Chip("Todos · ${res.alertas.size}", filtroNivel == null) { filtroNivel = null }
+                            com.huryel.novely.data.Biblia.Nivel.entries.forEach { n ->
+                                val q = res.alertas.count { it.nivel == n }
+                                if (q > 0) Chip("${nomeNivel(n)} · $q", filtroNivel == n) { filtroNivel = if (filtroNivel == n) null else n }
+                            }
+                        }
+                        TextButton(onClick = {
+                            val txt = buildString {
+                                append("Relatório de revisão\n")
+                                res.alertas.sortedWith(compareBy({ it.nivel.ordinal }, { it.cap })).forEach { a ->
+                                    append("\n[${nomeNivel(a.nivel)}] cap. ${a.cap + 1} — ${a.titulo}\n${a.detalhe}\n")
+                                    if (a.frase.isNotBlank()) append("“${a.frase}”\n")
+                                }
+                            }
+                            (ctxRel.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                .setPrimaryClip(android.content.ClipData.newPlainText("Relatório", txt))
+                            android.widget.Toast.makeText(ctxRel, "Relatório copiado", android.widget.Toast.LENGTH_SHORT).show()
+                        }) { Text("Copiar relatório", color = p.destaque) }
+                    }
+                }
+                items(res.alertas.filter { filtroNivel == null || it.nivel == filtroNivel }.sortedWith(compareBy({ it.nivel.ordinal }, { it.cap })), key = { it.chave }) { a ->
                     val cor = corNivel(a.nivel)
                     Column(Modifier.fillMaxWidth().clip(forma(18.dp)).background(p.superficie).border(1.dp, cor.copy(alpha = 0.35f), forma(18.dp)).padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {

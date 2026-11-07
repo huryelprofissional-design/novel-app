@@ -102,7 +102,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 val estilo = if (tema.paleta.escuro) androidx.activity.SystemBarStyle.dark(transp) else androidx.activity.SystemBarStyle.light(transp, transp)
                 enableEdgeToEdge(statusBarStyle = estilo, navigationBarStyle = estilo)
             }
-            NovelyTheme(tema) {
+            val altoContraste by NovelyApp.instancia.prefs.altoContraste.estado.collectAsState()
+            NovelyTheme(tema, altoContraste) {
                 val travado by NovelyApp.instancia.bloqueado.collectAsState()
                 if (travado) com.huryel.novely.ui.TelaBloqueio { desbloquear() }
                 else AppNavegacao(temaAtual = tema, aoMudarTema = { prefs.definirTema(it.name) })

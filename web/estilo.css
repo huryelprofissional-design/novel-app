@@ -1300,3 +1300,6 @@ span.fx.fxi { display:inline; }
 .fx[data-forca="-1"] { opacity: .82; filter: saturate(.75); }
 /* reduzir animações (do sistema): efeitos parados */
 @media (prefers-reduced-motion: reduce) { .fx, .fx *, .texto .clima * { animation: none !important; transition: none !important; } }
+/* alto contraste: quando o sistema pede (Windows/Mac) ou com o atalho no Perfil (classe no <html>) */
+@media (prefers-contrast: more) { :root { --suave: #E2E2E2; --fraco: #BDBDBD; --borda: #9A9A9A; --sup: #111; --amb: #FF8A4C; } }
+html.contraste { --suave: #E2E2E2; --fraco: #BDBDBD; --borda: #9A9A9A; --sup: #111; --amb: #FF8A4C; }

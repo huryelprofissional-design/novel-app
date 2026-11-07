@@ -427,6 +427,18 @@ fun TelaBibliotecaAba(nav: NavHostController) {
                             Text((if (o.status == s) "✓  " else "     ") + n, fontWeight = if (o.status == s) FontWeight.Bold else FontWeight.Normal)
                         }
                     }
+                    // pasta (coleção) direto daqui: organiza a estante e os arquivos importados
+                    Text("PASTA", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+                    var novaPasta by remember { mutableStateOf("") }
+                    fun porNaPasta(nome: String) { mover = null; app.escopo.launch { app.repo.dao.obraAgora(o.id)?.let { app.repo.salvarObra(it.copy(colecao = nome.trim())) } } }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip("Nenhuma", o.colecao.isEmpty()) { porNaPasta("") }
+                        colecoes.forEach { c -> Chip("▣ $c", o.colecao == c) { porNaPasta(c) } }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(novaPasta, { novaPasta = it.take(30) }, placeholder = { Text("Nova pasta…") }, singleLine = true, modifier = Modifier.weight(1f).padding(top = 6.dp))
+                        TextButton(onClick = { if (novaPasta.isNotBlank()) porNaPasta(novaPasta) }, enabled = novaPasta.isNotBlank()) { Text("Criar") }
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { mover = null }) { Text("Fechar") } })
@@ -793,6 +805,15 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
                             Text("Barras e abas trocam sem deslizar e os efeitos de escrita ficam parados. Liga sozinho se o celular estiver com animações desativadas.", fontSize = 12.5.sp, color = p.textoSuave)
                         }
                         Switch(reduzirAnim, { app.prefs.reduzirAnimacoes.definir(it) }, colors = SwitchDefaults.colors(checkedTrackColor = p.destaque))
+                    }
+                    val contraste by app.prefs.altoContraste.estado.collectAsState()
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).border(1.dp, p.borda, RoundedCornerShape(16.dp))
+                        .clickable { app.prefs.altoContraste.definir(!contraste) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Alto contraste", fontWeight = FontWeight.Bold)
+                            Text("Textos cinza viram quase brancos e as bordas ficam bem visíveis. Bom para ler no sol ou com a vista cansada.", fontSize = 12.5.sp, color = p.textoSuave)
+                        }
+                        Switch(contraste, { app.prefs.altoContraste.definir(it) }, colors = SwitchDefaults.colors(checkedTrackColor = p.destaque))
                     }
                     Text("ÍCONE DO APP", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
                     val icone by app.prefs.iconeApp.estado.collectAsState()

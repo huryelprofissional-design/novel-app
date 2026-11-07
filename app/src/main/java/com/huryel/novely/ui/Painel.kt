@@ -103,6 +103,17 @@ fun TelaPainel(nav: NavHostController) {
                     }
                 }
             }
+            val num = remember(hoje) { com.huryel.novely.data.NumerosEscrita.resumo(prefs.escritaDias()) }
+            fun mil(n: Int) = "%,d".format(n).replace(',', '.')
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CartaoNumero("esta semana", mil(num.semana), "de segunda até hoje", Modifier.weight(1f))
+                CartaoNumero("este mês", mil(num.mes), "em ${num.diasNoMes} dia(s) de escrita", Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CartaoNumero("média por dia", mil(num.mediaDiaEscrito), "nos dias que você escreveu", Modifier.weight(1f))
+                CartaoNumero("melhor dia", num.melhorDia?.let { mil(it.second) } ?: "—",
+                    num.melhorDia?.let { (d, _) -> "em ${d.substring(6, 8)}/${d.substring(4, 6)}" } ?: "escreva para descobrir", Modifier.weight(1f))
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CartaoNumero("melhor horário", if (horas.sum() == 0) "—" else "${melhor}h–${(melhor + 3) % 24}h", if (horas.sum() == 0) "escreva para descobrir" else "quando você mais escreve", Modifier.weight(1f))
                 CartaoNumero("meta da semana", "${(totalSemana * 100 / metaSemana.coerceAtLeast(1)).coerceAtMost(999)}%",

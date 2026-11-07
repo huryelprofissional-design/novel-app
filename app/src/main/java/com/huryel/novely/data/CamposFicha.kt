@@ -32,3 +32,20 @@ object Ancora {
         return achados.minByOrNull { kotlin.math.abs(it - bloco) } ?: bloco
     }
 }
+
+/** Números de escrita para o painel, a partir de "aaaammdd → palavras" (até 120 dias guardados). */
+object NumerosEscrita {
+    data class Resumo(val semana: Int, val mes: Int, val mediaDiaEscrito: Int, val melhorDia: Pair<String, Int>?, val diasNoMes: Int)
+    fun resumo(dias: Map<String, Int>, hoje: java.util.Calendar = java.util.Calendar.getInstance()): Resumo {
+        val f = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
+        val c = hoje.clone() as java.util.Calendar
+        // semana do calendário: de segunda até hoje
+        val desdeSegunda = (c.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+        val semana = (0..desdeSegunda).sumOf { d -> val x = (hoje.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, -d) }; dias[f.format(x.time)] ?: 0 }
+        val prefixoMes = f.format(hoje.time).take(6)
+        val doMes = dias.filterKeys { it.startsWith(prefixoMes) }.filterValues { it > 0 }
+        val escritos = dias.values.filter { it > 0 }
+        val melhor = dias.filterValues { it > 0 }.maxByOrNull { it.value }?.let { it.key to it.value }
+        return Resumo(semana, doMes.values.sum(), if (escritos.isEmpty()) 0 else escritos.sum() / escritos.size, melhor, doMes.size)
+    }
+}

@@ -432,6 +432,8 @@ class Preferencias(ctx: Context) {
     val modoPaginas = bool("paginas", false)
     /** Reduzir animações: troca movimentos por cortes/fades curtos e deixa os efeitos de escrita parados. */
     val reduzirAnimacoes = bool("reduzirAnimacoes", false)
+    /** Alto contraste: textos secundários e bordas bem mais visíveis. */
+    val altoContraste = bool("altoContraste", false)
     val telaLigada = bool("telaLigada", true)
     val velocidadeVoz = real("voz", 1.0f)
     val narrador = texto("narrador", "")
