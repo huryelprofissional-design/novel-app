@@ -99,17 +99,32 @@ export async function gerar(v, texto, velocidade = 1) {
   return { amostras: r.amostras, taxa: r.taxa };
 }
 
-// gera com antecedência (para não ter pausa entre um trecho e outro); guarda só os últimos 12
+/** Liga o motor da voz antes de precisar (a primeira vez abre arquivos grandes). */
+export function aquecer(v) {
+  if (!instalada(v)) return;
+  fonemas ||= canal(new Worker(new URL("voz/fonemas-worker.js", location.href)));
+  fonemas({ texto: "a", lingua: "pt-br" }).catch(() => {});
+  for (const g of pool(v.pacote)) carregar(g, v.pacote).catch(() => {});
+}
+/** Divide em frases (juntando as curtas até ~140 letras): o primeiro áudio sai bem antes. */
+export function frases(t) {
+  const fr = t.match(/[^.!?…]+(?:[.!?…]+["”»)]*|$)\s*/g) || [t]; const out = []; let atual = "";
+  for (const f of fr) { if (atual && (atual + f).length > 140) { out.push(atual.trim()); atual = ""; } atual += f; }
+  if (atual.trim()) out.push(atual.trim());
+  return out.length ? out : [t];
+}
+// gera com antecedência (para não ter pausa entre um trecho e outro); guarda só os últimos 60
 const pre = new Map();
 export function preparar(v, texto, velocidade = 1) {
   const k = `${v.id}|${velocidade}|${texto}`;
-  if (!pre.has(k)) { pre.set(k, gerar(v, texto, velocidade)); pre.get(k).catch(() => pre.delete(k)); while (pre.size > 12) pre.delete(pre.keys().next().value); }
+  if (!pre.has(k)) { pre.set(k, gerar(v, texto, velocidade)); pre.get(k).catch(() => pre.delete(k)); while (pre.size > 60) pre.delete(pre.keys().next().value); }
   return pre.get(k);
 }
 export const esquecer = () => pre.clear();
 
 // ───────── tocar ─────────
-let ctx = null, fonte = null, acabou = null;
+let ctx = null, fonte = null, acabou = null, tocou = false;
+export const tocouAlgo = () => tocou;
 /** Toca até o fim; a promessa resolve quando termina (ou quando parar() é chamado). */
 export function tocar(a) {
   ctx ||= new (window.AudioContext || window.webkitAudioContext)();
@@ -118,7 +133,7 @@ export function tocar(a) {
   if (!a.amostras.length) return Promise.resolve();
   const buf = ctx.createBuffer(1, a.amostras.length, a.taxa); buf.copyToChannel(a.amostras, 0);
   const s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination); fonte = s;
-  return new Promise((ok) => { acabou = ok; s.onended = () => { if (fonte === s) { fonte = null; acabou = null; } ok(); }; s.start(); });
+  return new Promise((ok) => { acabou = ok; s.onended = () => { if (fonte === s) { fonte = null; acabou = null; } ok(); }; s.start(); tocou = true; });
 }
 export function calar() { const s = fonte; fonte = null; if (s) { s.onended = null; try { s.stop(); } catch (_) {} } const f = acabou; acabou = null; f?.(); }
 export function pausar() { if (ctx?.state === "running") ctx.suspend(); }

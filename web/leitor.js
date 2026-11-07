@@ -429,6 +429,14 @@ function ouvir(apartir = 0) {
     elenco.set(id, escolhida ? (escolhida.neural ? { neural: escolhida.neural, tom: 1 } : { voz: escolhida, tom: 1 })
       : auto?.neural ? { neural: auto.neural, tom: 1 } : { voz: auto, tom: tons[(Math.floor(k / Math.max(1, lista.length)) + (g ? 0 : 2)) % tons.length] });
   }
+  // vozes do Novely: trechos curtos (uma ou duas frases) começam a tocar bem mais rápido
+  const neuralDe = (s) => { const e = vozesPers && s.quem ? elenco.get(s.quem) : null; return e ? e.neural || null : narrN; };
+  const cachePed = new Map();
+  const pedacos = (j) => {
+    if (!cachePed.has(j)) cachePed.set(j, (segs[j] || []).flatMap((s) => (neuralDe(s) ? NV.frases(s.texto).map((t) => ({ ...s, texto: t })) : [s])));
+    return cachePed.get(j);
+  };
+  if (narrN) NV.aquecer(narrN);
   const prox = () => {
     const minha = ++geracao; // pular ou parar invalida as falas antigas (o cancel do navegador dispara onend/onerror)
     if (falando === null || i >= pars.length) { pararVoz(); return; }
@@ -436,17 +444,18 @@ function ouvir(apartir = 0) {
     p.scrollIntoView({ block: "center", behavior: "smooth" });
     const onde = $("#bv-onde"); if (onde) onde.textContent = `${i + 1} de ${pars.length} · ${Math.round(((i + 1) / pars.length) * 100)}%`;
     const feito = $("#bv-feito"); if (feito) feito.style.width = `${((i + 1) / pars.length) * 100}%`;
-    const lista = segs[i]; let k = 0;
-    // vozes do Novely: já vai gerando este parágrafo e os próximos (o Kokoro é lento; o PC gera vários de uma vez)
-    const neuralDe = (s) => { const e = vozesPers && s.quem ? elenco.get(s.quem) : null; return e ? e.neural || null : narrN; };
-    for (let j = i; j < Math.min(pars.length, i + 4); j++) for (const s of segs[j]) { const n = neuralDe(s); if (n) NV.preparar(n, s.texto, vel).catch(() => {}); }
+    const lista = pedacos(i); let k = 0;
+    // vozes do Novely: primeiro o trecho que vai tocar agora, depois os próximos (vão sendo gerados enquanto este toca)
+    const pre = []; for (let j = i; j < Math.min(pars.length, i + 4); j++) for (const s of pedacos(j)) { const n = neuralDe(s); if (n) pre.push([n, s.texto]); }
+    pre.forEach(([n, t]) => NV.preparar(n, t, vel).catch(() => {}));
     const fala = () => {
       if (falando === null || minha !== geracao) return;
       if (k >= lista.length) { i++; prox(); return; }
       const s = lista[k++]; const e = vozesPers && s.quem ? elenco.get(s.quem) : null;
       const n = neuralDe(s);
       if (n) {
-        NV.preparar(n, s.texto, vel).then((a) => (minha === geracao ? NV.tocar(a) : null)).then(() => { if (minha === geracao) fala(); })
+        if (!NV.tocouAlgo()) { const o = $("#bv-onde"); if (o) o.textContent = "Preparando a voz… (só demora na primeira vez)"; }
+        NV.preparar(n, s.texto, vel).then((a) => { if (minha !== geracao) return null; const o = $("#bv-onde"); if (o) o.textContent = `${i + 1} de ${pars.length} · ${Math.round(((i + 1) / pars.length) * 100)}%`; return NV.tocar(a); }).then(() => { if (minha === geracao) fala(); })
           .catch((err) => { if (minha === geracao) { toast("A voz do Novely falhou: " + err.message); pararVoz(); } });
         return;
       }
