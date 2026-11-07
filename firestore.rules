@@ -47,6 +47,8 @@ service cloud.firestore {
           && (!('leiturasSemana' in mudou())
               || (('semanaId' in mudou()) && request.resource.data.leiturasSemana == 1 && ('leituras' in mudou()))
               || (!('semanaId' in mudou()) && passo('leiturasSemana', 1, 1)))
+          // trocar a semana só junto com uma leitura de verdade (senão, zerava o ranking semanal dos outros)
+          && (!('semanaId' in mudou()) || (('leituras' in mudou()) && request.resource.data.get('leiturasSemana', 0) == 1))
           && textoAte(request.resource.data, 'semanaId', 12);
       }
       allow read: if logado();
