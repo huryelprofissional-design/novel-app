@@ -41,7 +41,7 @@ class Buscador(private val repo: Repositorio) {
                 var i = norm.indexOf(q)
                 var oc = 0
                 while (i >= 0 && oc < 30 && achados.size < limite) {
-                    val ini = (i - 70).coerceAtLeast(0).let { s -> texto.lastIndexOf(' ', s).takeIf { it in (s - 20)..s } ?: s }
+                    val ini = (i - 70).coerceAtLeast(0).let { s -> texto.lastIndexOf(' ', s).takeIf { it >= 0 && it in (s - 20)..s } ?: s } // termo no começo: lastIndexOf dava -1 e travava a busca
                     val fim = (i + q.length + 90).coerceAtMost(texto.length)
                     val bruto = texto.substring(ini, fim)
                     // tira marcas de formatação e quebras, mantendo a posição do termo correta

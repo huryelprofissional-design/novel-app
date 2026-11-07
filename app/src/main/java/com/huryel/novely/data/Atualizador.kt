@@ -95,38 +95,55 @@ class Atualizador(private val ctx: Context, private val prefs: Preferencias) {
 
     suspend fun baixar(v: Versao) = withContext(Dispatchers.IO) {
         _estado.value = EstadoAtualizacao.Baixando(v, 0f)
-        try {
-            val dir = File(ctx.cacheDir, "atualizacao").apply { mkdirs() }
-            dir.listFiles()?.forEach { it.delete() }
-            val destino = File(dir, "novely-${v.numero}.apk")
-            var url = v.urlApk
-            var con: HttpURLConnection
-            var saltos = 0
-            while (true) {
-                con = (URL(url).openConnection() as HttpURLConnection).apply {
-                    instanceFollowRedirects = false; connectTimeout = 15_000; readTimeout = 30_000
-                    setRequestProperty("User-Agent", "Novely-Android")
-                }
-                val c = con.responseCode
-                if (c in 300..399 && saltos < 5) { url = con.getHeaderField("Location"); con.disconnect(); saltos++; continue }
-                if (c != 200) throw IllegalStateException("download respondeu $c")
-                break
-            }
-            val total = con.contentLengthLong.takeIf { it > 0 } ?: v.tamanho
-            con.inputStream.use { ins ->
-                destino.outputStream().use { out ->
-                    val buf = ByteArray(64 * 1024); var feito = 0L; var ultimo = 0L
-                    while (true) {
-                        val r = ins.read(buf); if (r <= 0) break
-                        out.write(buf, 0, r); feito += r
-                        if (feito - ultimo > 200_000) { ultimo = feito; _estado.value = EstadoAtualizacao.Baixando(v, if (total > 0) feito.toFloat() / total else 0f) }
-                    }
-                }
-            }
-            _estado.value = EstadoAtualizacao.Pronta(v, destino)
-        } catch (e: Exception) {
-            _estado.value = EstadoAtualizacao.Erro("O download parou: ${e.message ?: "sem conexão"}. Tente de novo.")
+        val dir = File(ctx.cacheDir, "atualizacao").apply { mkdirs() }
+        val destino = File(dir, "novely-${v.numero}.apk")
+        // guarda o pedaço já baixado desta versão (as outras saem)
+        dir.listFiles()?.filter { it.name != destino.name }?.forEach { it.delete() }
+        var tentativa = 0
+        var ultimoErro: Exception? = null
+        // a internet do celular cai (troca de Wi-Fi/4G, tela apagada): continua de onde parou, até 8 vezes
+        while (tentativa < 8) {
+            tentativa++
+            try {
+                if (baixarParte(v, destino)) { _estado.value = EstadoAtualizacao.Pronta(v, destino); return@withContext }
+            } catch (e: Exception) { ultimoErro = e }
+            kotlinx.coroutines.delay(1500L * tentativa)
         }
+        _estado.value = EstadoAtualizacao.Erro("O download parou: ${ultimoErro?.message ?: "sem conexão"}. Toque em Tentar de novo — ele continua de onde parou.")
+    }
+
+    /** Baixa (ou continua) o APK; true quando terminou inteiro. */
+    private fun baixarParte(v: Versao, destino: File): Boolean {
+        val jaTem = if (destino.exists()) destino.length() else 0L
+        var url = v.urlApk
+        var con: HttpURLConnection
+        var saltos = 0
+        while (true) {
+            con = (URL(url).openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = false; connectTimeout = 15_000; readTimeout = 30_000
+                setRequestProperty("User-Agent", "Novely-Android")
+                if (jaTem > 0) setRequestProperty("Range", "bytes=$jaTem-")
+            }
+            val c = con.responseCode
+            if (c in 300..399 && saltos < 5) { url = con.getHeaderField("Location"); con.disconnect(); saltos++; continue }
+            if (c == 416 && jaTem > 0) { con.disconnect(); val ok = v.tamanho <= 0 || jaTem >= v.tamanho; if (!ok) destino.delete(); return ok } // já completo (ou pedaço estragado: recomeça)
+            if (c != 200 && c != 206) throw IllegalStateException("download respondeu $c")
+            break
+        }
+        val continuando = con.responseCode == 206
+        val inicio = if (continuando) jaTem else 0L
+        val total = (con.contentLengthLong.takeIf { it > 0 }?.plus(inicio)) ?: v.tamanho
+        con.inputStream.use { ins ->
+            java.io.FileOutputStream(destino, continuando).use { out ->
+                val buf = ByteArray(64 * 1024); var feito = inicio; var ultimo = 0L
+                while (true) {
+                    val r = ins.read(buf); if (r <= 0) break
+                    out.write(buf, 0, r); feito += r
+                    if (feito - ultimo > 200_000) { ultimo = feito; _estado.value = EstadoAtualizacao.Baixando(v, if (total > 0) feito.toFloat() / total else 0f) }
+                }
+            }
+        }
+        return total <= 0 || destino.length() >= total
     }
 
     /** O Android exige permitir "instalar apps desconhecidos" para o Novely uma vez. */
