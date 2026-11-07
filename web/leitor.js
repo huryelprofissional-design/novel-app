@@ -297,12 +297,53 @@ function generoFicha(f, texto, achar) {
   for (const m of achar(texto).filter((x) => x.id === f.id).slice(0, 80)) { const p = texto.slice(m.fim, m.fim + 70); fem += (p.match(FEM) || []).length; masc += (p.match(MASC) || []).length; }
   return fem > masc * 1.3 && fem >= 2 ? "F" : masc > fem * 1.3 && masc >= 2 ? "M" : null;
 }
-function pararVoz() { speechSynthesis.cancel(); falando = null; $$(".falando").forEach((p) => p.classList.remove("falando")); const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Ouvir"; $("#ouvir")?.classList.remove("on"); }
+let geracao = 0, ctrlVoz = null;
+function pararVoz() {
+  geracao++; speechSynthesis.cancel(); falando = null; ctrlVoz = null;
+  $$(".falando").forEach((p) => p.classList.remove("falando"));
+  const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Ouvir"; $("#ouvir")?.classList.remove("on");
+  $("#barra-voz")?.remove();
+}
 /** Primeiro parágrafo visível na tela (o Ouvir começa dele, não do começo do capítulo). */
 function blocoNaTela() {
   const p = $$("#texto [data-b]").find((x) => x.getBoundingClientRect().bottom > 90);
   return p ? +p.dataset.b : 0;
 }
+/** Painel da voz (aparece em cima da barra enquanto ouve): voltar, pausar, avançar, parar, velocidade, narrador, vozes. */
+function mostrarBarraVoz(narradores) {
+  $("#barra-voz")?.remove();
+  const vel = local.ler("velVoz", 1), atual = local.ler("narradorPC", "");
+  const d = document.createElement("div"); d.id = "barra-voz"; d.className = "barra-voz";
+  d.innerHTML = `<div class="bv-linha">
+      <button class="bv-bt" id="bv-ant" title="Parágrafo anterior" aria-label="Parágrafo anterior">⏮</button>
+      <button class="bv-bt bv-play" id="bv-pausa" title="Pausar" aria-label="Pausar">⏸</button>
+      <button class="bv-bt" id="bv-prox" title="Próximo parágrafo" aria-label="Próximo parágrafo">⏭</button>
+      <button class="bv-bt" id="bv-parar" title="Parar" aria-label="Parar">■</button>
+      <span class="bv-onde" id="bv-onde"></span>
+      <button class="bv-tela" id="bv-tela" hidden>▶ Ouvir o que está na tela</button></div>
+    <div class="bv-linha bv-opcoes">
+      <label>Velocidade <select id="bv-vel">${[0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2].map((v) => `<option value="${v}" ${v === vel ? "selected" : ""}>${String(v).replace(".", ",")}×</option>`).join("")}</select></label>
+      <label>Narrador <select id="bv-narr"><option value="">Voz padrão</option>${narradores.map((v) => `<option ${v.name === atual ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select></label>
+      <label class="troca"><input type="checkbox" id="bv-pers" ${local.ler("vozesPersonagens", true) ? "checked" : ""}> Uma voz por personagem</label></div>`;
+  document.body.appendChild(d);
+  const recomecar = () => { const b = ctrlVoz?.bloco() ?? blocoNaTela(); pararVoz(); ouvir(b); };
+  $("#bv-ant").onclick = () => ctrlVoz?.pular(-1);
+  $("#bv-prox").onclick = () => ctrlVoz?.pular(1);
+  $("#bv-parar").onclick = () => pararVoz();
+  $("#bv-pausa").onclick = (e) => {
+    if (speechSynthesis.paused) { speechSynthesis.resume(); e.currentTarget.textContent = "⏸"; e.currentTarget.title = "Pausar"; }
+    else { speechSynthesis.pause(); e.currentTarget.textContent = "▶"; e.currentTarget.title = "Continuar"; }
+  };
+  $("#bv-vel").onchange = (e) => { local.gravar("velVoz", +e.target.value); recomecar(); };
+  $("#bv-narr").onchange = (e) => { local.gravar("narradorPC", e.target.value); recomecar(); };
+  $("#bv-pers").onchange = (e) => { local.gravar("vozesPersonagens", e.target.checked); recomecar(); };
+  $("#bv-tela").onclick = () => { const b = blocoNaTela(); pararVoz(); ouvir(b); };
+}
+// a voz num lugar e a tela em outro: oferece "ouvir o que está na tela"
+addEventListener("scroll", () => {
+  const t = $("#bv-tela"); if (!t || !ctrlVoz) return;
+  t.hidden = Math.abs(blocoNaTela() - ctrlVoz.bloco()) <= 2;
+}, { passive: true });
 function ouvir(apartir = 0) {
   const pars = $$("#texto [data-b]").filter((p) => p.tagName !== "DIV");
   if (falando !== null) { pararVoz(); return; }
@@ -323,20 +364,30 @@ function ouvir(apartir = 0) {
     elenco.set(id, { voz: lista[k % Math.max(1, lista.length)], tom: tons[(Math.floor(k / Math.max(1, lista.length)) + (g ? 0 : 2)) % tons.length] });
   }
   const prox = () => {
+    const minha = ++geracao; // pular ou parar invalida as falas antigas (o cancel do navegador dispara onend/onerror)
     if (falando === null || i >= pars.length) { pararVoz(); return; }
     const p = pars[i]; $$(".falando").forEach((x) => x.classList.remove("falando")); p.classList.add("falando");
     p.scrollIntoView({ block: "center", behavior: "smooth" });
+    const onde = $("#bv-onde"); if (onde) onde.textContent = `parágrafo ${i + 1} de ${pars.length}`;
     const lista = segs[i]; let k = 0;
     const fala = () => {
-      if (falando === null) return;
+      if (falando === null || minha !== geracao) return;
       if (k >= lista.length) { i++; prox(); return; }
       const s = lista[k++]; const e = vozesPers && s.quem ? elenco.get(s.quem) : null;
       const u = new SpeechSynthesisUtterance(s.texto); u.lang = "pt-BR"; u.voice = e?.voz || narr || null; u.pitch = e?.tom || 1; u.rate = vel;
-      u.onend = fala; u.onerror = () => pararVoz(); speechSynthesis.speak(u);
+      u.onend = () => { if (minha === geracao) fala(); };
+      u.onerror = (ev) => { if (minha === geracao && ev.error !== "interrupted" && ev.error !== "canceled") pararVoz(); };
+      speechSynthesis.speak(u);
     };
     falando = i; fala();
   };
-  falando = 0; const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Parar"; $("#ouvir")?.classList.add("on"); prox();
+  ctrlVoz = {
+    bloco: () => +(pars[Math.min(i, pars.length - 1)]?.dataset.b ?? 0),
+    pular: (d) => { i = Math.max(0, Math.min(pars.length - 1, i + d)); speechSynthesis.cancel(); if (speechSynthesis.paused) speechSynthesis.resume(); const pb = $("#bv-pausa"); if (pb) pb.textContent = "⏸"; prox(); },
+  };
+  falando = 0; const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Parar"; $("#ouvir")?.classList.add("on");
+  mostrarBarraVoz(todas);
+  prox();
 }
 
 /** Liga clique nos nomes (abre a ficha). */

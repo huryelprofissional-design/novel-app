@@ -1329,3 +1329,15 @@ html.contraste { --suave: #E2E2E2; --fraco: #BDBDBD; --borda: #9A9A9A; --sup: #1
 #texto mark.achado { background: rgba(255,201,74,.35); color: inherit; border-radius: 3px; }
 #texto mark.achado.atual { background: #ffc94a; color: #111; }
 @media (prefers-reduced-motion: reduce) { .hud-bt { transition: none; } .hud-bt:active { transform: none; } }
+/* painel da voz do PC: em cima da barra de baixo enquanto ouve */
+.barra-voz { position: fixed; left: 50%; transform: translateX(-50%); bottom: 92px; z-index: 7; width: min(560px, calc(100vw - 32px)); padding: 10px 14px; border-radius: 22px;
+  background: rgba(26,29,36,.88); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 16px 32px rgba(0,0,0,.5);
+  display: flex; flex-direction: column; gap: 8px; color: rgba(255,255,255,.85); font-size: 13px; }
+.bv-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bv-bt { width: 40px; height: 40px; border-radius: 20px; border: 0; background: rgba(255,255,255,.08); color: #fff; font-size: 16px; cursor: pointer; }
+.bv-bt:hover { background: rgba(255,255,255,.16); }
+.bv-play { background: #fff; color: #0b0b0e; }
+.bv-onde { flex: 1; text-align: right; color: rgba(255,255,255,.55); font-size: 12px; }
+.bv-tela { border: 0; border-radius: 16px; background: #fff; color: #0b0b0e; font-weight: 700; padding: 8px 12px; cursor: pointer; }
+.bv-opcoes label { display: flex; align-items: center; gap: 6px; }
+.bv-opcoes select { background: #15161b; color: #fff; border: 1px solid #2c2e36; border-radius: 10px; padding: 4px 6px; max-width: 220px; }
