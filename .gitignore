@@ -3,3 +3,7 @@ build/
 app/build/
 local.properties
 app/libs/*.aar
+# vozes do PC: montadas pelo workflow do site
+web/voz/sherpa-onnx-*
+web/voz/piper-phonemize/
+web/vozes/

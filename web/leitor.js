@@ -8,6 +8,7 @@ import {
   collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra, carteira, liberado, ganharMoedas,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
+import * as NV from "./vozneural.js";
 import * as X from "./extras.js";
 
 // ───────── preferências de leitura ─────────
@@ -307,7 +308,7 @@ function generoFicha(f, texto, achar) {
 }
 let geracao = 0, ctrlVoz = null;
 function pararVoz() {
-  geracao++; speechSynthesis.cancel(); falando = null; ctrlVoz = null;
+  geracao++; speechSynthesis.cancel(); NV.calar(); NV.continuar(); falando = null; ctrlVoz = null;
   $$(".falando").forEach((p) => p.classList.remove("falando"));
   const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Ouvir"; $("#ouvir")?.classList.remove("on");
   $("#barra-voz")?.remove();
@@ -323,11 +324,13 @@ function opcoesVozes(atual, padrao = "Automática") {
   const grupos = new Map();
   for (const v of vs) { const l = (v.lang || "?").replace("_", "-"); const k = /^pt/i.test(l) ? "0Português" : "1" + (l.split("-")[0] || "?"); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(v); }
   const nomeLingua = (k) => { if (k === "0Português") return "Português"; try { return new Intl.DisplayNames(["pt-BR"], { type: "language" }).of(k.slice(1)) || k.slice(1); } catch (_) { return k.slice(1); } };
-  return `<option value="">${padrao}</option>` + [...grupos.keys()].sort().map((k) => `<optgroup label="${esc(nomeLingua(k))}">${grupos.get(k)
+  const novely = NV.instaladas();
+  return `<option value="">${padrao}</option>` + (novely.length ? `<optgroup label="✦ Vozes do Novely">${novely.map((v) => `<option value="${v.id}" ${v.id === atual ? "selected" : ""}>✦ ${esc(v.nome)} (${esc(v.descricao)})</option>`).join("")}</optgroup>` : "") + [...grupos.keys()].sort().map((k) => `<optgroup label="${esc(nomeLingua(k))}">${grupos.get(k)
     .map((v) => `<option value="${esc(v.name)}" ${v.name === atual ? "selected" : ""}>${esc(v.name.replace(/^Microsoft |^Google /, "").replace(/ - .*$/, ""))}${/natural|online|neural/i.test(v.name) ? " ✦" : ""}</option>`).join("")}</optgroup>`).join("");
 }
 function testarVoz(nome) {
   speechSynthesis.cancel();
+  const n = NV.vozNeural(nome); if (n && NV.instalada(n)) { NV.testar(n, local.ler("velVoz", 1)).catch((e) => toast("A voz falhou: " + e.message)); return; }
   const v = speechSynthesis.getVoices().find((x) => x.name === nome);
   const u = new SpeechSynthesisUtterance(v && !/^pt/i.test(v.lang) ? "Hello! This is how I sound." : "Olá! É assim que eu leio a sua história.");
   if (v) { u.voice = v; u.lang = v.lang; } u.rate = local.ler("velVoz", 1); speechSynthesis.speak(u);
@@ -357,6 +360,11 @@ function mostrarBarraVoz(personagens) {
       <button class="bv-bt bv-sec ${aberto ? "on" : ""}" id="bv-cfg" title="Vozes" aria-label="Vozes" aria-expanded="${aberto}">${icv("engrenagem", 18)}</button>
     </div>
     <div class="bv-vozes" id="bv-vozes" ${aberto ? "" : "hidden"}>
+      <div class="bv-sub">✦ Vozes do Novely · mais humanas</div>
+      <div class="bv-novely">${NV.VOZES.map((v) => { const narrAgora = local.ler("narradorPC", "") === v.id; return `<div class="bv-nv ${narrAgora ? "on" : ""}"><span class="bv-nvn">${v.feminina ? "♀" : "♂"} ${esc(v.nome)}<em>${narrAgora ? "narrador agora" : esc(v.descricao)}</em></span>${NV.instalada(v)
+        ? `<button class="bv-testar" data-nv-testar="${v.id}">Testar</button>${narrAgora ? "" : `<button class="bv-testar bv-usar" data-nv-usar="${v.id}">Narrar</button>`}`
+        : `<button class="bv-testar bv-usar" data-nv-baixar="${v.id}">Baixar · ${NV.faltaMb(v)} MB</button>`}</div>`; }).join("")}</div>
+      <div class="bv-dica">Baixadas uma vez, ficam no navegador. Depois aparecem no Narrador e nos personagens. As Doras são mais pesadas: podem demorar alguns segundos para começar.</div>
       <div class="bv-campo"><span>Narrador</span><select id="bv-narr">${opcoesVozes(local.ler("narradorPC", ""), "Voz padrão do sistema")}</select><button class="bv-testar" data-testa="bv-narr">Testar</button></div>
       <label class="troca bv-campo"><input type="checkbox" id="bv-pers" ${local.ler("vozesPersonagens", true) ? "checked" : ""}> Uma voz para cada personagem</label>
       ${personagens.length ? `<div class="bv-sub">Personagens deste capítulo</div>` + personagens.map((p) => `<div class="bv-campo"><span>${esc(p.nome)}</span><select data-pers="${esc(p.id)}">${opcoesVozes(local.ler("vozPers:" + p.id, ""), "Automática (" + esc((p.auto || "").replace(/^Microsoft |^Google /, "").replace(/ - .*$/, "")) + ")")}</select><button class="bv-testar" data-testa-pers="${esc(p.id)}">Testar</button></div>`).join("") : ""}
@@ -369,8 +377,8 @@ function mostrarBarraVoz(personagens) {
   $("#bv-parar").onclick = () => pararVoz();
   $("#bv-pausa").onclick = (e) => {
     const b = e.currentTarget;
-    if (speechSynthesis.paused) { speechSynthesis.resume(); b.innerHTML = icv("pausa", 20, true); b.title = "Pausar"; d.classList.remove("pausado"); }
-    else { speechSynthesis.pause(); b.innerHTML = icv("play", 20, true); b.title = "Continuar"; d.classList.add("pausado"); }
+    if (d.classList.contains("pausado")) { speechSynthesis.resume(); NV.continuar(); b.innerHTML = icv("pausa", 20, true); b.title = "Pausar"; d.classList.remove("pausado"); }
+    else { speechSynthesis.pause(); NV.pausar(); b.innerHTML = icv("play", 20, true); b.title = "Continuar"; d.classList.add("pausado"); }
   };
   let tv = null;
   $("#bv-vel").oninput = (e) => { $("#bv-velt").textContent = (+e.target.value).toFixed(2).replace(".", ",") + "×"; };
@@ -382,6 +390,13 @@ function mostrarBarraVoz(personagens) {
   $$("[data-testa]", d).forEach((b) => (b.onclick = () => { ctrlVoz?.pausarPara(); testarVoz($("#" + b.dataset.testa).value); }));
   $$("[data-testa-pers]", d).forEach((b) => (b.onclick = () => { ctrlVoz?.pausarPara(); const p = personagens.find((x) => x.id === b.dataset.testaPers); testarVoz($(`[data-pers="${b.dataset.testaPers}"]`, d).value || p?.auto || ""); }));
   $("#bv-tela").onclick = () => { const b = blocoNaTela(); pararVoz(); ouvir(b); };
+  $$("[data-nv-testar]", d).forEach((b) => (b.onclick = () => { ctrlVoz?.pausarPara(); testarVoz(b.dataset.nvTestar); }));
+  $$("[data-nv-usar]", d).forEach((b) => (b.onclick = () => { local.gravar("narradorPC", b.dataset.nvUsar); recomecar(); }));
+  $$("[data-nv-baixar]", d).forEach((b) => (b.onclick = async () => {
+    const v = NV.vozNeural(b.dataset.nvBaixar); $$("[data-nv-baixar]", d).forEach((x) => (x.disabled = true));
+    try { await NV.baixar(v, (f) => (b.textContent = `Baixando… ${Math.round(f * 100)}%`)); toast(`✦ ${v.nome} pronta`); const blk = ctrlVoz?.bloco() ?? blocoNaTela(); pararVoz(); ouvir(blk); }
+    catch (e) { toast("Não deu para baixar: " + e.message); b.textContent = "Tentar de novo"; $$("[data-nv-baixar]", d).forEach((x) => (x.disabled = false)); }
+  }));
 }
 // a voz num lugar e a tela em outro: oferece "ouvir o que está na tela"
 addEventListener("scroll", () => {
@@ -396,17 +411,23 @@ function ouvir(apartir = 0) {
   const pt = speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt"));
   const br = pt.filter((v) => /br/i.test(v.lang)); const todas = br.length ? br : pt;
   const narr = speechSynthesis.getVoices().find((v) => v.name === local.ler("narradorPC", "")) || todas[0];
+  const narrN = ((n) => (n && NV.instalada(n) ? n : null))(NV.vozNeural(local.ler("narradorPC", "")));
   const textos = pars.map((p) => p.textContent.replace(/✎|💬.*$/g, "").trim());
   const achar = nomesVoz(fichasVoz); const segs = dividirElenco(textos, achar);
   // voz e tom de cada personagem: mulheres com vozes femininas, homens com masculinas, cada um com um tom
-  const fem = todas.filter((v) => VOZES_F.test(v.name) && v !== narr), masc = todas.filter((v) => VOZES_M.test(v.name) && v !== narr);
+  // vozes do Novely baixadas vêm primeiro para os personagens (soam melhor)
+  const nvF = NV.instaladas().filter((v) => v.feminina && v !== narrN).map((v) => ({ neural: v })), nvM = NV.instaladas().filter((v) => !v.feminina && v !== narrN).map((v) => ({ neural: v }));
+  const fem = [...nvF, ...todas.filter((v) => VOZES_F.test(v.name) && v !== narr)], masc = [...nvM, ...todas.filter((v) => VOZES_M.test(v.name) && v !== narr)];
   const tons = [1, 0.85, 1.15, 0.93, 1.07]; const elenco = new Map(); let nf = 0, nm = 0, nx = 0; const tudo = textos.join("\n");
   for (const id of [...new Set(segs.flat().map((s) => s.quem).filter(Boolean))]) {
     const f = fichasVoz.find((x) => x.id === id); const g = f ? generoFicha(f, tudo, achar) : null;
     const lista = (g === "F" ? fem : g === "M" ? masc : todas).length ? (g === "F" ? fem : g === "M" ? masc : todas) : todas;
     const k = g === "F" ? nf++ : g === "M" ? nm++ : nx++;
-    const escolhida = speechSynthesis.getVoices().find((v) => v.name === local.ler("vozPers:" + id, ""));
-    elenco.set(id, escolhida ? { voz: escolhida, tom: 1 } : { voz: lista[k % Math.max(1, lista.length)], tom: tons[(Math.floor(k / Math.max(1, lista.length)) + (g ? 0 : 2)) % tons.length] });
+    const nomeEsc = local.ler("vozPers:" + id, ""); const nEsc = NV.vozNeural(nomeEsc);
+    const escolhida = nEsc && NV.instalada(nEsc) ? { neural: nEsc } : speechSynthesis.getVoices().find((v) => v.name === nomeEsc);
+    const auto = lista[k % Math.max(1, lista.length)];
+    elenco.set(id, escolhida ? (escolhida.neural ? { neural: escolhida.neural, tom: 1 } : { voz: escolhida, tom: 1 })
+      : auto?.neural ? { neural: auto.neural, tom: 1 } : { voz: auto, tom: tons[(Math.floor(k / Math.max(1, lista.length)) + (g ? 0 : 2)) % tons.length] });
   }
   const prox = () => {
     const minha = ++geracao; // pular ou parar invalida as falas antigas (o cancel do navegador dispara onend/onerror)
@@ -416,10 +437,19 @@ function ouvir(apartir = 0) {
     const onde = $("#bv-onde"); if (onde) onde.textContent = `${i + 1} de ${pars.length} · ${Math.round(((i + 1) / pars.length) * 100)}%`;
     const feito = $("#bv-feito"); if (feito) feito.style.width = `${((i + 1) / pars.length) * 100}%`;
     const lista = segs[i]; let k = 0;
+    // vozes do Novely: já vai gerando este parágrafo e os próximos (o Kokoro é lento; o PC gera vários de uma vez)
+    const neuralDe = (s) => { const e = vozesPers && s.quem ? elenco.get(s.quem) : null; return e ? e.neural || null : narrN; };
+    for (let j = i; j < Math.min(pars.length, i + 4); j++) for (const s of segs[j]) { const n = neuralDe(s); if (n) NV.preparar(n, s.texto, vel).catch(() => {}); }
     const fala = () => {
       if (falando === null || minha !== geracao) return;
       if (k >= lista.length) { i++; prox(); return; }
       const s = lista[k++]; const e = vozesPers && s.quem ? elenco.get(s.quem) : null;
+      const n = neuralDe(s);
+      if (n) {
+        NV.preparar(n, s.texto, vel).then((a) => (minha === geracao ? NV.tocar(a) : null)).then(() => { if (minha === geracao) fala(); })
+          .catch((err) => { if (minha === geracao) { toast("A voz do Novely falhou: " + err.message); pararVoz(); } });
+        return;
+      }
       const u = new SpeechSynthesisUtterance(s.texto); u.voice = e?.voz || narr || null; u.lang = u.voice?.lang || "pt-BR"; u.pitch = e?.tom || 1; u.rate = vel;
       u.onend = () => { if (minha === geracao) fala(); };
       u.onerror = (ev) => { if (minha === geracao && ev.error !== "interrupted" && ev.error !== "canceled") pararVoz(); };
@@ -429,11 +459,11 @@ function ouvir(apartir = 0) {
   };
   ctrlVoz = {
     bloco: () => +(pars[Math.min(i, pars.length - 1)]?.dataset.b ?? 0),
-    pausarPara: () => { geracao++; speechSynthesis.cancel(); const pb = $("#bv-pausa"); if (pb) { pb.innerHTML = icv("play", 20, true); pb.title = "Continuar"; pb.onclick = () => { const b = ctrlVoz?.bloco() ?? blocoNaTela(); pararVoz(); ouvir(b); }; } }, // testar uma voz pausa a leitura; ▶ continua do parágrafo
-    pular: (d) => { i = Math.max(0, Math.min(pars.length - 1, i + d)); speechSynthesis.cancel(); if (speechSynthesis.paused) speechSynthesis.resume(); const pb = $("#bv-pausa"); if (pb) pb.textContent = "⏸"; prox(); },
+    pausarPara: () => { geracao++; speechSynthesis.cancel(); NV.calar(); const pb = $("#bv-pausa"); if (pb) { pb.innerHTML = icv("play", 20, true); pb.title = "Continuar"; pb.onclick = () => { const b = ctrlVoz?.bloco() ?? blocoNaTela(); pararVoz(); ouvir(b); }; } }, // testar uma voz pausa a leitura; ▶ continua do parágrafo
+    pular: (d) => { i = Math.max(0, Math.min(pars.length - 1, i + d)); speechSynthesis.cancel(); NV.calar(); if (speechSynthesis.paused) speechSynthesis.resume(); const pb = $("#bv-pausa"); if (pb) pb.textContent = "⏸"; prox(); },
   };
   falando = 0; const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Parar"; $("#ouvir")?.classList.add("on");
-  mostrarBarraVoz([...elenco.keys()].map((id) => ({ id, nome: fichasVoz.find((f) => f.id === id)?.nome || "?", auto: elenco.get(id)?.voz?.name || "" })));
+  mostrarBarraVoz([...elenco.keys()].map((id) => ({ id, nome: fichasVoz.find((f) => f.id === id)?.nome || "?", auto: elenco.get(id)?.neural?.id || elenco.get(id)?.voz?.name || "" })));
   prox();
 }
 

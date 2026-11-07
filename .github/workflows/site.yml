@@ -19,6 +19,40 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Vozes do Novely (motor WebAssembly)
+        run: |
+          set -e
+          v=1.13.8; n=sherpa-onnx-wasm-simd-$v-vits-piper-en_US-libritts_r-medium
+          curl -fsSL "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$v/$n.tar.bz2" | tar xj
+          cp $n/sherpa-onnx-wasm-main-tts.wasm $n/sherpa-onnx-tts.js web/voz/
+          # o pacote de exemplo traz um modelo em inglês embutido: tiramos, as vozes vêm de vozes/
+          python3 - "$n/sherpa-onnx-wasm-main-tts.js" web/voz/sherpa-onnx-wasm-main-tts.js <<'PY'
+          import re, sys
+          s = open(sys.argv[1]).read()
+          s2, k = re.subn(r'loadPackage\(\{files:\[.*?\],remote_package_size:\d+\}\)', 'loadPackage({files:[],remote_package_size:0})', s)
+          assert k == 1, k
+          open(sys.argv[2], "w").write(s2)
+          PY
+          : > web/voz/sherpa-onnx-wasm-main-tts.data
+          mkdir -p web/voz/piper-phonemize
+          cp $n/piper-phonemize/piper-phonemize-wasm-main.{js,wasm,data} $n/piper-phonemize/piper-phonemize.js web/voz/piper-phonemize/
+          rm -rf $n
+      - name: Vozes do Novely (pacotes)
+        run: |
+          set -e
+          base=https://github.com/${{ github.repository }}/releases/download/vozes-v1
+          for p in piper-faber piper-cadu piper-jeff piper-edresson kokoro; do
+            mkdir -p web/vozes/$p && curl -fsSL -o p.zip "$base/$p.zip" && unzip -qo p.zip -d web/vozes/$p && rm p.zip
+            rm -f web/vozes/$p/lexicon-us-en.txt
+            # o site não aceita arquivos acima de 100 MB: os grandes vão em partes + lista (.partes)
+            for f in web/vozes/$p/*; do
+              if [ $(stat -c%s "$f") -gt 90000000 ]; then
+                split -b 90000000 -d "$f" "$f.p"; rm "$f"
+                (cd $(dirname "$f") && ls $(basename "$f").p* > $(basename "$f").partes)
+              fi
+            done
+          done
+          ls -laR web/vozes | head -40
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
