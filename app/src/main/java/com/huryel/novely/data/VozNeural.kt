@@ -46,7 +46,7 @@ object VozNeural {
         Voz("novely:dora-sussurrada", "Dora sussurrada", "kokoro", 3, true, "feminina, sussurrada"),
     )
     private const val BASE = "https://github.com/huryelprofissional-design/novel-app/releases/download/vozes-v1/"
-    private val TAMANHO_MB = mapOf("espeak" to 9, "piper-faber" to 57, "piper-cadu" to 57, "piper-jeff" to 57, "piper-edresson" to 57, "kokoro" to 140)
+    private val TAMANHO_MB = mapOf("espeak" to 9, "piper-faber" to 56, "piper-cadu" to 56, "piper-jeff" to 56, "piper-edresson" to 56, "kokoro" to 117)
 
     fun ehNeural(nome: String?) = nome?.startsWith("novely:") == true
     fun voz(nome: String?) = VOZES.firstOrNull { it.id == nome }
