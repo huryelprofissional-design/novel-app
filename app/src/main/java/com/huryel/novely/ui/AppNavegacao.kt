@@ -134,6 +134,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     val modoVidro by app.prefs.efeitoVidro.estado.collectAsState()
     LaunchedEffect(modoVidro) { ModoVidro.liquido = modoVidro == "LIQUIDO" }
 
+    CompositionLocalProvider(LocalSemMovimento provides reduzirAnimacoes()) {
     Scaffold(
         containerColor = p.fundo,
         contentColor = p.texto,
@@ -242,6 +243,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             }
         }
         }
+    }
     }
 }
 

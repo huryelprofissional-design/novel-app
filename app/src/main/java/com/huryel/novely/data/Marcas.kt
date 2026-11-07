@@ -65,6 +65,47 @@ object Marcas {
             if (l.startsWith("[!") && l.endsWith("!]")) l = l.substring(2, l.length - 2)
             listOf("!!", "^^", "((", "))", "[[", "]]", "||", "%%", "<<", ">>", "{{", "}}", "~~", "{", "}").fold(l) { a, m -> a.replace(m, "") } }.joinToString("\n")
 
+    private val RX_FX_INLINE = Regex("\\{[a-zçãéíóúâêô]+[+-]?(?::[a-zçãéíóúâêô]+)?:\\s([^}]*)\\}")
+    private fun campos(s: String) = s.split(Regex("(?<!\\|)\\|(?!\\|)")).map { it.trim() }.filter { it.isNotEmpty() }
+
+    /** Tira os símbolos de efeito do trecho e deixa só o texto: "{fogo+:azul: chamas}" → "chamas", "!!Corre!!" → "Corre". */
+    fun semEfeitoNoTrecho(s: String): String {
+        var t = RX_FX_INLINE.replace(s) { it.groupValues[1] }
+        listOf("!!", "^^", "((", "))", "||", "%%", "~~").forEach { t = t.replace(it, "") }
+        t = Regex("<<(.*?)>>").replace(t) { it.groupValues[1] }
+        t = Regex("(?<!\\{)\\{([^{}]+)\\}(?!\\})").replace(t) { it.groupValues[1] } // {telepatia}
+        return t
+    }
+
+    /**
+     * "Remover efeito" de uma linha inteira: o bloco vira parágrafo comum e o texto fica.
+     * "[#sistema:vermelho Você subiu | HP 30/100]" → "Você subiu. HP 30/100"; "[!Aviso!]" → "Aviso".
+     */
+    fun semEfeito(linha: String): String {
+        val l = linha.trim()
+        fun juntar(x: String) = campos(x).map { semEfeitoNoTrecho(it.removePrefix("[x]").removePrefix("[ ]").trim()) }.filter { it.isNotEmpty() }.joinToString(". ")
+        return when {
+            l.startsWith("[#") && l.endsWith("]") -> juntar(l.substring(2, l.length - 1).substringAfter(' ', ""))
+            l.startsWith("[[") && l.endsWith("]]") -> juntar(l.substring(2, l.length - 2))
+            l.startsWith("[!") && l.endsWith("!]") -> semEfeitoNoTrecho(l.substring(2, l.length - 2).trim())
+            l.startsWith("{{") && l.endsWith("}}") -> juntar(l.substring(2, l.length - 2))
+            l.startsWith("[+") && l.endsWith("]") -> campos(l.substring(2, l.length - 1)).firstOrNull().orEmpty()
+            l.startsWith("::") -> campos(l.drop(2)).joinToString(", ")
+            l.startsWith("##") && !l.startsWith("###") -> semEfeitoNoTrecho(l.trimStart('#').trim())
+            l.startsWith(">>>") -> semEfeitoNoTrecho(l.drop(3).trim())
+            l.startsWith(">>") -> semEfeitoNoTrecho(l.drop(2).trim())
+            l.startsWith("> ") -> semEfeitoNoTrecho(l.drop(2).trim())
+            l.startsWith("==") -> semEfeitoNoTrecho(l.drop(2).trim())
+            else -> semEfeitoNoTrecho(l)
+        }
+    }
+
+    /** O trecho do jeito que o painel de efeitos escreve: em linha "{fogo+:azul: texto}" ou parágrafo "[#sistema-:verde texto]". */
+    fun escreverEfeito(nome: String, cor: String?, forca: Int, texto: String, bloco: Boolean): String {
+        val cab = nome + (if (forca > 0) "+" else if (forca < 0) "-" else "") + (cor?.takeIf { it != "roxo" || !bloco }?.let { ":$it" } ?: "")
+        return if (bloco) "[#$cab ${texto.trim()}]" else "{$cab: $texto}"
+    }
+
     fun limpar(s: String): String {
         if ('@' !in s && '&' !in s) return s
         return REGRA_BASE.replace(s) { m -> nomeDe(m) + m.groupValues[7] }

@@ -149,6 +149,9 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
     }
     var mostrarMapa by remember { mutableStateOf(false) }
     var mostrarEfeitos by remember { mutableStateOf(false) }
+    var mostrarPainelFx by remember { mutableStateOf(false) }
+    var previa by rememberSaveable { mutableStateOf(false) } // Prévia (desenhado como o leitor) × Símbolos (texto cru)
+    var menuPrevia by remember { mutableIntStateOf(-1) }
 
     // desfazer / refazer
     val desfazer = remember { ArrayDeque<Passo>() }
@@ -361,6 +364,56 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         versao++
     }
 
+    /** Troca a seleção pelo efeito do painel; efeito de parágrafo fica numa linha só dele. */
+    fun aplicarEfeito(sintaxe: String, bloco: Boolean) {
+        val i = focado.takeIf { it in pedacos.indices } ?: pedacos.lastIndex
+        val pd = pedacos[i]; val v = pd.valor; val sel = v.selection
+        var ins = sintaxe
+        if (bloco) {
+            if (sel.min > 0 && v.text[sel.min - 1] != '\n') ins = "\n" + ins
+            if (sel.max < v.text.length && v.text[sel.max] != '\n') ins += "\n"
+        }
+        ultimoPedacoPasso = -1; empilhar(pd, v); ultimoPedacoPasso = -1
+        pd.valor = TextFieldValue(v.text.substring(0, sel.min) + ins + v.text.substring(sel.max), TextRange(sel.min + ins.length))
+        versao++
+    }
+
+    /** Linha n do texto inteiro → (pedaço, início, fim) dentro do pedaço. */
+    fun localDaLinha(n: Int): Triple<Int, Int, Int>? {
+        if (n < 0) return null
+        val todo = pedacos.joinToString("") { it.valor.text }
+        var ini = 0
+        repeat(n) { val k = todo.indexOf('\n', ini); if (k < 0) return null; ini = k + 1 }
+        val fim = todo.indexOf('\n', ini).let { if (it < 0) todo.length else it }
+        var base = 0
+        pedacos.forEachIndexed { pi, pd ->
+            val len = pd.valor.text.length
+            if (ini >= base && fim <= base + len) return Triple(pi, ini - base, fim - base)
+            base += len
+        }
+        return null
+    }
+
+    /** "Remover efeito": a linha perde os símbolos e o texto fica (dá para desfazer). */
+    fun removerEfeitoDaLinha(n: Int) {
+        val (pi, a, b) = localDaLinha(n) ?: return
+        val pd = pedacos[pi]; val v = pd.valor
+        val linha = v.text.substring(a, b)
+        val nova = Marcas.semEfeito(linha)
+        if (nova == linha.trim()) return
+        ultimoPedacoPasso = -1; empilhar(pd, v); ultimoPedacoPasso = -1
+        pd.valor = TextFieldValue(v.text.substring(0, a) + nova + v.text.substring(b), TextRange(a + nova.length))
+        versao++; contadorPilhas++
+        escopo.launch { if (snack.showSnackbar("Efeito removido", "Desfazer", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) aplicarPasso(desfazer, refazer) }
+    }
+
+    /** Sai da prévia e seleciona a linha com os símbolos. */
+    fun verSimbolos(n: Int) {
+        previa = false
+        val (pi, a, b) = localDaLinha(n) ?: return
+        escopo.launch { delay(120); irPara(pi, a, b - a) }
+    }
+
     /** Travessão de fala: começa um parágrafo novo com "— " se o cursor não estiver numa linha vazia. */
     fun novaFala() {
         val i = focado.takeIf { it in pedacos.indices } ?: pedacos.lastIndex
@@ -563,6 +616,9 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                     Topo(cap?.titulo?.ifEmpty { "Página em branco" } ?: "", nav) {
                         Text(estadoSalvo, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             color = if (estadoSalvo == "Salvo") Color(0xFF6FC2B4) else p.destaque, modifier = Modifier.padding(end = 2.dp))
+                        Text(if (previa) "Símbolos" else "Prévia", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (previa) Color(0xFF0B0B0E) else p.texto,
+                            modifier = Modifier.padding(horizontal = 4.dp).clip(forma(16.dp)).background(if (previa) Color.White else p.superficie)
+                                .clickable { menuPrevia = -1; previa = !previa }.padding(horizontal = 12.dp, vertical = 8.dp))
                         IconButton(onClick = { painel = if (painel == PainelEd.BUSCA) PainelEd.NENHUM else PainelEd.BUSCA }) { Icon(Icons.Filled.Search, "Buscar e substituir") }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mais opções") }
@@ -605,6 +661,30 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                 val realce = remember(p, qNorm, repeticoes, ignorarCaixa) { RealceEditor(p, if (consulta.length >= 2) qNorm else "", ignorarCaixa, repeticoes) }
                 val vidroEd = rememberVidro()
                 Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (previa) {
+                    // Prévia: o capítulo desenhado pelo motor do leitor; tocar num efeito abre Remover / Ver os símbolos
+                    val textoTodo = remember(versao) { pedacos.joinToString("") { it.valor.text } }
+                    val origens = remember(textoTodo) { ArrayList<Int>() }
+                    val blocos = remember(textoTodo) { origens.clear(); montarBlocos(textoTodo, origens) }
+                    val linhas = remember(textoTodo) { textoTodo.lines() }
+                    LazyColumn(Modifier.fillMaxSize().background(p.fundo), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        item { Text("Prévia: assim o leitor vê. Toque num efeito para remover ou ver os símbolos.", fontSize = 12.sp, color = p.textoSuave) }
+                        itemsIndexed(blocos) { bi, bl ->
+                            val ln = origens.getOrElse(bi) { -1 }
+                            val src = linhas.getOrNull(ln).orEmpty()
+                            val temFx = src.isNotBlank() && Marcas.semEfeito(src) != src.trim()
+                            Box {
+                                BlocoPrevia(bl, estilo, p, Modifier.fillMaxWidth().clickable { if (temFx) menuPrevia = bi else verSimbolos(ln) })
+                                DropdownMenu(menuPrevia == bi, { menuPrevia = -1 }, containerColor = p.superficie) {
+                                    DropdownMenuItem(text = { Text("Remover efeito (o texto fica)", color = Color(0xFFFF9D9D)) }, onClick = { menuPrevia = -1; removerEfeitoDaLinha(ln) })
+                                    DropdownMenuItem(text = { Text("Ver os símbolos") }, onClick = { menuPrevia = -1; verSimbolos(ln) })
+                                }
+                            }
+                        }
+                        item { Spacer(Modifier.height(140.dp)) }
+                    }
+                } else
                 LazyColumn(state = lista, modifier = Modifier.fillMaxSize()
                         .then(if (maquina) Modifier.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFFEDE4D0), Color(0xFFF5EFE2), Color(0xFFEDE4D0))))
                             .graphicsLayer { translationY = batida.value * density } else Modifier.background(p.fundo))
@@ -624,7 +704,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                     }
                     item { Spacer(Modifier.height(240.dp)) }
                 }
-                androidx.compose.animation.AnimatedVisibility(visible = !modoFoco, modifier = Modifier.align(Alignment.BottomCenter)) {
+                androidx.compose.animation.AnimatedVisibility(visible = !modoFoco && !previa, modifier = Modifier.align(Alignment.BottomCenter)) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).vidroLiquido(vidroEd, 26.dp)) {
                         if (textoSelecionado.isNotEmpty()) {
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
@@ -668,7 +748,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                             BotaoFerramenta("◆", p, cor = p.destaque) { inserir("\n\n* * *\n\n", false) }
                             BotaoFerramenta("H", p) { inserir("\n# ", false) }
                             BotaoFerramenta("☰", p) { mostrarMapa = true }
-                            BotaoFerramenta("✦", p, FontWeight.ExtraBold, cor = Color(0xFFFFC94A)) { mostrarEfeitos = true }
+                            BotaoFerramenta("✦", p, FontWeight.ExtraBold, cor = Color(0xFFFFC94A)) { mostrarPainelFx = true }
                         }
                     }
                 }
@@ -695,6 +775,11 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp))
     }
 
+    if (mostrarPainelFx) ModalBottomSheet(onDismissRequest = { mostrarPainelFx = false }, containerColor = Color(0xFF111216),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        PainelEfeito(textoSelecionado, p, aoAplicar = { t, bl -> mostrarPainelFx = false; aplicarEfeito(t, bl) },
+            aoCancelar = { mostrarPainelFx = false }, verSimbolos = { mostrarPainelFx = false; mostrarEfeitos = true })
+    }
     if (mostrarEfeitos) ModalBottomSheet(onDismissRequest = { mostrarEfeitos = false }, containerColor = p.superficie) {
         FolhaEfeitosEscrita(p) { marca, envolver -> mostrarEfeitos = false; inserir(marca, envolver) }
     }

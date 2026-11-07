@@ -1,6 +1,7 @@
 package com.huryel.novely.ui
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloat as animateFloatReal
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -81,12 +82,25 @@ fun lerBlocoFx(linha: String): Triple<String, String?, String>? {
     if (!linha.startsWith("[#") || !linha.endsWith("]")) return null
     val corpo = linha.substring(2, linha.length - 1)
     val cab = corpo.substringBefore(' ')
-    val nome0 = cab.substringBefore(':').lowercase()
+    val nome0 = cab.substringBefore(':').lowercase().trimEnd('+', '-')
     val nome = APELIDOS_FX[nome0] ?: nome0
     if (nome !in BLOCOS_FX) return null
     val cor = cab.substringAfter(':', "").ifEmpty { null }
     return Triple(nome, cor, corpo.substringAfter(' ', "").trim())
 }
+
+/** Intensidade escrita depois do nome do efeito: "+" forte (1), "-" suave (-1), nada normal (0). Ex.: [#sistema+:vermelho …], {fogo-: …}. */
+fun forcaFx(cabecalho: String): Int = cabecalho.substringBefore(':').trim().let { if (it.endsWith("+")) 1 else if (it.endsWith("-")) -1 else 0 }
+fun forcaBlocoFx(linha: String): Int = if (linha.startsWith("[#")) forcaFx(linha.substring(2).substringBefore(' ')) else 0
+
+/** "Reduzir animações" ligado: efeitos ficam parados (o app inteiro fornece o valor). */
+val LocalSemMovimento = staticCompositionLocalOf { false }
+
+/** Mesma assinatura da animação infinita do Compose; com "Reduzir animações" devolve um valor fixo (o meio do caminho). */
+@Composable
+private fun InfiniteTransition.animateFloat(initialValue: Float, targetValue: Float, animationSpec: InfiniteRepeatableSpec<Float>, label: String = "FloatAnimation"): State<Float> =
+    if (LocalSemMovimento.current) remember(initialValue, targetValue) { mutableStateOf((initialValue + targetValue) / 2f) }
+    else animateFloatReal(initialValue, targetValue, animationSpec, label)
 
 /** Campos separados por "|" (sem quebrar os ||segredos||). */
 fun camposFx(s: String): List<String> = s.split(Regex("(?<!\\|)\\|(?!\\|)")).map { it.trim() }.filter { it.isNotEmpty() }
@@ -97,6 +111,7 @@ private fun mix(c: Color, f: Float) = lerp(ESC, c, f)
 
 /** Entra subindo e aparecendo (com atraso). */
 private fun Modifier.entrar(atrasoMs: Int = 0, dy: Float = 18f): Modifier = composed {
+    if (LocalSemMovimento.current) return@composed Modifier
     val a = remember { Animatable(0f) }
     LaunchedEffect(Unit) { delay(atrasoMs.toLong()); a.animateTo(1f, tween(500, easing = FastOutSlowInEasing)) }
     graphicsLayer { alpha = a.value; translationY = (1 - a.value) * dy * density }
@@ -134,10 +149,22 @@ private fun piscar(ms: Int): Boolean {
 }
 
 @Composable
-fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, modifier: Modifier = Modifier) {
+fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, modifier: Modifier = Modifier, forca: Int = 0) {
     val c = camposFx(resto)
     val f = { i: Int -> c.getOrNull(i).orEmpty() }
-    Box(modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    // intensidade: suave = mais apagado; forte = halo na cor do efeito, pulsando
+    val corHalo = corFx(corNome)
+    val halo = if (forca > 0) { val t = rememberInfiniteTransition(label = "forte"); t.animateFloat(0.18f, 0.42f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "h").value } else 0f
+    val intensidade = when {
+        forca < 0 -> Modifier.graphicsLayer { alpha = 0.82f }
+        forca > 0 -> Modifier.drawBehind {
+            val r = 18.dp.toPx(); val e = 8.dp.toPx()
+            drawRoundRect(corHalo.copy(alpha = halo * 0.5f), Offset(-e, -e), Size(size.width + 2 * e, size.height + 2 * e), CornerRadius(r + e))
+            drawRoundRect(corHalo.copy(alpha = halo), Offset(-e / 2, -e / 2), Size(size.width + e, size.height + e), CornerRadius(r))
+        }
+        else -> Modifier
+    }
+    Box(modifier.fillMaxWidth().padding(vertical = 4.dp).then(intensidade)) {
         when (nome) {
             "sistema" -> fx0(nome, corNome, resto, c, f, estilo)
             "evolucao" -> fx1(nome, corNome, resto, c, f, estilo)
@@ -1180,21 +1207,32 @@ private val Rasgado = poli(0f, .04f, .06f, 0f, .12f, .03f, .19f, 0f, .27f, .04f,
 
 val INLINE_FX = setOf("fogo", "gelo", "neon", "medo", "eco", "runa", "idioma", "divino", "feitico", "cor", "sangue", "veneno", "raio", "sombra", "quebra", "vento", "ouro", "coracao")
 private val APELIDOS_INLINE = mapOf("feitiço" to "feitico", "coração" to "coracao", "chamas" to "fogo", "runas" to "runa")
-private val RX_INLINE = Regex("\\{([a-zçãéíóúâêô]+)(?::([a-zçãéíóúâêô]+))?:\\s")
-/** "{fogo:azul: texto}" começando em i → (efeito, cor, texto, fim) */
-fun lerInlineFx(linha: String, i: Int): Pair<Triple<String, String?, String>, Int>? {
+private val RX_INLINE = Regex("\\{([a-zçãéíóúâêô]+)([+-])?(?::([a-zçãéíóúâêô]+))?:\\s")
+/** Um efeito em linha lido do texto: "{fogo+:azul: texto}" → nome, cor, texto, intensidade (-1, 0, 1) e onde acaba. */
+data class InlineFx(val nome: String, val cor: String?, val texto: String, val forca: Int, val fim: Int)
+fun lerInlineFx(linha: String, i: Int): InlineFx? {
     val m = RX_INLINE.find(linha, i)?.takeIf { it.range.first == i } ?: return null
     val nome = APELIDOS_INLINE[m.groupValues[1]] ?: m.groupValues[1]
     if (nome !in INLINE_FX) return null
     val fim = linha.indexOf('}', m.range.last + 1).takeIf { it > 0 } ?: return null
-    return Triple(nome, m.groupValues[2].ifEmpty { null }, linha.substring(m.range.last + 1, fim)) to fim + 1
+    val forca = when (m.groupValues[2]) { "+" -> 1; "-" -> -1; else -> 0 }
+    return InlineFx(nome, m.groupValues[3].ifEmpty { null }, linha.substring(m.range.last + 1, fim), forca, fim + 1)
 }
 
 private val RUNAS = "ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᚪᚫ"
 fun runar(s: String) = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase().map { c -> val k = c - 'a'; if (k in 0..25) RUNAS[k] else if (c == ' ') ' ' else '·' }.joinToString("")
 
 /** Estilo fixo de cada efeito em linha (os que mexem são animados em textoComEfeitos). */
-fun estiloInlineFx(nome: String, cor: String?): SpanStyle {
+fun estiloInlineFx(nome: String, cor: String?, forca: Int = 0): SpanStyle {
+    val base = estiloInlineBase(nome, cor)
+    if (forca == 0) return base
+    val sombra = base.shadow
+    val fator = if (forca > 0) 2.2f else 0.35f
+    return if (sombra != null) base.copy(shadow = androidx.compose.ui.graphics.Shadow(sombra.color.copy(alpha = if (forca > 0) 1f else sombra.color.alpha * 0.6f), sombra.offset, sombra.blurRadius * fator))
+    else if (forca > 0) base.copy(fontWeight = FontWeight.Black) else base
+}
+
+private fun estiloInlineBase(nome: String, cor: String?): SpanStyle {
     val cc = cor?.let { corFx(it) }
     return when (nome) {
         "fogo" -> SpanStyle(brush = Brush.verticalGradient(if (cc != null) listOf(claro(cc), cc, mix(cc, .6f)) else listOf(Color(0xFFFFE27A), Color(0xFFFF8A1F), Color(0xFFFF3B00))), fontWeight = FontWeight.Black,

@@ -140,4 +140,24 @@ class MarcasTest {
         assertTrue(Marcas.inicioDeFrase("— Cristóvão, venha!", 2))
         assertTrue(!Marcas.inicioDeFrase("disse Cristóvão", 6))
     }
+
+    @Test fun removerEfeitoDeixaOTexto() {
+        assertEquals("Você subiu. HP 30/100", Marcas.semEfeito("[#sistema:vermelho Você subiu | HP 30/100]"))
+        assertEquals("Você subiu de nível", Marcas.semEfeito("[#sistema+ Você subiu de nível]"))
+        assertEquals("Habilidade adquirida", Marcas.semEfeito("[[Habilidade adquirida]]"))
+        assertEquals("Missões. Sobreviver", Marcas.semEfeito("[[Missões | [x] Sobreviver]]"))
+        assertEquals("Você subiu", Marcas.semEfeito("[!Você subiu!]"))
+        assertEquals("Espada do Vazio", Marcas.semEfeito("[+Espada do Vazio | lendário]"))
+        assertEquals("Do fundo vieram as chamas e o grito", Marcas.semEfeito("Do fundo vieram as {fogo+:azul: chamas} e o !!grito!!"))
+        assertEquals("Seul, 03:14", Marcas.semEfeito(":: Seul | 03:14"))
+        assertEquals("segredo aqui", Marcas.semEfeitoNoTrecho("||segredo|| aqui"))
+    }
+
+    @Test fun escreverEfeitoComIntensidade() {
+        assertEquals("{fogo+:azul: chamas}", Marcas.escreverEfeito("fogo", "azul", 1, "chamas", false))
+        assertEquals("{neon: luz}", Marcas.escreverEfeito("neon", null, 0, "luz", false))
+        assertEquals("[#sistema- Você subiu]", Marcas.escreverEfeito("sistema", "roxo", -1, "Você subiu", true))
+        assertEquals("[#perigo:vermelho Fuja]", Marcas.escreverEfeito("perigo", "vermelho", 0, "Fuja", true))
+        assertEquals("chamas", Marcas.semEfeito(Marcas.escreverEfeito("fogo", "azul", 1, "chamas", false)))
+    }
 }

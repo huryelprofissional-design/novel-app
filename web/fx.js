@@ -93,10 +93,11 @@ export const BLOCOS = new Set(Object.keys(B));
 
 /** "[#evolucao:dourado …]" → html (ou null se não for bloco do Mega Pack). */
 export function blocoFx(linha, tx) {
-  const m = linha.match(/^\[#([\wçãéíóúâêô-]+)(?::([a-zçãéíóúâêô]+))?\s*(.*)\]$/i); if (!m) return null;
+  const m = linha.match(/^\[#([\wçãéíóúâêô-]+?)([+-])?(?::([a-zçãéíóúâêô]+))?(?:\s+(.*))?\]$/i); if (!m) return null;
   const nome = APELIDO[m[1].toLowerCase()] || m[1].toLowerCase(); if (!B[nome]) return null;
-  const cor = m[2] ? m[2].toLowerCase() : "";
-  return `<div class="fx" data-fx="${nome}"${cor ? ` data-cor="${e(cor)}"` : ""}>${B[nome](campos(m[3]), tx, m[3])}</div>`;
+  const cor = m[3] ? m[3].toLowerCase() : "", resto = m[4] || "";
+  const forca = m[2] === "+" ? ' data-forca="1"' : m[2] === "-" ? ' data-forca="-1"' : "";
+  return `<div class="fx" data-fx="${nome}"${cor ? ` data-cor="${e(cor)}"` : ""}${forca}>${B[nome](campos(resto), tx, resto)}</div>`;
 }
 
 // ───── estilos em linha ─────
@@ -105,8 +106,13 @@ const AP_IN = { "feitiço": "feitico", "coração": "coracao", chamas: "fogo", r
 const letrasI = (s, cls) => { let n = 0; return `<span class="${cls}">` + s.split(" ").map((w) => `<span style="white-space:nowrap">${[...w].map((c) => `<i style="--d:${(n++ * .06).toFixed(2)}s;--r:${(Math.random() * 60 - 30) | 0}deg">${c}</i>`).join("")}</span>`).join(" ") + "</span>"; };
 /** Recebe html já escapado; troca {efeito:cor: texto} pelo visual. */
 export function inlineFx(h) {
-  return h.replace(/\{([a-zçãéíóúâêô]+)(?::([a-zçãéíóúâêô]+))?:\s([^{}]+)\}/g, (all, n0, cor, t) => {
+  return h.replace(/\{([a-zçãéíóúâêô]+)([+-])?(?::([a-zçãéíóúâêô]+))?:\s([^{}]+)\}/g, (all, n0, sinal, cor, t) => {
     const n = AP_IN[n0] || n0; if (!INLINE.has(n)) return all;
+    const r = inlineUm(n, cor, t); return sinal ? r.replace('<span class="fx fxi"', `<span class="fx fxi" data-forca="${sinal === "+" ? 1 : -1}"`) : r;
+  });
+}
+function inlineUm(n, cor, t) {
+  {
     const dc = cor ? ` data-cor="${cor}"` : "";
     switch (n) {
       case "fogo": return `<span class="fx fxi"${dc}><span class="f-fogo${cor ? " f-fogo-cor" : ""}">${t}</span></span>`;
@@ -128,8 +134,8 @@ export function inlineFx(h) {
       case "ouro": return `<span class="fx fxi"><span class="f-ouro">${t}</span></span>`;
       case "coracao": return `<span class="fx fxi"><span class="f-cora">${t}</span></span>`;
     }
-    return all;
-  });
+    return t;
+  }
 }
 
 // ───── o que mexe (rodar depois de pôr na tela) ─────

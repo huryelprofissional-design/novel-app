@@ -152,12 +152,12 @@ fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
         if (linha[i] == '{') {
             val achado = lerInlineFx(linha, i)
             if (achado != null) {
-                val (fx, fim) = achado
-                val (nome, cor, conteudo) = fx
+                val fim = achado.fim
+                val nome = achado.nome; val cor = achado.cor; val conteudo = achado.texto
                 val mostrado = when (nome) { "runa" -> runar(conteudo); "idioma" -> conteudo.map { if (it == ' ') ' ' else (0x1401 + Random(it.code).nextInt(0xBF)).toChar() }.joinToString(""); else -> conteudo }
                 val a = length
                 append(estilizar(mostrado))
-                addStyle(estiloInlineFx(nome, cor), a, length)
+                addStyle(estiloInlineFx(nome, cor, achado.forca), a, length)
                 addStringAnnotation("fx", nome, a, length)
                 if (nome == "runa" || nome == "idioma") addStringAnnotation("decifra", conteudo, a, length)
                 i = fim; continue
@@ -264,8 +264,10 @@ private class Pagina(val itens: List<ItemPag>) {
     val primeiroBloco: Int get() = itens.firstNotNullOfOrNull { (it as? ItemPag.Trecho)?.bi } ?: -1
 }
 
-fun montarBlocos(texto: String): List<Bloco> {
+/** origens (opcional) recebe, para cada bloco, a linha do texto de onde ele veio (para a prévia do editor achar o símbolo). */
+fun montarBlocos(texto: String, origens: MutableList<Int>? = null): List<Bloco> {
     val saida = ArrayList<Bloco>(texto.length / 300 + 4)
+    var nLinha = -1
     var anteriorVazia = true
     var clima: String? = null
     var pausa = false
@@ -274,12 +276,14 @@ fun montarBlocos(texto: String): List<Bloco> {
     val chat = StringBuilder()
     fun fecharChat() { if (chat.isNotEmpty()) { saida.add(Bloco.Paragrafo(AnnotatedString(chat.toString()), false, "aovivo", clima)); chat.clear() } }
     texto.lineSequence().forEach { bruta ->
+        if (origens != null) while (origens.size < saida.size) origens.add(nLinha)
+        nLinha++
         val crua = bruta.trim()
         // [#efeito:cor campo | campo]: blocos do Mega Pack (antes de limpar as marcas, que mexem no @)
         lerBlocoFx(crua)?.let { (nome, cor, resto) ->
             fecharCarta(); fecharChat()
             val falado = camposFx(resto).joinToString(". ") { Marcas.limparEfeitos(it) }
-            saida.add(Bloco.Paragrafo(AnnotatedString(falado), false, "fx", clima, extra = "$nome\u0000${cor.orEmpty()}\u0000$resto")); return@forEach
+            saida.add(Bloco.Paragrafo(AnnotatedString(falado), false, "fx", clima, extra = "$nome\u0000${cor.orEmpty()}\u0000$resto\u0000${forcaBlocoFx(crua)}")); return@forEach
         }
         // @@Nome: cartão do personagem (antes de limpar as marcas, que mexem no @)
         if (crua.startsWith("@@") && crua.length > 3) { fecharCarta(); fecharChat(); saida.add(Bloco.Paragrafo(AnnotatedString(crua.drop(2).trim().trimEnd('.', ',')), false, "ficha", clima)); return@forEach }
@@ -320,9 +324,41 @@ fun montarBlocos(texto: String): List<Bloco> {
             else -> { saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha), clima = clima, pausa = pausa)); pausa = false }
         }
     }
+    if (origens != null) while (origens.size < saida.size) origens.add(nLinha)
     fecharCarta(); fecharChat()
+    if (origens != null) while (origens.size < saida.size) origens.add(nLinha)
     return saida
 }
+
+/** Um bloco desenhado do jeito do leitor, sem nomes, comentários nem voz (prévia do editor). */
+@Composable
+fun BlocoPrevia(bloco: Bloco, estilo: TextStyle, p: Paleta, modifier: Modifier = Modifier) {
+    var revelado by remember(bloco) { mutableStateOf(false) }
+    when (bloco) {
+        is Bloco.Titulo -> if (bloco.impacto) TituloImpacto(bloco.plano, p, modifier) else TituloNoTexto(bloco.plano, p, modifier)
+        is Bloco.Separador -> Box(modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) { SeparadorCena("", p.destaque) }
+        is Bloco.Paragrafo -> {
+            val t = textoComEfeitos(bloco.texto, revelado) { revelado = true }
+            when (bloco.tipo) {
+                "sistema" -> JanelaSistema(t, estilo, modifier)
+                "mensagem" -> BalaoMensagem(t, estilo, p, modifier)
+                "carta" -> CartaPapel(t, estilo, modifier)
+                "notificacao" -> AvisoNoTexto(t, modifier)
+                "fx" -> bloco.extra.split('\u0000').let { (nm, cr, rs, fz) -> BlocoFx(nm, cr.ifEmpty { null }, rs, estilo, modifier, fz.toIntOrNull() ?: 0) }
+                "conversa" -> BalaoConversa(t, estilo, p, modifier)
+                "pergaminho" -> Pergaminho(t, estilo, modifier)
+                "item" -> ItemObtido(bloco.plano, modifier)
+                "local" -> LocalHora(bloco.plano, p, modifier)
+                "epigrafe" -> Epigrafe(t, estilo, p, modifier)
+                "nota" -> NotaDoAutor(t, "", p, modifier)
+                "aovivo" -> ChatAoVivo(bloco.plano, modifier)
+                "ficha" -> Text("@@ " + bloco.plano, style = estilo.copy(color = p.destaque2), modifier = modifier)
+                else -> if (bloco.fala) Fala(t, estilo, p, modifier) else Text(t, style = estilo, modifier = modifier)
+            }
+        }
+    }
+}
+
 
 // ───────── Leitura em voz alta (motor de voz do próprio Android, funciona offline se a voz estiver instalada) ─────────
 
@@ -823,7 +859,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                             else if (bloco.tipo == "mensagem") BalaoMensagem(comEfeitos, estiloBase, p, fundoAtivo)
                             else if (bloco.tipo == "carta") CartaPapel(comEfeitos, estiloBase, fundoAtivo)
                             else if (bloco.tipo == "notificacao") AvisoNoTexto(comEfeitos, fundoAtivo)
-                            else if (bloco.tipo == "fx") bloco.extra.split('\u0000').let { (nm, cr, rs) -> BlocoFx(nm, cr.ifEmpty { null }, rs, estiloBase, fundoAtivo) }
+                            else if (bloco.tipo == "fx") bloco.extra.split('\u0000').let { (nm, cr, rs, fz) -> BlocoFx(nm, cr.ifEmpty { null }, rs, estiloBase, fundoAtivo, fz.toIntOrNull() ?: 0) }
                             else if (bloco.tipo == "conversa") BalaoConversa(comEfeitos, estiloBase, p, fundoAtivo)
                             else if (bloco.tipo == "pergaminho") Pergaminho(comEfeitos, estiloBase, fundoAtivo)
                             else if (bloco.tipo == "item") ItemObtido(bloco.plano, fundoAtivo)
@@ -1780,6 +1816,7 @@ private fun textoComEfeitos(t: AnnotatedString, revelado: Boolean, revelar: () -
             t.getStringAnnotations("decifra", 0, t.length).forEach { addLink(LinkAnnotation.Clickable("dec${it.start}") { revelar() }, it.start, it.end) }
         }
     }
+    if (LocalSemMovimento.current) return remember(base) { if (temGlitch) embaralharGlitch(base, kotlin.random.Random(7)) else base }
     if (temFx) {
         var q by remember { mutableIntStateOf(0) }
         LaunchedEffect(t) { while (true) { kotlinx.coroutines.delay(110); q++ } }

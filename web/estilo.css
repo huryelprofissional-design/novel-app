@@ -1295,3 +1295,8 @@ span.fx.fxi { display:inline; }
 .fx .prx span { display:block; margin-top:8px; font-size:12px; color:var(--suave); }
 /* nome reconhecido só por palpite (parte do nome): sublinhado leve, sem cor */
 .texto .nome.palpite { color: inherit; font-weight: inherit; border-bottom: 1px dotted currentColor; opacity: .95; }
+/* intensidade do efeito: "+" forte, "-" suave ({fogo+: …}, [#sistema- …]) */
+.fx[data-forca="1"] { filter: drop-shadow(0 0 10px currentColor) saturate(1.35) brightness(1.08); }
+.fx[data-forca="-1"] { opacity: .82; filter: saturate(.75); }
+/* reduzir animações (do sistema): efeitos parados */
+@media (prefers-reduced-motion: reduce) { .fx, .fx *, .texto .clima * { animation: none !important; transition: none !important; } }
