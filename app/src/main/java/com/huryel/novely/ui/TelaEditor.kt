@@ -407,12 +407,6 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         escopo.launch { if (snack.showSnackbar("Efeito removido", "Desfazer", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) aplicarPasso(desfazer, refazer) }
     }
 
-    /** Sai da prévia e seleciona a linha com os símbolos. */
-    fun verSimbolos(n: Int) {
-        previa = false
-        val (pi, a, b) = localDaLinha(n) ?: return
-        escopo.launch { delay(120); irPara(pi, a, b - a) }
-    }
 
     /** Travessão de fala: começa um parágrafo novo com "— " se o cursor não estiver numa linha vazia. */
     fun novaFala() {
@@ -435,6 +429,13 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
             pd.valor = pd.valor.copy(selection = TextRange(ini, (ini + tamanho).coerceAtMost(pd.valor.text.length)))
             try { pd.foco.requestFocus() } catch (_: Exception) {}
         }
+    }
+
+    /** Sai da prévia e seleciona a linha com os símbolos. */
+    fun verSimbolos(n: Int) {
+        previa = false
+        val (pi, a, b) = localDaLinha(n) ?: return
+        escopo.launch { delay(120); irPara(pi, a, b - a) }
     }
 
     /** Desce o máximo possível, sem procurar cursor (evita pular para o meio do texto). */
