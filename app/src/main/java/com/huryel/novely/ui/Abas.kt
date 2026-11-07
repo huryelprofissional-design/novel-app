@@ -899,9 +899,10 @@ fun TelaAvisos(nav: NavHostController) {
         val conflitos by app.prefs.conflitos.estado.collectAsState()
         val linhas = conflitos.split('\n').filter { it.isNotBlank() }.mapNotNull { l -> l.split('|').takeIf { it.size >= 2 } }
         if (v != null) ItemAvisoLinha("✦ Versão nova do Novely (build ${v.numero})", "Toque para atualizar") { nav.navigate("atualizar") }
-        linhas.reversed().forEach { (cap, titulo) ->
-            ItemAvisoLinha("⚠ Texto diferente em “$titulo”", "Você mudou este capítulo em dois aparelhos. Ficou o daqui; o outro está no Histórico — toque para comparar e escolher.") {
-                nav.navigate("historico/$cap")
+        linhas.reversed().forEach { l ->
+            val cap = l[0]; val titulo = l[1]; val quando = l.getOrNull(2)?.toLongOrNull() ?: 0L
+            ItemAvisoLinha("⚠ Texto diferente em “$titulo”", "Você mudou este capítulo em dois aparelhos. Ficou o daqui por enquanto; toque para ver as diferenças e escolher.") {
+                nav.navigate("conflito/$cap/$quando")
             }
         }
         val novidades by app.prefs.novidades.estado.collectAsState()

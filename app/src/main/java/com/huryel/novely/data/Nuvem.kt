@@ -450,8 +450,8 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                         val locHash = hash(repo.textos.arquivo(local.id))
                         if (locHash != e.textoHash && locHash != remHash) {
                             // os dois aparelhos mudaram o texto: mantém o daqui, guarda o outro no histórico e avisa
-                            repo.textos.gravarVersao(local.id, remoto)
-                            prefs.adicionarConflito(local.id, local.titulo)
+                            val q = repo.textos.gravarVersao(local.id, remoto, "Do outro aparelho")
+                            prefs.adicionarConflito(local.id, local.titulo, q)
                         } else textoNovo = remoto
                     } else textoNovo = remoto
                     e.textoHash = remHash

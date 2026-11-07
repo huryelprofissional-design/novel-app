@@ -206,6 +206,8 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
                 listOf(navArgument("id") { type = NavType.LongType }, navArgument("quando") { type = NavType.LongType }),
             ) { e -> TelaComparar(e.arguments!!.getLong("id"), e.arguments!!.getLong("quando"), nav) }
             composable("historico/{id}", idArg) { e -> TelaHistorico(e.arguments!!.getLong("id"), nav) }
+            composable("conflito/{id}/{q}", listOf(navArgument("id") { type = NavType.LongType }, navArgument("q") { type = NavType.LongType })) { e ->
+                TelaConflito(e.arguments!!.getLong("id"), e.arguments!!.getLong("q"), nav) }
             composable("importar") { TelaImportar(nav, null) }
             composable("importar/{id}", idArg) { e -> TelaImportar(nav, e.arguments!!.getLong("id")) }
             composable("backup") { TelaBackup(nav) }

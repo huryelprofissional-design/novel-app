@@ -51,7 +51,9 @@ class ArquivosTexto(ctx: Context) {
     private val pastaVersoes = File(raiz.parentFile, "versoes").apply { mkdirs() }
     private fun dirVersoes(capId: Long) = File(pastaVersoes, "$capId")
 
-    data class Versao(val arquivo: File, val quando: Long, val palavras: Int, val inicio: String)
+    /** nome vazio = cópia automática; com nome = versão que o autor (ou um conflito) guardou e que nunca é apagada sozinha. */
+    data class Versao(val arquivo: File, val quando: Long, val palavras: Int, val inicio: String, val nome: String = "")
+    private fun nomeDe(dir: File, quando: String) = File(dir, "$quando.nome").takeIf { it.exists() }?.readText(Charsets.UTF_8)?.trim().orEmpty()
 
     suspend fun guardarVersaoSePreciso(capId: Long, forcar: Boolean = false) = withContext(Dispatchers.IO) {
         val atual = arquivo(capId)
@@ -61,24 +63,40 @@ class ArquivosTexto(ctx: Context) {
         val agora = System.currentTimeMillis()
         if (!forcar && agora - ultima < 10 * 60_000) return@withContext
         atual.copyTo(File(dir, "$agora.md"), overwrite = true)
-        dir.listFiles()?.sortedByDescending { it.name }?.drop(30)?.forEach { it.delete() }
+        // só as automáticas entram no limite de 30; as com nome ficam
+        dir.listFiles()?.filter { it.name.endsWith(".md") && !File(dir, it.name.removeSuffix(".md") + ".nome").exists() }
+            ?.sortedByDescending { it.name }?.drop(30)?.forEach { it.delete() }
     }
 
-    /** Guarda um texto qualquer como versão (ex.: a versão do outro aparelho num conflito). */
-    suspend fun gravarVersao(capId: Long, texto: String) = withContext(Dispatchers.IO) {
+    /** Guarda um texto qualquer como versão (ex.: a versão do outro aparelho num conflito, ou "Salvar versão com nome"). Devolve quando. */
+    suspend fun gravarVersao(capId: Long, texto: String, nome: String = ""): Long = withContext(Dispatchers.IO) {
         val dir = dirVersoes(capId).apply { mkdirs() }
-        File(dir, "${System.currentTimeMillis()}.md").writeText(texto, Charsets.UTF_8)
+        val agora = System.currentTimeMillis()
+        File(dir, "$agora.md").writeText(texto, Charsets.UTF_8)
+        if (nome.isNotBlank()) File(dir, "$agora.nome").writeText(nome.trim().take(60), Charsets.UTF_8)
+        agora
     }
 
     suspend fun versoes(capId: Long): List<Versao> = withContext(Dispatchers.IO) {
-        (dirVersoes(capId).listFiles() ?: emptyArray()).sortedByDescending { it.name }.map { f ->
+        val dir = dirVersoes(capId)
+        (dir.listFiles() ?: emptyArray()).filter { it.name.endsWith(".md") }.sortedByDescending { it.name }.map { f ->
             val t = f.readText(Charsets.UTF_8)
-            Versao(f, f.name.substringBefore('.').toLongOrNull() ?: 0L, contarPalavras(t), t.take(220))
+            val q = f.name.substringBefore('.')
+            Versao(f, q.toLongOrNull() ?: 0L, contarPalavras(t), t.take(220), nomeDe(dir, q))
         }
     }
 
+    // ── Rascunho de emergência: gravado logo depois de digitar, apagado quando o salvamento normal termina ──
+    private val pastaRascunhos = File(raiz.parentFile, "rascunhos").apply { mkdirs() }
+    suspend fun gravarRascunho(capId: Long, texto: String) = withContext(Dispatchers.IO) { File(pastaRascunhos, "$capId.md").writeText(texto, Charsets.UTF_8) }
+    suspend fun lerRascunho(capId: Long): Pair<Long, String>? = withContext(Dispatchers.IO) {
+        File(pastaRascunhos, "$capId.md").takeIf { it.exists() }?.let { it.lastModified() to it.readText(Charsets.UTF_8) }
+    }
+    suspend fun apagarRascunho(capId: Long) = withContext(Dispatchers.IO) { File(pastaRascunhos, "$capId.md").delete(); Unit }
+
     suspend fun apagar(capId: Long) = withContext(Dispatchers.IO) {
         dirVersoes(capId).deleteRecursively()
+        File(pastaRascunhos, "$capId.md").delete()
         arquivo(capId).delete()
         File(raiz, "$capId.md.bak").delete()
         File(raiz, "$capId.md.tmp").delete()

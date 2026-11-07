@@ -152,6 +152,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
     var mostrarPainelFx by remember { mutableStateOf(false) }
     var previa by rememberSaveable { mutableStateOf(false) } // Prévia (desenhado como o leitor) × Símbolos (texto cru)
     var menuPrevia by remember { mutableIntStateOf(-1) }
+    var recuperar by remember { mutableStateOf<Pair<Long, String>?>(null) } // rascunho de emergência achado ao abrir
 
     // desfazer / refazer
     val desfazer = remember { ArrayDeque<Passo>() }
@@ -188,6 +189,8 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         carregarTexto(texto)
         palavras = c.palavras
         carregado = true
+        // o app fechou antes de salvar? oferece o rascunho de emergência
+        repo.textos.lerRascunho(capId)?.let { r -> if (r.second.isNotBlank() && r.second != texto) recuperar = r else repo.textos.apagarRascunho(capId) }
         // voltar onde parou
         val (pi, cur) = prefs.posicaoEditor(capId)
         if (pi in pedacos.indices) {
@@ -218,6 +221,34 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
             palavras = withContext(Dispatchers.Default) { Texto.contarPalavras(t) }
             versaoSalva = v
             estadoSalvo = "Salvo"
+            if (versao == v) repo.textos.apagarRascunho(c.id)
+        }
+    }
+
+    // Digitando sem parar: salva também a cada 5 s (a pausa de 1,5 s pode nunca chegar).
+    LaunchedEffect(carregado) {
+        if (!carregado) return@LaunchedEffect
+        while (true) {
+            delay(5000)
+            val c = cap ?: continue
+            if (versao == versaoSalva || ocupado) continue
+            val v = versao
+            estadoSalvo = "Salvando…"
+            val t = textoCompleto()
+            repo.gravarTexto(c, t)
+            palavras = withContext(Dispatchers.Default) { Texto.contarPalavras(t) }
+            versaoSalva = v
+            estadoSalvo = "Salvo"
+            if (versao == v) repo.textos.apagarRascunho(c.id)
+        }
+    }
+
+    // Rascunho de emergência: 0,6 s depois de digitar, antes do salvamento normal (se o app cair, nada se perde).
+    LaunchedEffect(carregado) {
+        if (!carregado) return@LaunchedEffect
+        snapshotFlow { versao }.debounce(600).collect { v ->
+            val c = cap ?: return@collect
+            if (v != versaoSalva) repo.textos.gravarRascunho(c.id, textoCompleto())
         }
     }
 
@@ -576,6 +607,18 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                 confirmButton = { TextButton(onClick = { sessaoResultado = null; dialogo = "sessao" }) { Text("Outra sessão") } },
                 dismissButton = { TextButton(onClick = { sessaoResultado = null }) { Text("Fechar") } })
         }
+        recuperar?.let { (quando, rasc) ->
+            val fmtR = remember { java.text.SimpleDateFormat("dd/MM 'às' HH:mm", java.util.Locale("pt", "BR")) }
+            AlertDialog(onDismissRequest = { }, title = { Text("Texto não salvo encontrado") },
+                text = { Text("Da última vez o app fechou antes de salvar. Achei um rascunho de ${fmtR.format(java.util.Date(quando))} com ${Texto.contarPalavras(rasc)} palavras " +
+                    "(o salvo tem $palavras). Recuperar? O texto salvo vai para o Histórico, por segurança.") },
+                confirmButton = { TextButton(onClick = {
+                    val salvo = textoCompleto(); recuperar = null
+                    app.escopo.launch { repo.textos.gravarVersao(c.id, salvo, "Antes de recuperar o rascunho") }
+                    carregarTexto(rasc); versao++
+                }) { Text("Recuperar", fontWeight = FontWeight.Bold) } },
+                dismissButton = { TextButton(onClick = { recuperar = null; app.escopo.launch { repo.textos.apagarRascunho(c.id) } }) { Text("Descartar") } })
+        }
         when (dialogo) {
             "resumo" -> DialogoTexto("Resumo do capítulo", "O que acontece (2–4 frases). Aparece como “Anteriormente…” no começo do próximo capítulo", c.resumo, multilinha = true,
                 aoFechar = { dialogo = "" }) { r -> dialogo = ""; val n = c.copy(resumo = r.trim()); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } }
@@ -596,6 +639,26 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                     }
                 }) { Text("Começar", fontWeight = FontWeight.Bold) } },
                 dismissButton = { TextButton(onClick = { dialogo = "" }) { Text("Cancelar") } })
+            "versao" -> DialogoTexto("Salvar versão com nome", "Nome (ex.: Antes de reescrever o final)", "", confirmar = "Salvar versão", aoFechar = { dialogo = "" }) { r ->
+                dialogo = ""
+                val t = textoCompleto(); val nome = r.trim().ifEmpty { "Versão sem nome" }
+                app.escopo.launch { repo.textos.gravarVersao(c.id, t, nome); withContext(Dispatchers.Main) { snack.showSnackbar("✓ Versão “$nome” guardada no Histórico") } }
+            }
+            "contagem" -> {
+                val t = remember { textoCompleto() }
+                val sel = textoSelecionado
+                AlertDialog(onDismissRequest = { dialogo = "" }, title = { Text("Contagem") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            contagens(t).forEach { (k, v) -> Row { Text(k, color = p.textoSuave, modifier = Modifier.weight(1f)); Text(v, fontWeight = FontWeight.Bold) } }
+                            if (sel.isNotEmpty()) {
+                                Text("TRECHO SELECIONADO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.destaque, modifier = Modifier.padding(top = 10.dp))
+                                contagens(sel).take(3).forEach { (k, v) -> Row { Text(k, color = p.textoSuave, modifier = Modifier.weight(1f)); Text(v, fontWeight = FontWeight.Bold) } }
+                            }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { dialogo = "" }) { Text("Fechar") } })
+            }
             "meta" -> DialogoTexto("Meta diária de palavras", "Palavras por dia", meta.toInt().toString(), aoFechar = { dialogo = "" }) { r ->
                 dialogo = ""; r.filter { it.isDigit() }.toIntOrNull()?.takeIf { it > 0 }?.let { prefs.metaDiaria.definir(it.toFloat()) }
             }
@@ -629,7 +692,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                                 aoMarcar = { c -> val n = c.copy(rascunho = !c.rascunho); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } })
                         }
                     }
-                    LinhaStatus(palavras, cap, textoSelecionado, hoje, meta, sequencia, p) { dialogo = "meta" }
+                    LinhaStatus(palavras, cap, textoSelecionado, hoje, meta, sequencia, p, aoContagem = { dialogo = "contagem" }) { dialogo = "meta" }
                     if (sessaoFim > 0) {
                         val resta = ((sessaoFim - relogio) / 1000).coerceAtLeast(0)
                         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -837,16 +900,18 @@ private fun MenuEditor(
         cap?.let { c ->
             DropdownMenuItem(text = { Text("Ver como leitor") }, onClick = { fechar(); nav.navigate("leitor/${c.id}") })
             DropdownMenuItem(text = { Text("Histórico de versões") }, onClick = { fechar(); nav.navigate("historico/${c.id}") })
+            DropdownMenuItem(text = { Text("Salvar versão com nome…") }, onClick = { fechar(); aoDialogo("versao") })
         }
+        DropdownMenuItem(text = { Text("Contagem (palavras, caracteres, páginas)") }, onClick = { fechar(); aoDialogo("contagem") })
         DropdownMenuItem(text = { Text("Meta diária") }, onClick = { fechar(); aoDialogo("meta") })
     }
 }
 
 @Composable
-private fun LinhaStatus(palavras: Int, cap: Capitulo?, selecionado: String, hoje: Long, meta: Float, sequencia: Long, p: Paleta, aoMeta: () -> Unit) {
+private fun LinhaStatus(palavras: Int, cap: Capitulo?, selecionado: String, hoje: Long, meta: Float, sequencia: Long, p: Paleta, aoContagem: () -> Unit = {}, aoMeta: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("${"%,d".format(palavras).replace(',', '.')} palavras" + if (cap?.rascunho == true) " · rascunho" else " · concluído",
-            fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.weight(1f))
+            fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.weight(1f).clickable(onClickLabel = "Ver contagem completa", onClick = aoContagem).padding(vertical = 4.dp))
         Row(Modifier.clip(forma(10.dp)).clickable(onClick = aoMeta).padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             val f = (hoje / meta.coerceAtLeast(1f)).coerceIn(0f, 1f)
@@ -1001,7 +1066,7 @@ fun TelaHistorico(capId: Long, nav: NavHostController) {
 
     Column(Modifier.fillMaxSize()) {
         Topo("Histórico de versões", nav)
-        Text("Uma cópia é guardada antes de salvar, no máximo a cada 10 minutos (até 30 versões). Toque numa versão para comparar ou restaurar.",
+        Text("Uma cópia é guardada antes de salvar, no máximo a cada 10 minutos (até 30). As com ★ nome (as suas e as de conflito) nunca são apagadas sozinhas. Toque para comparar ou restaurar.",
             color = p.textoSuave, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp))
         val v = versoes
         if (v == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = p.destaque, trackColor = p.fundo)
@@ -1009,7 +1074,8 @@ fun TelaHistorico(capId: Long, nav: NavHostController) {
         else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(v) { ver ->
                 Column(Modifier.fillMaxWidth().clip(forma(16.dp)).background(p.superficie).clickable { escolhida = ver }.padding(14.dp)) {
-                    Text(fmt.format(Date(ver.quando)), fontWeight = FontWeight.Bold)
+                    if (ver.nome.isNotBlank()) Text("★ " + ver.nome, fontWeight = FontWeight.ExtraBold, color = p.destaque)
+                    Text(fmt.format(Date(ver.quando)), fontWeight = if (ver.nome.isBlank()) FontWeight.Bold else FontWeight.Normal, fontSize = if (ver.nome.isBlank()) 16.sp else 13.sp)
                     Text("${ver.palavras} palavras", fontSize = 12.sp, color = p.destaque)
                     Text(ver.inicio, fontSize = 13.sp, color = p.textoSuave, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
@@ -1161,6 +1227,81 @@ private fun FolhaEfeitosEscrita(p: Paleta, inserir: (String, Boolean) -> Unit) {
                 Text("~$k", fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
                 Text(nome, fontSize = 13.sp, color = p.textoSuave)
             }
+        }
+    }
+}
+
+/** Contagem completa de um texto: palavras, caracteres, parágrafos, páginas (~250 palavras) e tempo de leitura (~230/min). */
+fun contagens(t: String): List<Pair<String, String>> {
+    val pal = Texto.contarPalavras(t)
+    val semEsp = t.count { !it.isWhitespace() }
+    val pars = t.split('\n').count { it.isNotBlank() }
+    fun n(x: Int) = "%,d".format(x).replace(',', '.')
+    val min = (pal / 230f).let { if (it < 1f && pal > 0) "menos de 1 min" else "${kotlin.math.round(it).toInt()} min" }
+    return listOf("Palavras" to n(pal), "Caracteres" to n(t.length), "Sem espaços" to n(semEsp), "Parágrafos" to n(pars),
+        "Páginas (~250 palavras)" to (if (pal == 0) "0" else "%.1f".format(java.util.Locale("pt", "BR"), pal / 250f)), "Tempo de leitura" to min)
+}
+
+/** Conflito entre aparelhos: as diferenças com o rótulo de onde vêm e a escolha de qual texto fica. */
+@Composable
+fun TelaConflito(capId: Long, quando: Long, nav: NavHostController) {
+    val app = NovelyApp.instancia
+    val repo = app.repo
+    val p = LocalPaleta.current
+    var linhas by remember { mutableStateOf<List<LinhaDiff>?>(null) }
+    var outro by remember { mutableStateOf<String?>(null) }
+    var titulo by remember { mutableStateOf("") }
+    LaunchedEffect(capId, quando) {
+        titulo = repo.dao.capituloAgora(capId)?.titulo.orEmpty()
+        // a versão do outro aparelho: a guardada nesse momento (ou a mais perto dele)
+        val vs = repo.textos.versoes(capId)
+        val ver = vs.firstOrNull { it.quando == quando } ?: vs.filter { it.nome == "Do outro aparelho" }.minByOrNull { kotlin.math.abs(it.quando - quando) }
+        val o = ver?.let { withContext(Dispatchers.IO) { it.arquivo.readText(Charsets.UTF_8) } }
+        outro = o
+        val este = repo.lerTexto(capId)
+        linhas = if (o == null) emptyList() else withContext(Dispatchers.Default) {
+            val d = diferenca(este.lines().map { it.trim() }.filter { it.isNotEmpty() }, o.lines().map { it.trim() }.filter { it.isNotEmpty() })
+            d.filterIndexed { k, l -> l.tipo != 0 || d.getOrNull(k - 1)?.tipo?.let { it != 0 } == true || d.getOrNull(k + 1)?.tipo?.let { it != 0 } == true }
+        }
+    }
+    Column(Modifier.fillMaxSize()) {
+        Topo("Texto diferente nos aparelhos", nav)
+        Text("“$titulo” foi mudado em dois aparelhos. Veja o que muda e escolha qual texto fica. O outro continua no Histórico.",
+            fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.padding(horizontal = 20.dp))
+        Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("■ só neste aparelho", color = Color(0xFF7FB2FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("■ só no outro aparelho", color = Color(0xFFFFB86B), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+        val l = linhas
+        Box(Modifier.weight(1f)) {
+            if (l == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = p.destaque, trackColor = p.fundo)
+            else if (outro == null) Text("Não achei a versão do outro aparelho no Histórico.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
+            else if (l.none { it.tipo != 0 }) Text("Os dois textos já são iguais.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
+            else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(l) { d ->
+                    val cor = when (d.tipo) { -1 -> Color(0xFF7FB2FF); 1 -> Color(0xFFFFB86B); else -> p.textoSuave }
+                    Column(Modifier.fillMaxWidth().clip(forma(12.dp)).background(if (d.tipo == 0) Color.Transparent else cor.copy(alpha = 0.10f))
+                        .border(if (d.tipo != 0) 1.dp else 0.dp, cor.copy(alpha = 0.45f), forma(12.dp)).padding(10.dp)) {
+                        if (d.tipo != 0) Text(if (d.tipo == -1) "NESTE APARELHO" else "NO OUTRO APARELHO", fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, color = cor)
+                        Text(d.texto, fontSize = 14.sp, lineHeight = 21.sp, color = if (d.tipo == 0) p.textoSuave else p.texto)
+                    }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = { app.prefs.resolverConflito(capId); nav.popBackStack() }, modifier = Modifier.weight(1f).height(52.dp)) {
+                Text("Ficar com o deste", fontWeight = FontWeight.Bold, color = Color(0xFF7FB2FF)) }
+            Button(onClick = {
+                val o = outro ?: return@Button
+                app.escopo.launch {
+                    repo.textos.gravarVersao(capId, repo.lerTexto(capId), "Deste aparelho (antes do conflito)")
+                    repo.textos.gravar(capId, o)
+                    repo.dao.atualizarPalavras(capId, Texto.contarPalavras(o), System.currentTimeMillis())
+                    app.prefs.resolverConflito(capId)
+                    launch(Dispatchers.Main) { nav.popBackStack() }
+                }
+            }, enabled = outro != null, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB86B), contentColor = Color(0xFF1A1206))) {
+                Text("Ficar com o do outro", fontWeight = FontWeight.Bold) }
         }
     }
 }

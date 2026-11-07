@@ -450,8 +450,12 @@ class Preferencias(ctx: Context) {
     val fotoHash = texto("fotoHash", "")
     /** Conflitos de texto entre aparelhos: "capId|título|quando" por linha. */
     val conflitos = texto("conflitos", "")
-    @Synchronized fun adicionarConflito(capId: Long, titulo: String) {
-        conflitos.definir((conflitos.valor.split('\n').filter { it.isNotBlank() } + "$capId|${titulo.replace('|', ' ')}|${System.currentTimeMillis()}").takeLast(20).joinToString("\n"))
+    /** quando = a versão do outro aparelho guardada no histórico. */
+    @Synchronized fun adicionarConflito(capId: Long, titulo: String, quando: Long = System.currentTimeMillis()) {
+        conflitos.definir((conflitos.valor.split('\n').filter { it.isNotBlank() } + "$capId|${titulo.replace('|', ' ')}|$quando").takeLast(20).joinToString("\n"))
+    }
+    @Synchronized fun resolverConflito(capId: Long) {
+        conflitos.definir(conflitos.valor.split('\n').filter { it.isNotBlank() && !it.startsWith("$capId|") }.joinToString("\n"))
     }
     /** Capítulos novos em obras seguidas: "obraId|título|quantos|quando" por linha. */
     val novidades = texto("novidades", "")
