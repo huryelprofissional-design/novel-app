@@ -205,7 +205,7 @@ fun TelaObra(obraId: Long, nav: NavHostController) {
         Dialogo.NovoVolume -> DialogoTexto("Novo volume ou arco", "Nome", "Volume ${volumes.size + 1}", "Criar", aoFechar = { dialogo = null }) { t ->
             dialogo = null; escopo.launch { repo.novoVolume(obraId, t) }
         }
-        Dialogo.ExcluirObra -> DialogoConfirmar("Excluir “${o.titulo}”?", "A obra sai da estante. Os ${capitulos.size} capítulos vão para a Lixeira por 30 dias (Ajustes › Lixeira).", "Excluir tudo", { dialogo = null }) {
+        Dialogo.ExcluirObra -> DialogoConfirmar("Excluir “${o.titulo}”?", "A obra sai da estante e vai inteira para a Lixeira por 30 dias, com fichas e os ${capitulos.size} capítulos (Ajustes › Lixeira). Restaurar a obra traz tudo de volta.", "Excluir tudo", { dialogo = null }) {
             dialogo = null; escopo.launch { repo.excluirObra(o); nav.popBackStack() }
         }
         is Dialogo.RenomearCap -> DialogoTexto("Renomear capítulo", "Título", d.c.titulo, aoFechar = { dialogo = null }) { t ->

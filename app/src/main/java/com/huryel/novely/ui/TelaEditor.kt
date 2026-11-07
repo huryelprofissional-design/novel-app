@@ -49,6 +49,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
@@ -673,7 +678,22 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(p.fundo).imePadding()) {
+    // atalhos de teclado físico (Ctrl+B/I negrito/itálico, Z/Y desfazer/refazer, F buscar, E efeitos, P prévia, S salvar, Shift+Ctrl+Z refazer)
+    val atalhos = Modifier.onPreviewKeyEvent { e ->
+        if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown || !e.isCtrlPressed) return@onPreviewKeyEvent false
+        when (e.key) {
+            androidx.compose.ui.input.key.Key.B -> { inserir("**", true); true }
+            androidx.compose.ui.input.key.Key.I -> { inserir("*", true); true }
+            androidx.compose.ui.input.key.Key.Z -> { if (e.isShiftPressed) aplicarPasso(refazer, desfazer) else aplicarPasso(desfazer, refazer); true }
+            androidx.compose.ui.input.key.Key.Y -> { aplicarPasso(refazer, desfazer); true }
+            androidx.compose.ui.input.key.Key.F -> { painel = if (painel == PainelEd.BUSCA) PainelEd.NENHUM else PainelEd.BUSCA; true }
+            androidx.compose.ui.input.key.Key.E -> { mostrarPainelFx = true; true }
+            androidx.compose.ui.input.key.Key.P -> { menuPrevia = -1; previa = !previa; true }
+            androidx.compose.ui.input.key.Key.S -> { versao++; escopo.launch { snack.showSnackbar("Salvando…", duration = SnackbarDuration.Short) }; true }
+            else -> false
+        }
+    }
+    Box(Modifier.fillMaxSize().background(p.fundo).imePadding().then(atalhos)) {
         Column(Modifier.fillMaxSize()) {
             AnimatedVisibility(!modoFoco, enter = fadeIn(), exit = fadeOut()) {
                 Column {

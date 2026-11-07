@@ -36,9 +36,17 @@ class Repositorio(ctx: Context) {
     suspend fun excluirObra(obra: Obra) {
         val caps = dao.capitulosAgora(obra.id)
         caps.forEach { mandarParaLixeira(it, obra.titulo) }
+        // a obra também vai para a lixeira: dados, capa, banner e fichas (restaurar traz tudo de volta, com os capítulos)
+        val fichas = dao.fichasAgora(obra.id)
+        val js = org.json.JSONObject().put("titulo", obra.titulo).put("descricao", obra.descricao).put("status", obra.status)
+            .put("capa", obra.capa ?: "").put("banner", obra.banner ?: "").put("corBase", obra.corBase).put("colecao", obra.colecao)
+            .put("generos", obra.generos).put("tagsPub", obra.tagsPub).put("classificacao", obra.classificacao).put("idioma", obra.idioma)
+            .put("enfeite", obra.enfeite).put("minha", obra.minha).put("autor", obra.autor)
+            .put("fichas", org.json.JSONArray().apply { fichas.forEach { put(Lixo.fichaJson(it)) } })
+        dao.inserirLixeira(ItemLixeira(obraId = obra.id, obraTitulo = obra.titulo, titulo = "📕 ${obra.titulo}", ordem = -2.0,
+            palavras = caps.sumOf { it.palavras }, resumo = Lixo.OBRA, notas = js.toString()))
         dao.excluirObra(obra) // capítulos e volumes saem junto (cascade); os textos ficam na lixeira
         caps.forEach { textos.apagar(it.id) }
-        imagens.apagar(obra.capa); imagens.apagar(obra.banner)
     }
 
     /** tipo = "capa" ou "banner" */
@@ -158,7 +166,28 @@ class Repositorio(ctx: Context) {
     fun lixeira() = dao.lixeira()
 
     suspend fun restaurarDaLixeira(i: ItemLixeira): Long {
-        var obraId = i.obraId
+        if (i.resumo == Lixo.FICHA) {
+            val obraId = dao.obraAgora(i.obraId)?.id ?: dao.todasObras().firstOrNull { it.titulo == i.obraTitulo }?.id ?: return -1
+            val id = dao.inserirFicha(Lixo.fichaDe(org.json.JSONObject(i.notas), obraId))
+            dao.excluirLixeira(i); return id
+        }
+        if (i.resumo == Lixo.OBRA) {
+            val js = org.json.JSONObject(i.notas)
+            val obraId = dao.inserirObra(Obra(titulo = js.optString("titulo", i.obraTitulo), descricao = js.optString("descricao"), status = js.optString("status", StatusObra.ESCREVENDO),
+                capa = js.optString("capa").ifEmpty { null }, banner = js.optString("banner").ifEmpty { null }, corBase = js.optLong("corBase", 0xFF3B2A4A),
+                colecao = js.optString("colecao"), generos = js.optString("generos"), tagsPub = js.optString("tagsPub"), classificacao = js.optString("classificacao", "LIVRE"),
+                idioma = js.optString("idioma", "pt"), enfeite = js.optString("enfeite"), minha = js.optBoolean("minha", true), autor = js.optString("autor")))
+            js.optJSONArray("fichas")?.let { a -> for (k in 0 until a.length()) dao.inserirFicha(Lixo.fichaDe(a.getJSONObject(k), obraId)) }
+            dao.excluirLixeira(i)
+            // os capítulos dessa obra voltam junto
+            dao.lixeiraAgora().filter { it.obraId == i.obraId && it.resumo != Lixo.FICHA && it.resumo != Lixo.OBRA }.forEach { restaurarCapitulo(it, obraId) }
+            return obraId
+        }
+        return restaurarCapitulo(i, null)
+    }
+
+    private suspend fun restaurarCapitulo(i: ItemLixeira, paraObra: Long?): Long {
+        var obraId = paraObra ?: i.obraId
         if (dao.obraAgora(obraId) == null) {
             obraId = dao.todasObras().firstOrNull { it.titulo == i.obraTitulo }?.id
                 ?: criarObra(i.obraTitulo.ifEmpty { "Capítulos recuperados" }, "Recuperada da lixeira", StatusObra.ESCREVENDO)
@@ -175,6 +204,14 @@ class Repositorio(ctx: Context) {
     }
 
     suspend fun apagarDeVez(i: ItemLixeira) {
+        // fotos da ficha / capa e banner da obra só somem agora
+        try {
+            if (i.resumo == Lixo.FICHA) imagens.apagar(org.json.JSONObject(i.notas).optString("imagem").ifEmpty { null })
+            if (i.resumo == Lixo.OBRA) org.json.JSONObject(i.notas).let { j ->
+                imagens.apagar(j.optString("capa").ifEmpty { null }); imagens.apagar(j.optString("banner").ifEmpty { null })
+                j.optJSONArray("fichas")?.let { a -> for (k in 0 until a.length()) imagens.apagar(a.getJSONObject(k).optString("imagem").ifEmpty { null }) }
+            }
+        } catch (_: Exception) {}
         java.io.File(pastaLixeira, "${i.id}.md").delete()
         dao.excluirLixeira(i)
     }
@@ -254,7 +291,13 @@ class Repositorio(ctx: Context) {
     // ── Fichas ──
     fun fichas(obraId: Long) = dao.fichas(obraId)
     suspend fun salvarFicha(f: Ficha): Long = if (f.id == 0L) dao.inserirFicha(f) else { dao.atualizarFicha(f); f.id }
-    suspend fun excluirFicha(f: Ficha) { imagens.apagar(f.imagem); dao.excluirFicha(f) }
+    /** Excluir ficha manda para a Lixeira (30 dias); a foto só some quando apagar de vez. */
+    suspend fun excluirFicha(f: Ficha) {
+        val obra = dao.obraAgora(f.obraId)
+        dao.inserirLixeira(ItemLixeira(obraId = f.obraId, obraTitulo = obra?.titulo.orEmpty(), titulo = "👤 ${f.nome}", ordem = -1.0, palavras = 0,
+            resumo = Lixo.FICHA, notas = Lixo.fichaJson(f).toString()))
+        dao.excluirFicha(f)
+    }
     suspend fun imagemFicha(f: Ficha, uri: Uri): Ficha? {
         val caminho = imagens.importar(uri, 900) ?: return null
         imagens.apagar(f.imagem)
@@ -476,6 +519,8 @@ class Preferencias(ctx: Context) {
     val colabs = texto("colabs", "")
     /** Conta dona dos dados deste aparelho (evita misturar obras de duas pessoas). */
     val contaDoAparelho = texto("contaDoAparelho", "")
+    /** Identidade deste aparelho na lista de aparelhos conectados. */
+    val aparelhoId = texto("aparelhoId", "")
     val autoresChecadoEm = longo("autoresChecadoEm", 0L)
     val maior18 = bool("maior18", false)
     val pediuNotificacao = bool("pediuNotificacao", false)
@@ -622,4 +667,17 @@ class Preferencias(ctx: Context) {
     fun definirTema(nome: String) = temaP.definir(nome)
     val tamanho: StateFlow<Float> get() = tamanhoP.estado
     fun definirTamanho(v: Float) = tamanhoP.definir(v)
+}
+
+/** Fichas e obras na Lixeira: guardadas como JSON num ItemLixeira (resumo marca o tipo). */
+object Lixo {
+    const val FICHA = "__ficha__"
+    const val OBRA = "__obra__"
+    fun fichaJson(f: Ficha): org.json.JSONObject = org.json.JSONObject().put("tipo", f.tipo).put("nome", f.nome).put("descricao", f.descricao)
+        .put("imagem", f.imagem ?: "").put("apelidos", f.apelidos).put("idade", f.idade).put("aparencia", f.aparencia).put("poder", f.poder)
+        .put("faccao", f.faccao).put("relacoes", f.relacoes).put("extras", f.extras).put("condicoes", f.condicoes).put("segredos", f.segredos).put("criadaEm", f.criadaEm)
+    fun fichaDe(j: org.json.JSONObject, obraId: Long) = Ficha(obraId = obraId, tipo = j.optString("tipo", TipoFicha.PERSONAGEM), nome = j.optString("nome"),
+        descricao = j.optString("descricao"), imagem = j.optString("imagem").ifEmpty { null }, criadaEm = j.optLong("criadaEm", System.currentTimeMillis()),
+        apelidos = j.optString("apelidos"), idade = j.optString("idade"), aparencia = j.optString("aparencia"), poder = j.optString("poder"),
+        faccao = j.optString("faccao"), relacoes = j.optString("relacoes"), extras = j.optString("extras"), condicoes = j.optString("condicoes"), segredos = j.optString("segredos"))
 }

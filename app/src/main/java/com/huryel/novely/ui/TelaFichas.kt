@@ -216,7 +216,7 @@ private fun DialogoFicha(inicial: Ficha, fechar: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = fechar) { Text("Cancelar") } },
     )
-    if (confirmarExclusao) DialogoConfirmar("Excluir “${f.nome}”?", "A ficha e a foto serão apagadas.", "Excluir", { confirmarExclusao = false }) {
+    if (confirmarExclusao) DialogoConfirmar("Excluir “${f.nome}”?", "A ficha vai para a Lixeira (dá para recuperar por 30 dias).", "Excluir", { confirmarExclusao = false }) {
         confirmarExclusao = false; app.escopo.launch { repo.excluirFicha(f) }; fechar()
     }
 }
@@ -236,7 +236,7 @@ fun TelaLixeira(nav: NavHostController, obraId: Long? = null) {
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Topo("Lixeira", nav)
-            Text("Capítulos excluídos ficam aqui por 30 dias e depois somem sozinhos.", fontSize = 13.sp, color = p.textoSuave,
+            Text("Capítulos, fichas e obras excluídos ficam aqui por 30 dias e depois somem sozinhos.", fontSize = 13.sp, color = p.textoSuave,
                 modifier = Modifier.padding(horizontal = 20.dp))
             if (itens.isEmpty()) Text("A lixeira está vazia.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -244,7 +244,10 @@ fun TelaLixeira(nav: NavHostController, obraId: Long? = null) {
                     val dias = (30 - (System.currentTimeMillis() - i.excluidoEm) / 86_400_000).coerceAtLeast(0)
                     Column(Modifier.fillMaxWidth().clip(forma(16.dp)).background(p.superficie).padding(14.dp)) {
                         Text(i.titulo.ifEmpty { "(sem título)" }, fontWeight = FontWeight.Bold)
-                        Text("${i.obraTitulo} · ${formatarPalavras(i.palavras.toLong())} palavras · excluído em ${fmt.format(Date(i.excluidoEm))} · some em $dias dias",
+                        val oque = when (i.resumo) { com.huryel.novely.data.Lixo.FICHA -> "ficha de ${i.obraTitulo}"
+                            com.huryel.novely.data.Lixo.OBRA -> "obra inteira, com fichas e capítulos · ${formatarPalavras(i.palavras.toLong())} palavras"
+                            else -> "${i.obraTitulo} · ${formatarPalavras(i.palavras.toLong())} palavras" }
+                        Text("$oque · excluído em ${fmt.format(Date(i.excluidoEm))} · some em $dias dias",
                             fontSize = 12.sp, color = p.textoSuave)
                         Row {
                             TextButton(onClick = {

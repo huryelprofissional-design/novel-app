@@ -369,6 +369,8 @@ interface NovelyDao {
 
     @Query("SELECT * FROM lixeira ORDER BY excluidoEm DESC")
     fun lixeira(): Flow<List<ItemLixeira>>
+    @Query("SELECT * FROM lixeira ORDER BY excluidoEm DESC")
+    suspend fun lixeiraAgora(): List<ItemLixeira>
     @Query("SELECT * FROM lixeira WHERE excluidoEm < :antes")
     suspend fun lixeiraAntiga(antes: Long): List<ItemLixeira>
     @Insert suspend fun inserirLixeira(i: ItemLixeira): Long

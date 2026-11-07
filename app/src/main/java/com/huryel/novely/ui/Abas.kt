@@ -858,11 +858,34 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
                     }
                     Text("Suas obras, capítulos, personagens, grifos e progresso de leitura ficam guardados na nuvem e aparecem em qualquer aparelho onde você entrar com esta conta. Sem internet, tudo continua funcionando e sobe depois.",
                         fontSize = 13.sp, color = p.textoSuave)
+                    // aparelhos conectados a esta conta (desconectar um: ele sai da conta na próxima sincronização)
+                    var aparelhos by remember { mutableStateOf<List<com.huryel.novely.data.Aparelhos.Info>?>(null) }
+                    var recarregarAp by remember { mutableIntStateOf(0) }
+                    LaunchedEffect(recarregarAp) { aparelhos = try { com.huryel.novely.data.Aparelhos.lista(app.prefs) } catch (_: Exception) { emptyList() } }
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("📱 Aparelhos conectados", fontWeight = FontWeight.ExtraBold)
+                        val ap = aparelhos
+                        if (ap == null) Text("Carregando…", fontSize = 13.sp, color = p.textoSuave)
+                        else if (ap.isEmpty()) Text("Sincronize para aparecer aqui.", fontSize = 13.sp, color = p.textoSuave)
+                        ap?.forEach { a ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(a.nome + if (a.esteAqui) " · este aparelho" else "", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    val min = (System.currentTimeMillis() - a.visto) / 60000
+                                    Text("visto " + when { min < 2 -> "agora"; min < 60 -> "há $min min"; min < 1440 -> "há ${min / 60} h"; else -> "há ${min / 1440} dias" } + if (a.build > 0) " · build ${a.build}" else "",
+                                        fontSize = 12.sp, color = p.textoSuave)
+                                }
+                                if (!a.esteAqui) TextButton(onClick = { app.escopo.launch { try { com.huryel.novely.data.Aparelhos.desconectar(a.id) } catch (_: Exception) {}; recarregarAp++ } }) {
+                                    Text("Desconectar", color = Color(0xFFE57373)) }
+                            }
+                        }
+                        Text("Perdeu um celular? Desconecte aqui: ele sai da conta na próxima vez que ligar a internet.", fontSize = 12.sp, color = p.textoSuave)
+                    }
                     OutlinedButton(onClick = { sair = true }, modifier = Modifier.fillMaxWidth()) { Text("Sair da conta", color = Color(0xFFE57373)) }
                 }
                 if (sair) DialogoConfirmar("Sair da conta?", "As obras continuam neste aparelho. Para usar de novo, entre com a mesma conta.", "Sair", { sair = false }) {
                     sair = false
-                    app.escopo.launch { app.sinc.sincronizar(); app.conta.sair() }
+                    app.escopo.launch { app.sinc.sincronizar(); try { com.huryel.novely.data.Aparelhos.desconectar(com.huryel.novely.data.Aparelhos.meuId(app.prefs)) } catch (_: Exception) {}; app.conta.sair() }
                 }
             }
             "privacidade" -> {

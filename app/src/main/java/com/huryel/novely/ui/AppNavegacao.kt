@@ -100,6 +100,8 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     LaunchedEffect(usuario?.uid) {
         while (true) {
             app.sinc.sincronizar()
+            // lista de aparelhos conectados: avisa que este está vivo; se outro aparelho pediu, sai da conta
+            if (try { com.huryel.novely.data.Aparelhos.registrar(app.prefs, app.atualizador.versaoInstalada) } catch (_: Exception) { false }) { app.conta.sair(); break }
             try { app.pub.atualizarSeguidas() } catch (_: Exception) {}
             try { app.pub.novasDeAutores(); app.pub.publicarPerfilSePreciso() } catch (_: Exception) {}
             com.huryel.novely.data.Progresso.publicar()
