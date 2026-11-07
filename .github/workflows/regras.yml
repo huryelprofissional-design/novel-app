@@ -1,0 +1,27 @@
+name: Regras do Firestore
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ "firestore.rules", "regras/**", ".github/workflows/regras.yml" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Instalar
+        run: cd regras && npm install --no-audit --no-fund
+      - name: Testar regras no emulador
+        run: cd regras && npx firebase emulators:exec --only firestore --project demo-novely "node --test teste.mjs"
