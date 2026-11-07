@@ -52,9 +52,28 @@ const PAL = "[\\p{L}\\p{N}'’]*(?:-[\\p{L}\\p{N}'’]+)*";
 export const RX_MARCA = new RegExp(`(?<![\\p{L}\\p{N}@&])([@&])(?:\\[([^\\]\\n]{1,60})\\]|(\\p{L}${PAL}(?:\\s(?:(?:d[aeo]s?|de|di|del|della|du|la|le|van|von|der|den|bin|ibn|al)\\s)?\\p{Lu}${PAL}){0,4}))(\\s*\\(([^)\\n]{1,80})\\))?(\\s*[,—–:;]|\\s+-(?=\\s))?`, "gu");
 export const limparMarcas = (s) => (s.includes("@") || s.includes("&")) ? s.replace(RX_MARCA, (_m, _s, col, nome, _a, _b, sep) => (col || nome) + (sep || "")) : s;
 /** Partes de nome que só uma ficha tem ("Kang Seo-jun" → "Seo-jun"). */
+/** Palavras que nunca valem sozinhas como nome ("Seu" de "Seu Cristóvão"); mesma lista do app. */
+export const NAO_NOME = new Set(("seu sua seus suas dona dom senhor senhora sr sra srta sinhá sinhô nhô nhá dr dra doutor doutora mestre mestra rei rainha príncipe princesa lorde lady sir madame dama duque duquesa conde condessa barão baronesa " +
+  "capitão general coronel sargento tenente comandante chefe líder padre frei irmã irmão santo santa são tio tia avô avó vovô vovó pai mãe velho velha jovem pequeno pequena grande menino menina moço moça " +
+  "professor professora jovem-mestre anciã ancião imperador imperatriz deus deusa lord miss mister para como mais mas que ele ela eles elas isso isto este esta esse essa aquele aquela pelo pela " +
+  "uma com sem por sobre entre até ainda também muito quando onde porque então depois antes sempre nunca nada tudo cada outro outra mesmo mesma dele dela meu minha você não sim bem qual quem " +
+  "noite dia sol lua rosa flor pedra lobo corvo anjo morte vida sombra luz").split(" "));
+export const naoEhNome = (p) => NAO_NOME.has(p.trim().toLowerCase());
+/** O nome começa uma frase? (texto puro, sem HTML) */
+export function inicioDeFrase(t, ini) { let i = ini - 1; while (i >= 0 && /[\s—–\-―"“”«»'‘’(\[*_]/.test(t[i])) i--; return i < 0 || /[.!?…:]/.test(t[i]); }
+/** Confiança 0–100 (mesma regra do app): cadastrado 100, parte no meio da frase 70, parte no começo 45, ignorado 0. */
+export function confianca(t, ini, termo, cadastrado, ignorado = false) {
+  if (ignorado) return 0;
+  if (cadastrado) return !termo.trim().includes(" ") && naoEhNome(termo) && inicioDeFrase(t, ini) ? 45 : 100;
+  if (naoEhNome(termo)) return 0;
+  return inicioDeFrase(t, ini) ? 45 : 70;
+}
+export const LIMIAR_FORTE = 80, LIMIAR_LEVE = 50;
+export const ignoradosNome = () => new Set(local.ler("naoEhNome", []));
+export function ignorarNome(id, termo, sim = true) { const s = ignoradosNome(); const k = `${id}|${termo.trim()}`; if (sim) s.add(k); else s.delete(k); local.gravar("naoEhNome", [...s]); }
 export function partesUnicas(fichas) {
   const cont = new Map();
-  for (const f of fichas) { const p = (f.nome || "").trim().split(/\s+/); if (p.length < 2) continue; for (const x of p) if (x.length >= 3 && !/^(d[aeo]s?|de|di|del|della|du|la|le|van|von|der|den|bin|ibn|al)$/i.test(x)) { const k = x.toLowerCase(); if (!cont.has(k)) cont.set(k, new Set()); cont.get(k).add(f.id); } }
+  for (const f of fichas) { const p = (f.nome || "").trim().split(/\s+/); if (p.length < 2) continue; for (const x of p) if (x.length >= 3 && !/^(d[aeo]s?|de|di|del|della|du|la|le|van|von|der|den|bin|ibn|al)$/i.test(x) && !naoEhNome(x)) { const k = x.toLowerCase(); if (!cont.has(k)) cont.set(k, new Set()); cont.get(k).add(f.id); } }
   const saida = new Map();
   for (const f of fichas) for (const x of (f.nome || "").trim().split(/\s+/)) { const ids = cont.get(x.toLowerCase()); if (ids && ids.size === 1 && !fichas.some((o) => o.nome.toLowerCase() === x.toLowerCase())) saida.set(x, f.id); }
   return saida;
@@ -63,7 +82,8 @@ export function partesUnicas(fichas) {
 export function mapaNomes(fichas) {
   const m = new Map();
   for (const f of fichas) { m.set(f.nome.trim(), f.id); for (const a of (f.apelidos || "").split(",")) if (a.trim().length >= 2) m.set(a.trim(), f.id); }
-  for (const [p, id] of partesUnicas(fichas)) if (!m.has(p)) m.set(p, id);
+  m.palpites = new Set();
+  for (const [p, id] of partesUnicas(fichas)) if (!m.has(p)) { m.set(p, id); m.palpites.add(p); }
   return m;
 }
 

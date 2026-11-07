@@ -2,7 +2,7 @@
 import { blocoFx, inlineFx, MEGA } from "./fx.js";
 import { ligarEfeitosTexto, ligarClima, registrar, confete, reacoesHTML, ligarReacoes, fimHTML } from "./efeitos.js";
 import {
-  E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas,
+  E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, casca, carregando, rota, ir, local, limparMarcas, mapaNomes, contarPalavras, partesUnicas, confianca, LIMIAR_FORTE, LIMIAR_LEVE, ignoradosNome,
   capitulos, fichas, marcadores, salvarCapitulo, salvarObra, salvarItem, apagarItem, lerTexto, colTextos, salvarTexto, novoId, dialogo, confirmar,
   obraPub, capsPub, fichasPub, imagemPub, seguindo, seguir, minhaNota, avaliar, contarLeitura, registrarLeitura, curtiu, curtir, comentarios, comentar, apagarComentario,
   collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra, carteira, liberado, ganharMoedas,
@@ -141,7 +141,11 @@ export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
     let h = (sistema && sistemaHTML(l)) || efeitosInline(esc(l)).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
     if (carta) h = h.replace(/\n/g, "<br>");
     if (aviso) h = "🔔 " + h;
-    if (rxNomes) h = h.replace(rxNomes, (m) => `<span class="nome" data-ficha="${esc(nomes.get(m))}">${m}</span>`);
+    if (rxNomes) { const ign = ignoradosNome(); h = h.replace(rxNomes, (m, _g, off, tudo) => {
+      const id = nomes.get(m); const puro = tudo.slice(0, off).replace(/<[^>]*>/g, "").replace(/&[a-z#0-9]+;/gi, "x");
+      const c = confianca(puro + m, puro.length, m, !nomes.palpites?.has(m), ign.has(`${id}|${m}`));
+      if (c < LIMIAR_LEVE) return m;
+      return `<span class="nome${c < LIMIAR_FORTE ? " palpite" : ""}" data-ficha="${esc(id)}" data-termo="${esc(m)}">${m}</span>`; }); }
     const fala = !sistema && !msg && !aviso && !carta && /^[—–―\-“"«]/.test(l) && l.length > 1 && !l.startsWith("---");
     if (fala) h = h.replace(/^([—–―\-“"«]\s?)/, '<b class="trav">$1</b>');
     const nota = g?.nota ? `<span class="nota-grifo" title="${esc(g.nota)}">✎</span>` : "";
@@ -281,7 +285,7 @@ function ouvir(apartir = 0) {
 
 /** Liga clique nos nomes (abre a ficha). */
 function ligarNomes(fs, fotoDe) {
-  $$("#texto .nome").forEach((n) => (n.onclick = async () => { const f = fs.find((x) => x.id === n.dataset.ficha); if (f) verFicha(f, fotoDe ? await fotoDe(f) : undefined); }));
+  $$("#texto .nome").forEach((n) => (n.onclick = async () => { const f = fs.find((x) => x.id === n.dataset.ficha); if (f) verFicha(f, fotoDe ? await fotoDe(f) : undefined, fotoDe ? n.dataset.termo : null); }));
   // @@Nome: cartão do personagem com os dados da ficha
   $$("#texto [data-ficha-cartao]").forEach(async (av) => {
     const nome = av.dataset.fichaCartao.toLowerCase(), card = av.closest(".ficha-cartao");

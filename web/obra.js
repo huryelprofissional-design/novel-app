@@ -5,7 +5,7 @@ import {
   imagemMinha, escolherArquivo, comprimirArquivo, enviarImagemMinha, dialogo, confirmar, perguntar, pendencias, publicarObra, publicarCapitulos,
   despublicarCapitulo, despublicarObra, obraPub, GENEROS_GRUPOS, CLASSIFICACOES, STATUS_NOME, lerTexto, colTextos, novoId, limparMarcas, partir,
   convidar, membros, removerMembro, enviarRevisao, tirarRevisao, capsRevisao, notas, sugestoes, aceitarSugestao, descartarSugestao, local, mapaNomes,
-  corDaImagem, corDaBase, usarCorDaObra, ENFEITES, enfeiteHTML, definirAntecipado,
+  corDaImagem, corDaBase, usarCorDaObra, ENFEITES, enfeiteHTML, definirAntecipado, ignoradosNome, ignorarNome,
 } from "./nucleo.js";
 
 /** Pinta a tela com a cor da capa (selo, botões, capítulo atual…). */
@@ -213,7 +213,7 @@ async function telaFichas(id, corpo, pode) {
   }
 }
 
-export async function verFicha(f, fotoUrl) {
+export async function verFicha(f, fotoUrl, termo = null) {
   const u = fotoUrl ?? (f.imagemHash && E.usuario ? await imagemMinha(f.id + "-foto") : null);
   const campos = [["Aparência", f.aparencia], ["Poder", f.poder], ["Relações", f.relacoes]].filter(([, v]) => v);
   dialogo(`<div class="ficha-ver">${u ? `<div class="ficha-fundo" style="background-image:url(${u})"></div>` : ""}
@@ -221,7 +221,16 @@ export async function verFicha(f, fotoUrl) {
       <div><div style="font-size:28px;font-weight:400">${esc(f.nome)}</div><div class="chips" style="margin-top:8px"><span class="etiqueta">${TIPO_NOME[f.tipo] || "Personagem"}</span>${f.idade ? `<span class="etiqueta">${esc(f.idade)}</span>` : ""}${f.faccao ? `<span class="etiqueta">${esc(f.faccao)}</span>` : ""}</div></div></div>
     ${f.apelidos ? `<p class="suave peq">também chamado de ${esc(f.apelidos)}</p>` : ""}
     ${f.descricao ? `<p style="line-height:1.6">${esc(f.descricao)}</p>` : `<p class="suave">Sem descrição ainda.</p>`}
-    ${campos.map(([r, v]) => `<div class="rotulo" style="color:var(--suave);margin-top:12px">${r}</div><div>${esc(v)}</div>`).join("")}</div>`);
+    ${campos.map(([r, v]) => `<div class="rotulo" style="color:var(--suave);margin-top:12px">${r}</div><div>${esc(v)}</div>`).join("")}
+    ${termo && termo.trim().toLowerCase() !== f.nome.trim().toLowerCase() ? `<button class="btn2 peq" id="nao-e" style="margin-top:14px;color:#ff9d9d">“${esc(termo)}” aqui não é ${esc(f.nome)}</button>` : ""}
+    ${termo !== null ? `<div class="chips" id="ign" style="margin-top:10px"></div>` : ""}</div>`);
+  const ign = document.getElementById("ign");
+  const pintar = () => { if (!ign) return; const l = [...ignoradosNome()].filter((k) => k.startsWith(f.id + "|")).map((k) => k.slice(f.id.length + 1));
+    ign.innerHTML = l.length ? `<span class="suave peq">Não reconhece:</span>` + l.map((t) => `<span class="chip" data-t="${esc(t)}" style="cursor:pointer">${esc(t)} ✕</span>`).join("") : "";
+    ign.querySelectorAll("[data-t]").forEach((c) => (c.onclick = () => { ignorarNome(f.id, c.dataset.t, false); pintar(); toast("Vale de novo ao reabrir o capítulo"); })); };
+  pintar();
+  const b = document.getElementById("nao-e");
+  if (b) b.onclick = () => { ignorarNome(f.id, termo); b.remove(); pintar(); toast(`“${termo}” não vai mais abrir ${f.nome} (reabra o capítulo)`); };
 }
 
 function editarFicha(id, f, todas) {

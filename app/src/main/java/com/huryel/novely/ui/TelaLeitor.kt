@@ -489,6 +489,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     val revelados = remember(capId) { mutableStateListOf<Int>() } // ||segredos|| que o leitor já abriu
     var blocoSel by remember { mutableStateOf(-1) }
     var fichaVer by remember { mutableStateOf<com.huryel.novely.data.Ficha?>(null) }
+    var termoVer by remember { mutableStateOf("") } // palavra tocada no texto que abriu a ficha
 
     // ── Rolagem automática ──
     val velRolagem by prefs.velocidadeRolagem.estado.collectAsState()
@@ -589,17 +590,20 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     }
 
     // ── Nomes de personagens/lugares destacados (toque abre a ficha) ──
+    val ignoradosTxt by prefs.naoEhNome.estado.collectAsState()
+    val ignorados = remember(ignoradosTxt) { prefs.ignorados() }
     val regraNomes = remember(fichas) {
-        // só nome completo e apelidos escritos pelo autor (sem adivinhar primeiro nome: misturava personagens)
+        // nome completo e apelidos escritos pelo autor valem sempre; partes do nome entram só como palpite (confiança menor)
         val mapa = HashMap<String, com.huryel.novely.data.Ficha>()
+        val palpites = HashSet<String>()
         fichas.forEach { f -> val n = f.nome.trim(); if (n.length >= 2) mapa[n] = f }
         fichas.forEach { f -> f.apelidos.split(',').map { it.trim() }.forEach { a -> if (a.length >= 2 && !mapa.containsKey(a)) mapa[a] = f } }
-        // partes do nome que só um personagem tem ("Seo-jun" para "Kang Seo-jun")
-        Marcas.partesUnicas(fichas.associate { it.nome to it.id }).forEach { (parte, id) -> if (!mapa.containsKey(parte)) fichas.firstOrNull { it.id == id }?.let { mapa[parte] = it } }
-        Marcas.regexNomes(mapa.keys)?.let { it to mapa }
+        // partes do nome que só um personagem tem ("Seo-jun" para "Kang Seo-jun"); "Seu", "Dona" etc. nunca entram
+        Marcas.partesUnicas(fichas.associate { it.nome to it.id }).forEach { (parte, id) -> if (!mapa.containsKey(parte)) fichas.firstOrNull { it.id == id }?.let { mapa[parte] = it; palpites += parte } }
+        Marcas.regexNomes(mapa.keys)?.let { Triple(it, mapa, palpites) }
     }
     fun comNomes(t: AnnotatedString): AnnotatedString {
-        val (rx, mapa) = regraNomes ?: return t
+        val (rx, mapa, palpites) = regraNomes ?: return t
         if (!destacarNomes) return t
         val achados = rx.findAll(t.text).toList()
         if (achados.isEmpty()) return t
@@ -607,8 +611,11 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             append(t)
             achados.forEach { m ->
                 val f = mapa[m.value] ?: return@forEach
-                addLink(LinkAnnotation.Clickable("ficha${f.id}", TextLinkStyles(SpanStyle(color = p.destaque2, fontWeight = FontWeight.SemiBold,
-                    textDecoration = TextDecoration.None))) { fichaVer = f }, m.range.first, m.range.last + 1)
+                val conf = Marcas.confianca(t.text, m.range.first, m.value, m.value !in palpites, "${f.id}|${m.value}" in ignorados)
+                if (conf < Marcas.LIMIAR_LEVE) return@forEach
+                val estilo = if (conf >= Marcas.LIMIAR_FORTE) SpanStyle(color = p.destaque2, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.None)
+                    else SpanStyle(textDecoration = TextDecoration.Underline) // palpite: sublinhado leve, sem cor
+                addLink(LinkAnnotation.Clickable("ficha${f.id}", TextLinkStyles(estilo)) { fichaVer = f; termoVer = m.value }, m.range.first, m.range.last + 1)
             }
         }
     }
@@ -962,7 +969,22 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             Box(Modifier.fillMaxSize().background(Color(0x40000000)).pointerInput(Unit) { detectTapGestures { fichaVer = null } }) {
                 Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(10.dp).fillMaxWidth()
                     .vidroLiquido(vidro, 32.dp, tinta = Color(0xE610131A)).pointerInput(Unit) { detectTapGestures { } }) {
-                    VerFicha(f, c.ordem)
+                    Column {
+                        VerFicha(f, c.ordem)
+                        // o autor corrige o reconhecimento: esta palavra não é este personagem (e pode desfazer)
+                        val termo = termoVer
+                        val ehObraMinha = obra?.publicaId.isNullOrEmpty()
+                        if (ehObraMinha && termo.isNotBlank() && !termo.equals(f.nome.trim(), true)) {
+                            TextButton(onClick = { prefs.ignorarNome(f.id, termo); fichaVer = null; aviso = "“$termo” não vai mais abrir ${f.nome.trim()}" },
+                                modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)) { Text("“$termo” aqui não é ${f.nome.trim()}", color = Color(0xFFFF9D9D)) }
+                        }
+                        val meusIgnorados = ignorados.filter { it.startsWith("${f.id}|") }.map { it.substringAfter('|') }
+                        if (ehObraMinha && meusIgnorados.isNotEmpty()) Row(Modifier.padding(start = 20.dp, end = 12.dp, bottom = 12.dp).horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("Não reconhece:", color = Color.White.copy(alpha = .6f), fontSize = 12.sp)
+                            meusIgnorados.forEach { t -> TextButton(onClick = { prefs.voltarNome(f.id, t) }) { Text("$t ✕", fontSize = 12.sp, color = Color.White) } }
+                        }
+                    }
                 }
             }
         }

@@ -100,7 +100,7 @@ object Marcas {
         nomes.forEach { (nome, id) ->
             val partes = nome.trim().split(Regex("\\s+"))
             if (partes.size < 2) return@forEach
-            partes.filter { it.length >= 3 && !Regex("^$LIGA$", RegexOption.IGNORE_CASE).matches(it) }.forEach { contagem.getOrPut(it.lowercase()) { HashSet() }.add(id) }
+            partes.filter { it.length >= 3 && !Regex("^$LIGA$", RegexOption.IGNORE_CASE).matches(it) && !naoEhNome(it) }.forEach { contagem.getOrPut(it.lowercase()) { HashSet() }.add(id) }
         }
         val saida = HashMap<String, Long>()
         nomes.forEach { (nome, _) ->
@@ -111,6 +111,45 @@ object Marcas {
         }
         return saida
     }
+
+    /**
+     * Palavras que nunca valem sozinhas como nome, mesmo fazendo parte de um ("Seu" de "Seu Cristóvão",
+     * "Dona" de "Dona Benta"): títulos, tratamentos e palavras comuns que aparecem com maiúscula no começo da frase.
+     */
+    val NAO_NOME: Set<String> = setOf(
+        "seu", "sua", "seus", "suas", "dona", "dom", "senhor", "senhora", "sr", "sra", "srta", "sinhá", "sinhô", "nhô", "nhá", "dr", "dra", "doutor", "doutora",
+        "mestre", "mestra", "rei", "rainha", "príncipe", "princesa", "lorde", "lady", "sir", "madame", "dama", "duque", "duquesa", "conde", "condessa", "barão", "baronesa",
+        "capitão", "general", "coronel", "sargento", "tenente", "comandante", "chefe", "líder", "padre", "frei", "irmã", "irmão", "santo", "santa", "são",
+        "tio", "tia", "avô", "avó", "vovô", "vovó", "pai", "mãe", "velho", "velha", "jovem", "pequeno", "pequena", "grande", "menino", "menina", "moço", "moça",
+        "professor", "professora", "jovem-mestre", "anciã", "ancião", "imperador", "imperatriz", "deus", "deusa", "lord", "miss", "mister",
+        "para", "como", "mais", "mas", "que", "ele", "ela", "eles", "elas", "isso", "isto", "este", "esta", "esse", "essa", "aquele", "aquela", "pelo", "pela",
+        "uma", "com", "sem", "por", "sobre", "entre", "até", "ainda", "também", "muito", "quando", "onde", "porque", "então", "depois", "antes", "sempre",
+        "nunca", "nada", "tudo", "cada", "outro", "outra", "mesmo", "mesma", "dele", "dela", "meu", "minha", "você", "não", "sim", "bem", "qual", "quem",
+        "noite", "dia", "sol", "lua", "rosa", "flor", "pedra", "lobo", "corvo", "anjo", "morte", "vida", "sombra", "luz",
+    )
+    fun naoEhNome(palavra: String) = palavra.trim().lowercase() in NAO_NOME
+
+    /** O nome começa uma frase? (antes dele só aspas/travessão/espaço desde o início da linha ou de um . ! ? …) */
+    fun inicioDeFrase(texto: CharSequence, inicio: Int): Boolean {
+        var i = inicio - 1
+        while (i >= 0 && (texto[i].isWhitespace() || texto[i] in "—–-―\"“”«»'‘’([*_")) i--
+        return i < 0 || texto[i] in ".!?…:"
+    }
+
+    /**
+     * Confiança (0–100) de que a palavra achada no texto é mesmo a ficha.
+     * Nome completo ou apelido escrito pelo autor: 100. Parte única do nome no meio da frase: 70 (sublinhado leve).
+     * Parte do nome no começo da frase: 45 (pode ser só a palavra com maiúscula). Termo que o autor marcou como "não é": 0.
+     */
+    fun confianca(texto: CharSequence, inicio: Int, termo: String, cadastrado: Boolean, ignorado: Boolean = false): Int = when {
+        ignorado -> 0
+        cadastrado -> if (' ' !in termo.trim() && naoEhNome(termo) && inicioDeFrase(texto, inicio)) 45 else 100
+        naoEhNome(termo) -> 0
+        inicioDeFrase(texto, inicio) -> 45
+        else -> 70
+    }
+    const val LIMIAR_FORTE = 80
+    const val LIMIAR_LEVE = 50
 
     /**
      * Nomes próprios no texto que ainda não têm ficha: palavras com maiúscula no MEIO da frase

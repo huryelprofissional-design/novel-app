@@ -423,6 +423,11 @@ class Preferencias(ctx: Context) {
     val fonte = texto("fonteLeitura", "TEMA") // TEMA | SERIFA | SEM_SERIFA
     val destacarFalas = bool("falas", true)
     val destacarNomes = bool("nomes", true)
+    /** Termos que o autor marcou como "aqui não é este personagem": uma linha "idFicha|termo" por termo. */
+    val naoEhNome = texto("naoEhNome", "")
+    fun ignorados(): Set<String> = naoEhNome.valor.lines().filter { it.isNotBlank() }.toSet()
+    fun ignorarNome(fichaId: Long, termo: String) { naoEhNome.definir((ignorados() + "$fichaId|${termo.trim()}").joinToString("\n")) }
+    fun voltarNome(fichaId: Long, termo: String) { naoEhNome.definir((ignorados() - "$fichaId|${termo.trim()}").joinToString("\n")) }
     val modoPaginas = bool("paginas", false)
     val telaLigada = bool("telaLigada", true)
     val velocidadeVoz = real("voz", 1.0f)

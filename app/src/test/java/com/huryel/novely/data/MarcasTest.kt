@@ -122,4 +122,22 @@ class MarcasTest {
         assertTrue(r.none { it.first == "Ha-eun" }) // só 1 vez
         assertTrue(Marcas.nomesSemFicha(t, listOf("Kang Seo-jun")).isEmpty() || Marcas.nomesSemFicha(t, listOf("Seo-jun")).isEmpty())
     }
+
+    @Test fun seuNaoViraNome() {
+        val p = Marcas.partesUnicas(mapOf("Seu Cristóvão" to 1L, "Dona Benta" to 2L, "Kang Seo-jun" to 3L))
+        assertNull(p["Seu"]); assertNull(p["Dona"])
+        assertEquals(1L, p["Cristóvão"]); assertEquals(3L, p["Seo-jun"])
+    }
+
+    @Test fun confiancaDoNome() {
+        val t = "Seu pai chegou. Ele viu Cristóvão sorrir. Cristóvão saiu."
+        assertTrue(Marcas.confianca("Viu Seu Cristóvão.", 4, "Seu Cristóvão", cadastrado = true) >= Marcas.LIMIAR_FORTE)
+        val meio = Marcas.confianca(t, t.indexOf("Cristóvão"), "Cristóvão", cadastrado = false)
+        assertTrue(meio in Marcas.LIMIAR_LEVE until Marcas.LIMIAR_FORTE)
+        assertTrue(Marcas.confianca(t, t.lastIndexOf("Cristóvão"), "Cristóvão", cadastrado = false) < Marcas.LIMIAR_LEVE)
+        assertEquals(0, Marcas.confianca(t, 0, "Seu", cadastrado = false))
+        assertEquals(0, Marcas.confianca(t, t.indexOf("Cristóvão"), "Cristóvão", cadastrado = true, ignorado = true))
+        assertTrue(Marcas.inicioDeFrase("— Cristóvão, venha!", 2))
+        assertTrue(!Marcas.inicioDeFrase("disse Cristóvão", 6))
+    }
 }
