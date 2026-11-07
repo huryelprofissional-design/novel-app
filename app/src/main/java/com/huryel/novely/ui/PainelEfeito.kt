@@ -34,11 +34,25 @@ val EFEITOS_TRECHO = listOf(
     "feitico" to "Feitiço", "runa" to "Runas", "medo" to "Medo", "eco" to "Eco", "sangue" to "Sangue", "veneno" to "Veneno",
     "ouro" to "Ouro", "coracao" to "Coração", "quebra" to "Quebrando", "vento" to "Vento", "cor" to "Só a cor", "idioma" to "Outro idioma",
 )
-val EFEITOS_PARAGRAFO = listOf(
-    "sistema" to "Sistema", "perigo" to "Perigo", "conquista" to "Conquista", "missao-ok" to "Missão ok", "missao-falhou" to "Missão falhou",
-    "aviso" to "Aviso", "titulo" to "Título", "alerta-vermelho" to "Alerta", "terminal" to "Terminal", "profecia" to "Profecia",
-    "diario" to "Diário", "telegrama" to "Telegrama", "ia" to "IA falando", "proximo" to "Próximo cap.",
-)
+/** Efeitos de parágrafo: todos os do Mega Pack, por gênero (chave, nome, gênero, modelo de campos). */
+data class FxParagrafo(val chave: String, val nome: String, val cat: String, val modelo: String)
+val EFEITOS_PARAGRAFO: List<FxParagrafo> = MEGA_PACK.filter { it.third != "inline" }.mapNotNull { (nome, cod, cat) ->
+    Regex("""^\[#([a-z0-9-]+)(?::[a-z]+)?\s*([\s\S]*)]$""").find(cod)?.let { FxParagrafo(it.groupValues[1], nome.substringBefore(" ("), cat, it.groupValues[2]) }
+}
+val CAT_FX = linkedMapOf("rpg" to "RPG / SISTEMA", "murim" to "MURIM", "terror" to "TERROR", "misterio" to "MISTÉRIO", "fantasia" to "FANTASIA",
+    "scifi" to "SCI-FI", "celular" to "CELULAR", "epoca" to "ÉPOCA", "estrutura" to "ESTRUTURA")
+// estes levam o trecho inteiro; os outros vêm com o modelo de campos e o trecho no lugar do texto
+private val FX_SIMPLES = setOf("sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo")
+
+/** O que vai dentro do [#efeito …]. */
+fun conteudoBloco(efeito: String, trecho: String): String {
+    val t = trecho.trim(); val modelo = EFEITOS_PARAGRAFO.firstOrNull { it.chave == efeito }?.modelo.orEmpty()
+    if (efeito in FX_SIMPLES || modelo.isEmpty()) return t.ifEmpty { "Você subiu de nível" }
+    if (t.isEmpty()) return modelo
+    val cs = modelo.split(" | ").toMutableList()
+    val i = cs.indexOfFirst { it.trim().lowercase() in setOf("texto", "corpo", "transcrição", "mensagem", "legenda") }.coerceAtLeast(0)
+    cs[i] = t.replace(Regex("\n+"), " "); return cs.joinToString(" | ")
+}
 private val PISCAM = setOf("raio", "neon", "medo", "quebra", "vento", "coracao", "perigo", "alerta-vermelho", "terminal")
 
 /** Aviso de leitura para a combinação escolhida (null = tudo certo). */
@@ -61,7 +75,8 @@ fun PainelEfeito(trecho: String, p: Paleta, aoAplicar: (texto: String, bloco: Bo
     var efeito by remember { mutableStateOf(if (bloco) "sistema" else "fogo") }
     var cor by remember { mutableStateOf("roxo") }
     var forca by remember { mutableIntStateOf(0) }
-    val sintaxe = Marcas.escreverEfeito(efeito, cor, forca, texto, bloco)
+    val conteudo = if (bloco) conteudoBloco(efeito, trecho) else texto
+    val sintaxe = Marcas.escreverEfeito(efeito, cor, forca, conteudo, bloco)
     val alerta = alertaLeitura(efeito, cor, forca, bloco, texto.length)
     val suave = p.textoSuave
 
@@ -82,18 +97,25 @@ fun PainelEfeito(trecho: String, p: Paleta, aoAplicar: (texto: String, bloco: Bo
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Segmentado(listOf("No trecho", "Parágrafo"), if (bloco) 1 else 0) { i ->
-                bloco = i == 1; efeito = if (bloco) EFEITOS_PARAGRAFO.first().first else EFEITOS_TRECHO.first().first
+                bloco = i == 1; efeito = if (bloco) "sistema" else EFEITOS_TRECHO.first().first
             }
             Rotulo("EFEITO", suave)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                (if (bloco) EFEITOS_PARAGRAFO else EFEITOS_TRECHO).forEach { (k, nome) ->
-                    val on = k == efeito
-                    Text(nome, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE6E6EA),
-                        modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (on) Color(0xFF23202F) else Color(0xFF18191E))
-                            .border(if (on) 1.5.dp else 1.dp, if (on) corFx("roxo") else Color(0xFF26282F), RoundedCornerShape(14.dp))
-                            .clickable(role = Role.RadioButton) { efeito = k }.semantics { selected = on }
-                            .padding(horizontal = 14.dp, vertical = 12.dp))
+            @Composable fun Chip(k: String, nome: String) {
+                val on = k == efeito
+                Text(nome, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE6E6EA),
+                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (on) Color(0xFF23202F) else Color(0xFF18191E))
+                        .border(if (on) 1.5.dp else 1.dp, if (on) corFx("roxo") else Color(0xFF26282F), RoundedCornerShape(14.dp))
+                        .clickable(role = Role.RadioButton) { efeito = k }.semantics { selected = on }
+                        .padding(horizontal = 14.dp, vertical = 12.dp))
+            }
+            if (bloco) CAT_FX.forEach { (cat, rotulo) ->
+                val l = EFEITOS_PARAGRAFO.filter { it.cat == cat }
+                if (l.isNotEmpty()) {
+                    Text(rotulo, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, color = suave)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { l.forEach { Chip(it.chave, it.nome) } }
                 }
+            } else FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                EFEITOS_TRECHO.forEach { (k, nome) -> Chip(k, nome) }
             }
             Rotulo("COR", suave)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -114,7 +136,7 @@ fun PainelEfeito(trecho: String, p: Paleta, aoAplicar: (texto: String, bloco: Bo
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("No texto fica:  ", fontSize = 11.sp, color = suave)
-                Text(Marcas.escreverEfeito(efeito, cor, forca, if (texto.length > 18) texto.take(18) + "…" else texto, bloco), fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                Text(Marcas.escreverEfeito(efeito, cor, forca, if (conteudo.length > 40) conteudo.take(40) + "…" else conteudo, bloco), fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     color = Color(0xFFC4B5FD), maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A1B21)).padding(horizontal = 6.dp, vertical = 2.dp))
             }
@@ -124,7 +146,7 @@ fun PainelEfeito(trecho: String, p: Paleta, aoAplicar: (texto: String, bloco: Bo
             Box(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(25.dp)).border(1.dp, Color(0xFF2F3139), RoundedCornerShape(25.dp))
                 .clickable(role = Role.Button, onClick = aoCancelar), contentAlignment = Alignment.Center) { Text("Cancelar", fontWeight = FontWeight.Bold, fontSize = 15.sp) }
             Box(Modifier.weight(1.4f).height(50.dp).clip(RoundedCornerShape(25.dp)).background(Color.White)
-                .clickable(role = Role.Button) { aoAplicar(Marcas.escreverEfeito(efeito, cor, forca, if (trecho.isBlank()) "texto" else trecho, bloco), bloco) },
+                .clickable(role = Role.Button) { aoAplicar(Marcas.escreverEfeito(efeito, cor, forca, if (bloco) conteudoBloco(efeito, trecho) else if (trecho.isBlank()) "texto" else trecho, bloco), bloco) },
                 contentAlignment = Alignment.Center) { Text("Aplicar", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color(0xFF0B0B0E)) }
         }
     }

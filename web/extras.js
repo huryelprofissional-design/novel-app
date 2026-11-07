@@ -5,7 +5,7 @@ import {
   E, $, $$, esc, toast, casca, carregando, rota, ir, local, dialogo, confirmar, agora, auth, signOut,
   colObras, colItens, getDocs, getDoc, setDoc, doc, query, where, serverTimestamp, db, collection, contarPalavras,
 } from "./nucleo.js";
-import { blocoFx, inlineFx, ligarFx, CORES_FX, campos } from "./fx.js";
+import { blocoFx, inlineFx, ligarFx, CORES_FX, campos, MEGA } from "./fx.js";
 
 // ───────── efeitos: escrever, tirar e avisar ─────────
 const RX_FX_INLINE = /\{[a-zçãéíóúâêô]+[+-]?(?::[a-zçãéíóúâêô]+)?:\s([^}]*)\}/g;
@@ -35,7 +35,18 @@ export function escreverEfeito(nome, cor, forca, texto, bloco) {
   return bloco ? `[#${cab} ${texto.trim()}]` : `{${cab}: ${texto}}`;
 }
 const TRECHO = [["fogo", "Fogo"], ["gelo", "Gelo"], ["neon", "Neon"], ["raio", "Raio"], ["sombra", "Sombra"], ["divino", "Divino"], ["feitico", "Feitiço"], ["runa", "Runas"], ["medo", "Medo"], ["eco", "Eco"], ["sangue", "Sangue"], ["veneno", "Veneno"], ["ouro", "Ouro"], ["coracao", "Coração"], ["quebra", "Quebrando"], ["vento", "Vento"], ["cor", "Só a cor"], ["idioma", "Outro idioma"]];
-const PARAGRAFO = [["sistema", "Sistema"], ["perigo", "Perigo"], ["conquista", "Conquista"], ["missao-ok", "Missão ok"], ["missao-falhou", "Missão falhou"], ["aviso", "Aviso"], ["titulo", "Título"], ["alerta-vermelho", "Alerta"], ["terminal", "Terminal"], ["profecia", "Profecia"], ["diario", "Diário"], ["telegrama", "Telegrama"], ["ia", "IA falando"], ["proximo", "Próximo cap."]];
+// efeitos de parágrafo: todos os do Mega Pack, por gênero. Os "simples" levam o trecho inteiro; os outros vêm com o modelo de campos
+const SIMPLES = new Set(["sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo"]);
+const CAT_NOME = { rpg: "RPG / Sistema", murim: "Murim", terror: "Terror", misterio: "Mistério", fantasia: "Fantasia", scifi: "Sci-fi", celular: "Celular", epoca: "Época", estrutura: "Estrutura" };
+const PARAGRAFO = MEGA.filter((m) => m[2] !== "inline").map(([nome, cod, cat]) => { const m = cod.match(/^\[#([a-z0-9-]+)(?::[a-z]+)?\s*([\s\S]*)\]$/); return m && [m[1], nome.replace(/ \(.*\)$/, ""), cat, m[2]]; }).filter(Boolean);
+/** O que vai dentro do [#efeito …]: o trecho, ou o modelo de campos com o trecho no lugar do texto. */
+export function conteudoBloco(ef, trecho) {
+  const t = (trecho || "").trim(); const modelo = PARAGRAFO.find((p) => p[0] === ef)?.[3] || "";
+  if (SIMPLES.has(ef) || !modelo) return t || "Você subiu de nível";
+  if (!t) return modelo;
+  const cs = modelo.split(" | "); let i = cs.findIndex((c) => /^(texto|corpo|transcrição|mensagem|legenda)$/i.test(c.trim()));
+  if (i < 0) i = 0; cs[i] = t.replace(/\n+/g, " "); return cs.join(" | ");
+}
 const PISCAM = new Set(["raio", "neon", "medo", "quebra", "vento", "coracao", "perigo", "alerta-vermelho", "terminal"]);
 const COR_HEX = { roxo: "#A47CFF", vermelho: "#FF3B4E", azul: "#4FB8FF", verde: "#3DDC84", dourado: "#FFC94A", rosa: "#FF5FB0", branco: "#E9E7F2", sombrio: "#7A6F8F", laranja: "#FF6A2B" };
 function alerta(ef, cor, forca, bloco, n) {
@@ -48,6 +59,7 @@ function alerta(ef, cor, forca, bloco, n) {
 /** Painel de efeitos com prévia ao vivo (o mesmo desenho do leitor). aoAplicar(texto, bloco). */
 export function painelEfeitos(trecho, aoAplicar, verSimbolos) {
   const texto = trecho.trim() || "Você subiu de nível";
+  const conteudo = () => (bloco ? conteudoBloco(ef, trecho) : texto);
   let bloco = trecho.trim().length > 60 || !trecho.trim(), ef = bloco ? "sistema" : "fogo", cor = "roxo", forca = 0, parar = null;
   const d = dialogo(`<div class="painel-fx"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h3 style="margin:0">Efeito no trecho</h3><span class="suave peq">“${esc(texto.slice(0, 30))}${texto.length > 30 ? "…" : ""}”</span></div>
     <div class="pfx-previa"><span class="rotulo">Prévia ao vivo</span><div class="texto" id="pfx-p"></div></div>
@@ -60,15 +72,18 @@ export function painelEfeitos(trecho, aoAplicar, verSimbolos) {
     <div class="linha-botoes" style="justify-content:space-between"><button class="btn2 peq" id="pfx-todos">Ver todos os símbolos</button><span><button class="btn2" id="pfx-x">Cancelar</button> <button class="btn" id="pfx-ok">Aplicar</button></span></div></div>`, true);
   const desenhar = () => {
     $$("#pfx-aba [data-a]", d).forEach((c) => c.classList.toggle("on", +c.dataset.a === (bloco ? 1 : 0)));
-    $("#pfx-ef", d).innerHTML = (bloco ? PARAGRAFO : TRECHO).map(([k, n]) => `<span class="chip ${k === ef ? "on" : ""}" data-e="${k}">${n}</span>`).join("");
+    const chip = ([k, n]) => `<span class="chip ${k === ef ? "on" : ""}" data-e="${k}">${n}</span>`;
+    $("#pfx-ef", d).innerHTML = bloco
+      ? Object.keys(CAT_NOME).map((c) => { const l = PARAGRAFO.filter((p) => p[2] === c); return l.length ? `<div class="pfx-cat">${CAT_NOME[c]}</div>${l.map(chip).join("")}` : ""; }).join("")
+      : TRECHO.map(chip).join("");
     $$("[data-e]", d).forEach((c) => (c.onclick = () => { ef = c.dataset.e; desenhar(); }));
     $$("[data-c]", d).forEach((c) => c.classList.toggle("on", c.dataset.c === cor));
     $$("[data-f]", d).forEach((c) => c.classList.toggle("on", +c.dataset.f === forca));
-    const s = escreverEfeito(ef, cor, forca, texto, bloco);
+    const s = escreverEfeito(ef, cor, forca, conteudo(), bloco);
     const alvo = $("#pfx-p", d); parar?.();
     alvo.innerHTML = bloco ? (blocoFx(s, (x) => esc(x)) || esc(texto)) : `<p>Ele sentiu: ${inlineFx(esc(s))}</p>`;
     try { parar = ligarFx(alvo); } catch (_) { parar = null; }
-    $("#pfx-s", d).textContent = escreverEfeito(ef, cor, forca, texto.length > 18 ? texto.slice(0, 18) + "…" : texto, bloco);
+    const c = conteudo(); $("#pfx-s", d).textContent = escreverEfeito(ef, cor, forca, c.length > 40 ? c.slice(0, 40) + "…" : c, bloco);
     const a = alerta(ef, cor, forca, bloco, texto.length); $("#pfx-al", d).hidden = !a; $("#pfx-al", d).textContent = "⚠ " + a;
   };
   $$("#pfx-aba [data-a]", d).forEach((c) => (c.onclick = () => { bloco = c.dataset.a === "1"; ef = bloco ? "sistema" : "fogo"; desenhar(); }));
@@ -77,7 +92,7 @@ export function painelEfeitos(trecho, aoAplicar, verSimbolos) {
   const fechar = () => { parar?.(); d.close?.(); d.remove?.(); };
   $("#pfx-x", d).onclick = fechar;
   $("#pfx-todos", d).onclick = () => { fechar(); verSimbolos(); };
-  $("#pfx-ok", d).onclick = () => { fechar(); aoAplicar(escreverEfeito(ef, cor, forca, trecho.trim() ? trecho : "texto", bloco), bloco); };
+  $("#pfx-ok", d).onclick = () => { fechar(); aoAplicar(escreverEfeito(ef, cor, forca, bloco ? conteudoBloco(ef, trecho) : trecho.trim() ? trecho : "texto", bloco), bloco); };
   desenhar();
 }
 

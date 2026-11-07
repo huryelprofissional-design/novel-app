@@ -1372,3 +1372,7 @@ html.contraste { --suave: #E2E2E2; --fraco: #BDBDBD; --borda: #9A9A9A; --sup: #1
 .bv-usar { background: #fff; color: #111; border-color: #fff; font-weight: 700; }
 .bv-usar:hover { background: rgba(255,255,255,.85); }
 .bv-usar:disabled { opacity: .5; cursor: default; }
+
+/* painel de efeitos: gêneros na aba Parágrafo */
+#pfx-ef .pfx-cat { flex-basis: 100%; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--suave, #8b8d97); margin-top: 6px; }
+#pfx-ef { max-height: 260px; overflow-y: auto; }
