@@ -121,6 +121,21 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
 
     companion object {
         private const val PARTE = 300_000
+        /**
+         * Divide o texto para caber no limite de 1 MiB por documento sem cortar um emoji ao meio
+         * (o pedaço solto vira "?" na nuvem e o emoji se perdia ao juntar de volta).
+         */
+        fun partirTexto(texto: String, tam: Int): List<String> {
+            if (texto.isEmpty()) return listOf("")
+            val saida = ArrayList<String>(texto.length / tam + 1)
+            var i = 0
+            while (i < texto.length) {
+                var fim = minOf(i + tam, texto.length)
+                if (fim < texto.length && Character.isHighSurrogate(texto[fim - 1])) fim--
+                saida.add(texto.substring(i, fim)); i = fim
+            }
+            return saida
+        }
         private val ORDEM_TIPOS = listOf("volumes", "fichas", "capitulos", "eventos", "marcadores")
         fun configurar() {
             try {
@@ -185,15 +200,20 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                 _estado.value = EstadoSinc.Sincronizando("Enviando…")
                 val db = FirebaseFirestore.getInstance()
                 val eu = db.collection("users").document(uid)
-                val enviados = enviar(db, eu)
-                _estado.value = EstadoSinc.Sincronizando("Baixando…")
-                val recebidos = receber(eu)
-                perfil(eu)
+                // sem internet, um set().await() espera para sempre e a sincronização ficava em "Enviando…" (o que já foi
+                // gravado continua na fila do Firestore e sobe sozinho quando a internet voltar)
+                val (enviados, recebidos) = kotlinx.coroutines.withTimeout(180_000) {
+                    val env = enviar(db, eu)
+                    _estado.value = EstadoSinc.Sincronizando("Baixando…")
+                    val rec = receber(eu)
+                    perfil(eu)
+                    env to rec
+                }
                 _estado.value = EstadoSinc.Ok(System.currentTimeMillis(), enviados, recebidos)
                 prefs.ultimaSinc.definir(System.currentTimeMillis())
             } catch (e: Exception) {
                 _estado.value = EstadoSinc.Erro(when (e) {
-                    is FirebaseNetworkException -> "Sem internet — tudo continua salvo no aparelho e sobe depois."
+                    is FirebaseNetworkException, is kotlinx.coroutines.TimeoutCancellationException -> "Sem internet — tudo continua salvo no aparelho e sobe depois."
                     else -> if (e.message?.contains("PERMISSION_DENIED") == true) "A nuvem recusou o acesso (confira as Regras do Firestore)."
                     else "A sincronização parou: ${e.message ?: e.javaClass.simpleName}"
                 })
@@ -270,7 +290,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
             if (h != e.textoHash) {
                 // texto primeiro: quem baixar o capítulo já encontra o texto lá
                 val texto = if (arq.exists()) arq.readText(Charsets.UTF_8) else ""
-                val pedacos = if (texto.isEmpty()) listOf("") else texto.chunked(PARTE)
+                val pedacos = partirTexto(texto, PARTE)
                 pedacos.forEachIndexed { i, t ->
                     eu.collection("textos").document(if (i == 0) c.nuvemId else "${c.nuvemId}~$i").set(mapOf("texto" to t)).await()
                 }
@@ -427,7 +447,9 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
             }
             "fichas" -> {
                 // ficha com o mesmo nome criada aqui pelo @: adota a identidade da nuvem em vez de duplicar
-                val local = dao.fichaNuvem(nid) ?: dao.fichasAgora(obra.id).firstOrNull { it.nome.equals(s("nome"), true) && it.nuvemId != nid }
+                // (só adota se a daqui nunca subiu: duas fichas diferentes com o mesmo nome, ex. dois "Guarda", não podem virar uma)
+                val local = dao.fichaNuvem(nid) ?: dao.fichasAgora(obra.id).firstOrNull {
+                    it.nome.equals(s("nome"), true) && it.nuvemId != nid && !sinc.containsKey("fichas:${it.nuvemId}") }
                 if (local != null && local.nuvemId == nid && (local.alteradoEm == alt || (local.alteradoEm > e.enviadoEm && local.alteradoEm > alt))) { if (local.alteradoEm == alt) e.enviadoEm = alt; return false }
                 var img = local?.imagem
                 val imgH = s("imagemHash")

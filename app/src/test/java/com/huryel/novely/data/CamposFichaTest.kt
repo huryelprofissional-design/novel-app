@@ -46,3 +46,14 @@ class NumerosEscritaTest {
         assertEquals("20261108" to 1000, r.melhorDia)
     }
 }
+
+class PartirTextoTest {
+    @Test fun naoCortaEmojiAoMeio() {
+        val t = "a" + "🔥".repeat(10) // 1 + 20 chars
+        val p = Sincronizador.partirTexto(t, 4)
+        assertEquals(t, p.joinToString(""))
+        p.forEach { pedaco -> assertEquals(false, pedaco.isNotEmpty() && Character.isHighSurrogate(pedaco.last())) }
+        assertEquals(listOf(""), Sincronizador.partirTexto("", 10))
+        assertEquals(listOf("abc"), Sincronizador.partirTexto("abc", 10))
+    }
+}
