@@ -22,6 +22,14 @@ android {
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 
+    // Duas lojas: "github" (APK do GitHub, com atualizador próprio) e "play" (Google Play: atualiza pela loja,
+    // sem REQUEST_INSTALL_PACKAGES — a Play não aceita app que se atualiza sozinho). Ver PLAY-01.
+    flavorDimensions += "loja"
+    productFlavors {
+        create("github") { dimension = "loja"; buildConfigField("boolean", "ATUALIZADOR", "true") }
+        create("play") { dimension = "loja"; buildConfigField("boolean", "ATUALIZADOR", "false") }
+    }
+
     // Chave fixa: cada APK novo instala POR CIMA do anterior, sem apagar suas obras.
     signingConfigs {
         getByName("debug") {
@@ -48,7 +56,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     // bibliotecas nativas comprimidas dentro do APK (o download fica bem menor)
     packaging { jniLibs { useLegacyPackaging = true } }
     // Testes de tela (Robolectric + Roborazzi): desenham telas no computador e salvam PNG em build/telas

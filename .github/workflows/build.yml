@@ -26,7 +26,7 @@ jobs:
       - name: Compilar
         run: |
           set -o pipefail
-          gradle assembleRelease testReleaseUnitTest --no-daemon --stacktrace 2>&1 | tee build.log
+          gradle assembleGithubRelease testGithubReleaseUnitTest processPlayReleaseMainManifest --no-daemon --stacktrace 2>&1 | tee build.log
 
       - name: Mostrar erros
         if: failure()
@@ -51,6 +51,40 @@ jobs:
           git -c user.name=novely-ci -c user.email=ci@novely commit -qm "telas do build ${{ github.run_number }}"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" telas
 
+      # SEC-01: a chave antiga vazou no repositório. Com os secrets KEYSTORE_B64/KEYSTORE_SENHA, o APK é assinado
+      # com a chave nova + "linhagem" (APK Signature Scheme v3): quem já tem o app instala por cima normalmente, e
+      # APKs assinados só com a chave antiga deixam de ser aceitos como atualização (Android 9+).
+      - name: Assinar com a chave nova (rotação v3)
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_SENHA: ${{ secrets.KEYSTORE_SENHA }}
+        run: |
+          APK=$(ls app/build/outputs/apk/github/release/*.apk | head -1)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          if [ -n "$KEYSTORE_B64" ]; then
+            ANTIGA=$(grep -oP 'storePassword = "\K[^"]+' app/build.gradle.kts)
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/novo.jks"
+            "$BT/apksigner" rotate --out "$RUNNER_TEMP/linhagem" \
+              --old-signer --ks app/novel-debug.keystore --ks-pass "pass:$ANTIGA" \
+              --new-signer --ks "$RUNNER_TEMP/novo.jks" --ks-pass env:KEYSTORE_SENHA
+            "$BT/apksigner" sign --rotation-min-sdk-version 28 --lineage "$RUNNER_TEMP/linhagem" \
+              --ks app/novel-debug.keystore --ks-pass "pass:$ANTIGA" \
+              --next-signer --ks "$RUNNER_TEMP/novo.jks" --ks-pass env:KEYSTORE_SENHA \
+              --out novely.apk "$APK"
+            "$BT/apksigner" verify -v --print-certs novely.apk | grep -E "Verified|Signer|SHA-256" | head -12
+            rm -f "$RUNNER_TEMP/novo.jks"
+          else
+            echo "::warning::Sem o secret KEYSTORE_B64: APK assinado só com a chave antiga (SEC-01 continua aberto)"
+            cp "$APK" novely.apk
+            # ensaio com chave descartável: prova que a rotação funciona antes de usar a chave de verdade
+            ANTIGA=$(grep -oP 'storePassword = "\K[^"]+' app/build.gradle.kts)
+            keytool -genkeypair -storetype PKCS12 -keystore "$RUNNER_TEMP/teste.jks" -alias t -keyalg RSA -keysize 2048 -validity 30 -storepass ensaio123 -dname "CN=Teste" >/dev/null 2>&1
+            "$BT/apksigner" rotate --out "$RUNNER_TEMP/lin" --old-signer --ks app/novel-debug.keystore --ks-pass "pass:$ANTIGA" --new-signer --ks "$RUNNER_TEMP/teste.jks" --ks-pass pass:ensaio123
+            "$BT/apksigner" sign --rotation-min-sdk-version 28 --lineage "$RUNNER_TEMP/lin" --ks app/novel-debug.keystore --ks-pass "pass:$ANTIGA" \
+              --next-signer --ks "$RUNNER_TEMP/teste.jks" --ks-pass pass:ensaio123 --out "$RUNNER_TEMP/ensaio.apk" "$APK"
+            "$BT/apksigner" verify -v "$RUNNER_TEMP/ensaio.apk" | grep -E "Verified using v3|Number of signers" && echo "::notice::Ensaio da rotação de chave OK"
+          fi
+
       - name: Publicar APK
         uses: softprops/action-gh-release@v2
         with:
@@ -60,4 +94,4 @@ jobs:
             ${{ github.event.head_commit.message }}
 
             APK gerado automaticamente. Baixe o arquivo .apk abaixo e instale.
-          files: app/build/outputs/apk/release/*.apk
+          files: novely.apk

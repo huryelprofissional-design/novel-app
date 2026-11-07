@@ -50,12 +50,14 @@ class Atualizador(private val ctx: Context, private val prefs: Preferencias) {
 
     /** Checagem automática discreta (no máximo a cada 12 h). */
     suspend fun verificarSePreciso() {
+        if (!com.huryel.novely.BuildConfig.ATUALIZADOR) return // versão da Play: atualiza pela loja
         if (!prefs.atualizarAuto.estado.value) return
         if (System.currentTimeMillis() - prefs.ultimaVerificacao.estado.value < 15 * 60_000L) return
         verificar(silencioso = true)
     }
 
     suspend fun verificar(silencioso: Boolean = false) = withContext(Dispatchers.IO) {
+        if (!com.huryel.novely.BuildConfig.ATUALIZADOR) { _estado.value = EstadoAtualizacao.EmDia; return@withContext }
         if (_estado.value is EstadoAtualizacao.Baixando) return@withContext
         _estado.value = EstadoAtualizacao.Verificando
         try {
@@ -94,6 +96,7 @@ class Atualizador(private val ctx: Context, private val prefs: Preferencias) {
     }
 
     suspend fun baixar(v: Versao) = withContext(Dispatchers.IO) {
+        if (!com.huryel.novely.BuildConfig.ATUALIZADOR) return@withContext
         _estado.value = EstadoAtualizacao.Baixando(v, 0f)
         val dir = File(ctx.cacheDir, "atualizacao").apply { mkdirs() }
         val destino = File(dir, "novely-${v.numero}.apk")

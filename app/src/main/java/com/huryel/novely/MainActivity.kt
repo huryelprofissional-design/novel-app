@@ -103,6 +103,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 enableEdgeToEdge(statusBarStyle = estilo, navigationBarStyle = estilo)
             }
             val altoContraste by NovelyApp.instancia.prefs.altoContraste.estado.collectAsState()
+            // com o bloqueio por digital ligado, a tela não aparece na lista de apps recentes (nem em prints)
+            val comBloqueio by prefs.bloqueio.estado.collectAsState()
+            androidx.compose.runtime.LaunchedEffect(comBloqueio) {
+                if (comBloqueio) window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            }
             NovelyTheme(tema, altoContraste) {
                 val travado by NovelyApp.instancia.bloqueado.collectAsState()
                 if (travado) com.huryel.novely.ui.TelaBloqueio { desbloquear() }

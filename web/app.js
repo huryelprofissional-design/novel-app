@@ -45,7 +45,7 @@ function telaLogin() {
     <div style="display:flex;gap:10px"><button class="btn" style="flex:1" id="entrar">Entrar</button><button class="btn2" id="criar">Criar conta</button></div>
     <a class="suave peq" href="javascript:void 0" id="esqueci">Esqueci a senha</a>
     <div class="erro peq" id="msg"></div>
-    <div class="baixar-android"><span class="suave peq">Tem Android?</span> <a class="btn2 peq" href="https://github.com/huryelprofissional-design/novel-app/releases/latest/download/app-debug.apk">⬇ Baixar o app</a></div></div></div>`;
+    <div class="baixar-android"><span class="suave peq">Tem Android?</span> <a class="btn2 peq" href="https://github.com/huryelprofissional-design/novel-app/releases/latest/download/novely.apk">⬇ Baixar o app</a></div></div></div>`;
   const msg = (t) => ($("#msg").textContent = t);
   const traduz = (e) => ({ "auth/invalid-credential": "E-mail ou senha incorretos.", "auth/wrong-password": "E-mail ou senha incorretos.", "auth/user-not-found": "Não achei conta com esse e-mail.",
     "auth/email-already-in-use": "Já existe conta com esse e-mail.", "auth/weak-password": "Senha fraca: use pelo menos 6 caracteres.", "auth/popup-closed-by-user": "",
@@ -228,7 +228,7 @@ rota("/ajustes", async () => {
       <div class="card"><b>Conteúdo adulto</b><div class="suave peq" style="margin:4px 0 12px">Obras +18 pedem confirmação antes de abrir.</div>
         <label class="troca"><input type="checkbox" id="m18" ${local.ler("maior18", false) ? "checked" : ""}> Tenho 18 anos ou mais</label></div>
       <div class="card"><b>Instalar no Windows</b><div class="suave peq" style="margin-top:4px">No Chrome ou Edge: menu ⋯ › Aplicativos › Instalar este site como um aplicativo. O Novely abre como um programa e funciona sem internet com o que já foi aberto.</div></div>
-      <div class="card"><b>App para Android</b><div class="suave peq" style="margin:4px 0 12px">Mesma conta, tudo sincronizado.</div><a class="btn2 peq" href="https://github.com/huryelprofissional-design/novel-app/releases/latest/download/app-debug.apk">⬇ Baixar APK</a></div>
+      <div class="card"><b>App para Android</b><div class="suave peq" style="margin:4px 0 12px">Mesma conta, tudo sincronizado.</div><a class="btn2 peq" href="https://github.com/huryelprofissional-design/novel-app/releases/latest/download/novely.apk">⬇ Baixar APK</a></div>
       ${(E.usuario.email || "").toLowerCase() === "huryelprofissional@gmail.com" ? `<a class="card" href="#/dono"><b>Painel de dono</b><div class="suave peq" style="margin-top:4px">Obras do catálogo e pessoas</div></a>` : ""}
     </div>`);
   $("#sair").onclick = async () => { if (await confirmar("Sair da conta?", "Suas obras continuam salvas na nuvem.", "Sair")) { await X.sairDesteAparelho(); signOut(auth); } };
