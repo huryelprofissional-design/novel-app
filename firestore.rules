@@ -93,12 +93,12 @@ service cloud.firestore {
         }
         match /comentarios/{id} {
           allow read: if logado();
-          // só os campos que o app grava, com tamanho limitado e data de "agora" (não dá para fixar no topo com data no futuro)
+          // só os campos que o app grava, com tamanho limitado e data no máximo 1 dia à frente (não dá para fixar no topo com data no futuro)
           allow create: if logado() && request.resource.data.uid == request.auth.uid
             && request.resource.data.keys().hasOnly(['uid', 'nome', 'texto', 'em', 'bloco', 'trecho'])
             && request.resource.data.texto is string && request.resource.data.texto.size() <= 2000
             && textoAte(request.resource.data, 'nome', 80) && textoAte(request.resource.data, 'trecho', 300)
-            && request.resource.data.em is int && request.resource.data.em <= request.time.toMillis() + 300000;
+            && request.resource.data.em is int && request.resource.data.em <= request.time.toMillis() + 86400000; // até 1 dia: celular com relógio adiantado não é recusado
           allow delete: if logado() && (resource.data.uid == request.auth.uid || dono(pid) || admin());
         }
       }

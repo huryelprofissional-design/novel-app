@@ -9,6 +9,7 @@ import com.google.firebase.firestore.Query
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 import java.util.Calendar
 
 /** Obra no catálogo público. */
@@ -83,7 +84,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             val mini = repo.imagens.comprimir(o.capa, 260, 70)
             val dados = mutableMapOf<String, Any?>(
                 "autorUid" to uid, "autorNome" to prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "Autor" },
-                "titulo" to o.titulo, "sinopse" to o.descricao, "generos" to o.generos.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                "titulo" to o.titulo.take(200), "sinopse" to o.descricao.take(20000), "generos" to o.generos.split(',').map { it.trim() }.filter { it.isNotEmpty() },
                 "tags" to o.tagsPub.split(',').map { it.trim().removePrefix("#").lowercase() }.filter { it.isNotEmpty() },
                 "classificacao" to o.classificacao, "idioma" to o.idioma, "status" to o.status, "exportavel" to o.exportavel,
                 "capaMini" to mini?.let { Blob.fromBytes(it) }, "numCaps" to caps.size, "palavras" to caps.sumOf { it.palavras.toLong() },
@@ -308,21 +309,24 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
 
     suspend fun seguindo(pid: String): Boolean = try { col.document(pid).collection("seguidores").document(uid).get().await().exists() } catch (_: Exception) { false }
 
-    suspend fun seguir(pid: String, sim: Boolean) = withContext(Dispatchers.IO) {
+    /** Seguir, curtir, reagir e avaliar em fila: dois toques rápidos não contam duas vezes (MK-01). */
+    private val trava = kotlinx.coroutines.sync.Mutex()
+
+    suspend fun seguir(pid: String, sim: Boolean) = withContext(Dispatchers.IO) { trava.withLock {
         val ref = col.document(pid).collection("seguidores").document(uid)
         val ja = ref.get().await().exists()
         if (sim && !ja) { ref.set(mapOf("em" to System.currentTimeMillis())).await(); col.document(pid).update("seguidores", FieldValue.increment(1)).await() }
         if (!sim && ja) { ref.delete().await(); col.document(pid).update("seguidores", FieldValue.increment(-1)).await() }
-    }
+    } }
 
     suspend fun minhaNota(pid: String): Int = try { (col.document(pid).collection("avaliacoes").document(uid).get().await().getLong("estrelas") ?: 0).toInt() } catch (_: Exception) { 0 }
 
-    suspend fun avaliar(pid: String, estrelas: Int) = withContext(Dispatchers.IO) {
+    suspend fun avaliar(pid: String, estrelas: Int) = withContext(Dispatchers.IO) { trava.withLock {
         val antes = minhaNota(pid)
         col.document(pid).collection("avaliacoes").document(uid).set(mapOf("estrelas" to estrelas, "em" to System.currentTimeMillis())).await()
         col.document(pid).update(mapOf("somaEstrelas" to FieldValue.increment((estrelas - antes).toLong()),
             "numEstrelas" to FieldValue.increment(if (antes == 0) 1 else 0))).await()
-    }
+    } }
 
     /** Conta uma leitura por capítulo por pessoa (guardado no aparelho). */
     suspend fun contarLeitura(pid: String, cid: String) = withContext(Dispatchers.IO) {
@@ -377,24 +381,24 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         val m = try { cap.collection("reacoes").document(uid).get().await().getString("r") } catch (_: Exception) { null }
         c to m
     }
-    suspend fun reagir(pid: String, cid: String, nova: String?, antiga: String?) = withContext(Dispatchers.IO) {
+    suspend fun reagir(pid: String, cid: String, nova: String?, antiga: String?) = withContext(Dispatchers.IO) { trava.withLock {
         val cap = col.document(pid).collection("caps").document(cid)
         val mud = HashMap<String, Any>()
         antiga?.let { mud["reacoes.$it"] = FieldValue.increment(-1) }
         nova?.let { mud["reacoes.$it"] = FieldValue.increment(1) }
         if (nova != null) cap.collection("reacoes").document(uid).set(mapOf("r" to nova)).await() else cap.collection("reacoes").document(uid).delete().await()
         if (mud.isNotEmpty()) cap.update(mud as Map<String, Any>).await()
-    }
+    } }
 
     suspend fun curtiu(pid: String, cid: String): Boolean = try { col.document(pid).collection("caps").document(cid).collection("curtidas").document(uid).get().await().exists() } catch (_: Exception) { false }
 
-    suspend fun curtir(pid: String, cid: String, sim: Boolean) = withContext(Dispatchers.IO) {
+    suspend fun curtir(pid: String, cid: String, sim: Boolean) = withContext(Dispatchers.IO) { trava.withLock {
         val cap = col.document(pid).collection("caps").document(cid)
         val ref = cap.collection("curtidas").document(uid)
         val ja = ref.get().await().exists()
         if (sim && !ja) { ref.set(mapOf("em" to System.currentTimeMillis())).await(); cap.update("curtidas", FieldValue.increment(1)).await() }
         if (!sim && ja) { ref.delete().await(); cap.update("curtidas", FieldValue.increment(-1)).await() }
-    }
+    } }
 
     suspend fun contadores(pid: String, cid: String): Pair<Long, Long> = try {
         val d = col.document(pid).collection("caps").document(cid).get().await()
@@ -409,7 +413,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
 
     suspend fun comentar(pid: String, cid: String, texto: String, bloco: Int = -1, trecho: String = "") = withContext(Dispatchers.IO) {
         val cap = col.document(pid).collection("caps").document(cid)
-        cap.collection("comentarios").add(mapOf("uid" to uid, "nome" to prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "Leitor" },
+        cap.collection("comentarios").add(mapOf("uid" to uid, "nome" to prefs.autorNome.valor.ifBlank { conta.usuario.value?.displayName ?: "Leitor" }.take(80),
             "texto" to texto.trim().take(2000), "em" to System.currentTimeMillis(), "bloco" to bloco, "trecho" to trecho.take(300))).await()
         cap.update("comentarios", FieldValue.increment(1)).await()
         prefs.comentou.definir(true)
@@ -475,7 +479,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
 
     fun segueAutor(autor: String) = autor in prefs.autoresSeguidos.valor.split(',')
 
-    suspend fun seguirAutor(autor: String, sim: Boolean) = withContext(Dispatchers.IO) {
+    suspend fun seguirAutor(autor: String, sim: Boolean) = withContext(Dispatchers.IO) { trava.withLock {
         val ref = perfis.document(autor).collection("seguidores").document(uid)
         val ja = ref.get().await().exists()
         if (sim && !ja) { ref.set(mapOf("em" to System.currentTimeMillis())).await(); try { perfis.document(autor).update("seguidores", FieldValue.increment(1)).await() } catch (_: Exception) {} }
@@ -483,7 +487,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         val lista = prefs.autoresSeguidos.valor.split(',').filter { it.isNotBlank() }.toMutableSet()
         if (sim) lista.add(autor) else lista.remove(autor)
         prefs.autoresSeguidos.definir(lista.joinToString(","))
-    }
+    } }
 
     /** Obras novas de autores seguidos desde a última olhada. */
     suspend fun novasDeAutores(): List<ObraPublica> = withContext(Dispatchers.IO) {

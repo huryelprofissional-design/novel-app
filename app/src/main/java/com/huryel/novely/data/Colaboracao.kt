@@ -65,6 +65,8 @@ class Colaboracao(private val repo: Repositorio, private val prefs: Preferencias
             val papel = c.getString("papel") ?: "REVISOR"
             col.document(pid).collection("membros").document(uid).set(mapOf("papel" to papel, "codigo" to codigo, "nome" to meuNome, "em" to System.currentTimeMillis())).await()
             salvarMinha(MinhaColab(pid, c.getString("titulo") ?: "", papel, c.getString("autorNome") ?: ""))
+            // convite de uso único: quem entrou apaga (as regras deixam)
+            try { db.collection("convites").document(codigo).delete().await() } catch (_: Exception) {}
             null
         } catch (e: Exception) {
             if (e.message?.contains("PERMISSION_DENIED") == true) "A nuvem recusou (faltam as Regras novas do Firestore)." else "Não deu: ${e.message}"

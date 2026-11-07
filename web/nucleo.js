@@ -334,7 +334,7 @@ export async function publicarObra(id) {
   const caps = (await capitulos(id, true)).filter((c) => (c.publicadoEm || 0) > 0);
   const capaBytes = o.capaHash ? await bytesDe(colImagens(), id + "-capa") : null;
   const dados = {
-    autorUid: E.usuario.uid, autorNome: nomeAutor(), titulo: o.titulo, sinopse: o.descricao || "",
+    autorUid: E.usuario.uid, autorNome: nomeAutor(), titulo: (o.titulo || "").slice(0, 200), sinopse: (o.descricao || "").slice(0, 20000),
     generos: (o.generos || "").split(",").map((s) => s.trim()).filter(Boolean),
     tags: (o.tagsPub || "").split(",").map((s) => s.trim().replace(/^#/, "").toLowerCase()).filter(Boolean),
     classificacao: o.classificacao || "LIVRE", idioma: o.idioma || "pt", status: o.status, exportavel: o.exportavel !== false, enfeite: o.enfeite || "",
@@ -385,7 +385,10 @@ export async function despublicarObra(id) {
 // ───────── leitor do catálogo: seguir, avaliar, curtir, comentar ─────────
 export async function seguindo(pid) { try { return (await getDoc(doc(db, "publicas", pid, "seguidores", E.usuario.uid))).exists(); } catch (_) { return false; } }
 /** Seguir põe a obra na biblioteca (o celular baixa os capítulos para ler offline). */
-export async function seguir(pid, sim, p) {
+/** Seguir, curtir e avaliar em fila: dois cliques rápidos não contam duas vezes (MK-01). */
+let _filaSocial = Promise.resolve();
+function emFila(f) { const r = _filaSocial.then(f, f); _filaSocial = r.catch(() => {}); return r; }
+async function _seguir(pid, sim, p) {
   const ref = doc(db, "publicas", pid, "seguidores", E.usuario.uid);
   const ja = (await getDoc(ref)).exists();
   if (sim && !ja) { await setDoc(ref, { em: agora() }); await updateDoc(doc(colPub(), pid), { seguidores: increment(1) }); }
@@ -404,7 +407,7 @@ export async function seguir(pid, sim, p) {
   }
 }
 export async function minhaNota(pid) { try { return (await getDoc(doc(db, "publicas", pid, "avaliacoes", E.usuario.uid))).data()?.estrelas || 0; } catch (_) { return 0; } }
-export async function avaliar(pid, estrelas) {
+async function _avaliar(pid, estrelas) {
   const antes = await minhaNota(pid);
   await setDoc(doc(db, "publicas", pid, "avaliacoes", E.usuario.uid), { estrelas, em: agora() });
   await updateDoc(doc(colPub(), pid), { somaEstrelas: increment(estrelas - antes), numEstrelas: increment(antes === 0 ? 1 : 0) });
@@ -470,7 +473,7 @@ export async function contarLeitura(pid, cid) {
   } catch (_) {}
 }
 export async function curtiu(pid, cid) { try { return (await getDoc(doc(db, "publicas", pid, "caps", cid, "curtidas", E.usuario.uid))).exists(); } catch (_) { return false; } }
-export async function curtir(pid, cid, sim) {
+async function _curtir(pid, cid, sim) {
   const cap = doc(db, "publicas", pid, "caps", cid); const ref = doc(db, "publicas", pid, "caps", cid, "curtidas", E.usuario.uid);
   const ja = (await getDoc(ref)).exists();
   if (sim && !ja) { await setDoc(ref, { em: agora() }); await updateDoc(cap, { curtidas: increment(1) }); }
@@ -480,7 +483,7 @@ export async function comentarios(pid, cid) {
   return (await getDocs(query(collection(db, "publicas", pid, "caps", cid, "comentarios"), orderBy("em", "desc"), limit(200)))).docs.map(pubDe);
 }
 export async function comentar(pid, cid, texto, bloco = -1, trecho = "") {
-  await addDoc(collection(db, "publicas", pid, "caps", cid, "comentarios"), { uid: E.usuario.uid, nome: nomeAutor(), texto: texto.trim().slice(0, 2000), em: agora(), bloco, trecho: trecho.slice(0, 300) });
+  await addDoc(collection(db, "publicas", pid, "caps", cid, "comentarios"), { uid: E.usuario.uid, nome: nomeAutor().slice(0, 80), texto: texto.trim().slice(0, 2000), em: agora(), bloco, trecho: trecho.slice(0, 300) });
   await updateDoc(doc(db, "publicas", pid, "caps", cid), { comentarios: increment(1) });
   ganharMoedas(1, "comentario", 5);
 }
@@ -498,7 +501,7 @@ export async function perfilPub(uid) {
 }
 export async function obrasDoAutor(uid) { return (await getDocs(query(colPub(), where("autorUid", "==", uid)))).docs.map(pubDe).filter((o) => (o.numCaps || 0) > 0 || uid === E.usuario.uid).sort((a, b) => (b.atualizadaEm || 0) - (a.atualizadaEm || 0)); }
 export const segueAutor = (uid) => local.ler("autoresSeguidos", []).includes(uid);
-export async function seguirAutor(uid, sim) {
+async function _seguirAutor(uid, sim) {
   const ref = doc(db, "perfis", uid, "seguidores", E.usuario.uid);
   const ja = (await getDoc(ref)).exists();
   if (sim && !ja) { await setDoc(ref, { em: agora() }); try { await updateDoc(doc(db, "perfis", uid), { seguidores: increment(1) }); } catch (_) {} }
@@ -528,6 +531,7 @@ export async function entrarColab(codigo) {
   if (x.autorUid === E.usuario.uid) return "Esse convite é seu — mande para outra pessoa.";
   await setDoc(doc(db, "colabs", x.pid, "membros", E.usuario.uid), { papel: x.papel || "REVISOR", codigo, nome: nomeAutor(), em: agora() });
   local.gravar("colabs", [...minhasColabs().filter((m) => m.pid !== x.pid), { pid: x.pid, titulo: x.titulo || "", papel: x.papel || "REVISOR", autor: x.autorNome || "" }]);
+  try { await deleteDoc(doc(db, "convites", codigo)); } catch (_) {} // convite de uso único
   return null;
 }
 export async function sairColab(pid) { try { await deleteDoc(doc(db, "colabs", pid, "membros", E.usuario.uid)); } catch (_) {} local.gravar("colabs", minhasColabs().filter((m) => m.pid !== pid)); }
@@ -643,3 +647,7 @@ export function casca(aba, html) {
 }
 export function contarAvisos() { return (local.ler("novidades", []) || []).length; }
 export const carregando = (aba) => casca(aba, `<div class="carregando" style="height:60vh">◆</div>`);
+export const seguir = (...a) => emFila(() => _seguir(...a));
+export const avaliar = (...a) => emFila(() => _avaliar(...a));
+export const curtir = (...a) => emFila(() => _curtir(...a));
+export const seguirAutor = (...a) => emFila(() => _seguirAutor(...a));
