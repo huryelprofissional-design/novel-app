@@ -40,10 +40,18 @@ function hudBaixo() {
   const b = (id, k, rot) => o.has(k) ? "" : `<button class="hud-bt" id="${id}" aria-label="${rot}">${svg(k)}<span class="rot-hud">${rot}</span></button>`;
   return `<nav class="hud-baixo vidro">${b("ouvir", "ouvir", "Ouvir")}${b("lbusca", "buscar", "Buscar")}${b("lcaps", "capitulos", "Capítulos")}${b("lrolar", "rolar", "Rolar")}<button class="hud-bt" id="aj" aria-label="Leitura">${svg("leitura")}<span class="rot-hud">Leitura</span></button></nav>`;
 }
+/** As barras fixas (em cima, embaixo e a da voz) ficam no centro da coluna do texto, não da janela (com o menu lateral, ficavam tortas). */
+function centralizarHud() {
+  const t = $("#texto") || $(".leitor"); if (!t) return;
+  const r = t.getBoundingClientRect();
+  document.documentElement.style.setProperty("--hud-x", `${Math.round(r.left + r.width / 2)}px`);
+}
+addEventListener("resize", centralizarHud, { passive: true });
 let rolagem = null;
 function pararRolagem() { if (rolagem) { clearInterval(rolagem); rolagem = null; $("#lrolar")?.classList.remove("on"); } }
 /** Buscar no capítulo (marca todas e vai passando) e Rolar sozinho. */
 function ligarHud() {
+  centralizarHud(); requestAnimationFrame(centralizarHud);
   pararRolagem();
   const r = $("#lrolar");
   if (r) r.onclick = () => { if (rolagem) { pararRolagem(); return; } r.classList.add("on"); rolagem = setInterval(() => scrollBy(0, 1), 28); };
@@ -309,34 +317,70 @@ function blocoNaTela() {
   const p = $$("#texto [data-b]").find((x) => x.getBoundingClientRect().bottom > 90);
   return p ? +p.dataset.b : 0;
 }
-/** Painel da voz (aparece em cima da barra enquanto ouve): voltar, pausar, avançar, parar, velocidade, narrador, vozes. */
-function mostrarBarraVoz(narradores) {
+/** Todas as vozes do computador, português primeiro, agrupadas por idioma (para o <select>). */
+function opcoesVozes(atual, padrao = "Automática") {
+  const vs = speechSynthesis.getVoices();
+  const grupos = new Map();
+  for (const v of vs) { const l = (v.lang || "?").replace("_", "-"); const k = /^pt/i.test(l) ? "0Português" : "1" + (l.split("-")[0] || "?"); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(v); }
+  const nomeLingua = (k) => { if (k === "0Português") return "Português"; try { return new Intl.DisplayNames(["pt-BR"], { type: "language" }).of(k.slice(1)) || k.slice(1); } catch (_) { return k.slice(1); } };
+  return `<option value="">${padrao}</option>` + [...grupos.keys()].sort().map((k) => `<optgroup label="${esc(nomeLingua(k))}">${grupos.get(k)
+    .map((v) => `<option value="${esc(v.name)}" ${v.name === atual ? "selected" : ""}>${esc(v.name.replace(/^Microsoft |^Google /, "").replace(/ - .*$/, ""))}${/natural|online|neural/i.test(v.name) ? " ✦" : ""}</option>`).join("")}</optgroup>`).join("");
+}
+function testarVoz(nome) {
+  speechSynthesis.cancel();
+  const v = speechSynthesis.getVoices().find((x) => x.name === nome);
+  const u = new SpeechSynthesisUtterance(v && !/^pt/i.test(v.lang) ? "Hello! This is how I sound." : "Olá! É assim que eu leio a sua história.");
+  if (v) { u.voice = v; u.lang = v.lang; } u.rate = local.ler("velVoz", 1); speechSynthesis.speak(u);
+}
+const ICV = {
+  ant: '<path d="M19 20L9 12l10-8v16z"/><path d="M5 19V5"/>', prox: '<path d="M5 4l10 8-10 8V4z"/><path d="M19 5v14"/>',
+  pausa: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>', play: '<path d="M6 4l14 8-14 8V4z"/>',
+  parar: '<rect x="5" y="5" width="14" height="14" rx="2"/>', engrenagem: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+const icv = (k, t = 18, cheio = false) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="${cheio ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICV[k]}</svg>`;
+
+/** Painel da voz (em cima da barra enquanto ouve): progresso, controles, velocidade e, em "Vozes", narrador e voz de cada personagem. */
+function mostrarBarraVoz(personagens) {
   $("#barra-voz")?.remove();
-  const vel = local.ler("velVoz", 1), atual = local.ler("narradorPC", "");
+  const vel = local.ler("velVoz", 1), aberto = local.ler("vozesAbertas", false);
   const d = document.createElement("div"); d.id = "barra-voz"; d.className = "barra-voz";
-  d.innerHTML = `<div class="bv-linha">
-      <button class="bv-bt" id="bv-ant" title="Parágrafo anterior" aria-label="Parágrafo anterior">⏮</button>
-      <button class="bv-bt bv-play" id="bv-pausa" title="Pausar" aria-label="Pausar">⏸</button>
-      <button class="bv-bt" id="bv-prox" title="Próximo parágrafo" aria-label="Próximo parágrafo">⏭</button>
-      <button class="bv-bt" id="bv-parar" title="Parar" aria-label="Parar">■</button>
-      <span class="bv-onde" id="bv-onde"></span>
-      <button class="bv-tela" id="bv-tela" hidden>▶ Ouvir o que está na tela</button></div>
-    <div class="bv-linha bv-opcoes">
-      <label>Velocidade <select id="bv-vel">${[0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2].map((v) => `<option value="${v}" ${v === vel ? "selected" : ""}>${String(v).replace(".", ",")}×</option>`).join("")}</select></label>
-      <label>Narrador <select id="bv-narr"><option value="">Voz padrão</option>${narradores.map((v) => `<option ${v.name === atual ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select></label>
-      <label class="troca"><input type="checkbox" id="bv-pers" ${local.ler("vozesPersonagens", true) ? "checked" : ""}> Uma voz por personagem</label></div>`;
-  document.body.appendChild(d);
+  d.innerHTML = `
+    <div class="bv-topo"><span class="bv-ponto"></span><b>Ouvindo</b><span class="bv-onde" id="bv-onde"></span>
+      <button class="bv-tela" id="bv-tela" hidden>Ouvir o que está na tela</button></div>
+    <div class="bv-trilho"><div class="bv-feito" id="bv-feito"></div></div>
+    <div class="bv-linha">
+      <button class="bv-bt" id="bv-ant" title="Parágrafo anterior" aria-label="Parágrafo anterior">${icv("ant", 18, true)}</button>
+      <button class="bv-bt bv-play" id="bv-pausa" title="Pausar" aria-label="Pausar">${icv("pausa", 20, true)}</button>
+      <button class="bv-bt" id="bv-prox" title="Próximo parágrafo" aria-label="Próximo parágrafo">${icv("prox", 18, true)}</button>
+      <button class="bv-bt bv-sec" id="bv-parar" title="Parar" aria-label="Parar">${icv("parar", 16, true)}</button>
+      <label class="bv-vel" title="Velocidade"><input type="range" id="bv-vel" min="0.5" max="2.5" step="0.05" value="${vel}" aria-label="Velocidade"><span id="bv-velt">${vel.toFixed(2).replace(".", ",")}×</span></label>
+      <button class="bv-bt bv-sec ${aberto ? "on" : ""}" id="bv-cfg" title="Vozes" aria-label="Vozes" aria-expanded="${aberto}">${icv("engrenagem", 18)}</button>
+    </div>
+    <div class="bv-vozes" id="bv-vozes" ${aberto ? "" : "hidden"}>
+      <div class="bv-campo"><span>Narrador</span><select id="bv-narr">${opcoesVozes(local.ler("narradorPC", ""), "Voz padrão do sistema")}</select><button class="bv-testar" data-testa="bv-narr">Testar</button></div>
+      <label class="troca bv-campo"><input type="checkbox" id="bv-pers" ${local.ler("vozesPersonagens", true) ? "checked" : ""}> Uma voz para cada personagem</label>
+      ${personagens.length ? `<div class="bv-sub">Personagens deste capítulo</div>` + personagens.map((p) => `<div class="bv-campo"><span>${esc(p.nome)}</span><select data-pers="${esc(p.id)}">${opcoesVozes(local.ler("vozPers:" + p.id, ""), "Automática (" + esc((p.auto || "").replace(/^Microsoft |^Google /, "").replace(/ - .*$/, "")) + ")")}</select><button class="bv-testar" data-testa-pers="${esc(p.id)}">Testar</button></div>`).join("") : ""}
+      <div class="bv-dica">✦ = voz natural (mais humana). Faltam vozes? No Windows: Configurações › Hora e idioma › Fala › Adicionar vozes. No Edge aparecem as vozes naturais da Microsoft.</div>
+    </div>`;
+  document.body.appendChild(d); centralizarHud();
   const recomecar = () => { const b = ctrlVoz?.bloco() ?? blocoNaTela(); pararVoz(); ouvir(b); };
   $("#bv-ant").onclick = () => ctrlVoz?.pular(-1);
   $("#bv-prox").onclick = () => ctrlVoz?.pular(1);
   $("#bv-parar").onclick = () => pararVoz();
   $("#bv-pausa").onclick = (e) => {
-    if (speechSynthesis.paused) { speechSynthesis.resume(); e.currentTarget.textContent = "⏸"; e.currentTarget.title = "Pausar"; }
-    else { speechSynthesis.pause(); e.currentTarget.textContent = "▶"; e.currentTarget.title = "Continuar"; }
+    const b = e.currentTarget;
+    if (speechSynthesis.paused) { speechSynthesis.resume(); b.innerHTML = icv("pausa", 20, true); b.title = "Pausar"; d.classList.remove("pausado"); }
+    else { speechSynthesis.pause(); b.innerHTML = icv("play", 20, true); b.title = "Continuar"; d.classList.add("pausado"); }
   };
-  $("#bv-vel").onchange = (e) => { local.gravar("velVoz", +e.target.value); recomecar(); };
+  let tv = null;
+  $("#bv-vel").oninput = (e) => { $("#bv-velt").textContent = (+e.target.value).toFixed(2).replace(".", ",") + "×"; };
+  $("#bv-vel").onchange = (e) => { local.gravar("velVoz", +e.target.value); clearTimeout(tv); tv = setTimeout(recomecar, 150); };
+  $("#bv-cfg").onclick = (e) => { const v = $("#bv-vozes"); v.hidden = !v.hidden; local.gravar("vozesAbertas", !v.hidden); e.currentTarget.classList.toggle("on", !v.hidden); e.currentTarget.setAttribute("aria-expanded", String(!v.hidden)); };
   $("#bv-narr").onchange = (e) => { local.gravar("narradorPC", e.target.value); recomecar(); };
   $("#bv-pers").onchange = (e) => { local.gravar("vozesPersonagens", e.target.checked); recomecar(); };
+  $$("[data-pers]", d).forEach((sel) => (sel.onchange = () => { local.gravar("vozPers:" + sel.dataset.pers, sel.value); recomecar(); }));
+  $$("[data-testa]", d).forEach((b) => (b.onclick = () => { ctrlVoz?.pausarPara(); testarVoz($("#" + b.dataset.testa).value); }));
+  $$("[data-testa-pers]", d).forEach((b) => (b.onclick = () => { ctrlVoz?.pausarPara(); const p = personagens.find((x) => x.id === b.dataset.testaPers); testarVoz($(`[data-pers="${b.dataset.testaPers}"]`, d).value || p?.auto || ""); }));
   $("#bv-tela").onclick = () => { const b = blocoNaTela(); pararVoz(); ouvir(b); };
 }
 // a voz num lugar e a tela em outro: oferece "ouvir o que está na tela"
@@ -351,7 +395,7 @@ function ouvir(apartir = 0) {
   let i = Math.max(0, pars.findIndex((p) => +p.dataset.b >= apartir));
   const pt = speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt"));
   const br = pt.filter((v) => /br/i.test(v.lang)); const todas = br.length ? br : pt;
-  const narr = todas.find((v) => v.name === local.ler("narradorPC", "")) || todas[0];
+  const narr = speechSynthesis.getVoices().find((v) => v.name === local.ler("narradorPC", "")) || todas[0];
   const textos = pars.map((p) => p.textContent.replace(/✎|💬.*$/g, "").trim());
   const achar = nomesVoz(fichasVoz); const segs = dividirElenco(textos, achar);
   // voz e tom de cada personagem: mulheres com vozes femininas, homens com masculinas, cada um com um tom
@@ -361,20 +405,22 @@ function ouvir(apartir = 0) {
     const f = fichasVoz.find((x) => x.id === id); const g = f ? generoFicha(f, tudo, achar) : null;
     const lista = (g === "F" ? fem : g === "M" ? masc : todas).length ? (g === "F" ? fem : g === "M" ? masc : todas) : todas;
     const k = g === "F" ? nf++ : g === "M" ? nm++ : nx++;
-    elenco.set(id, { voz: lista[k % Math.max(1, lista.length)], tom: tons[(Math.floor(k / Math.max(1, lista.length)) + (g ? 0 : 2)) % tons.length] });
+    const escolhida = speechSynthesis.getVoices().find((v) => v.name === local.ler("vozPers:" + id, ""));
+    elenco.set(id, escolhida ? { voz: escolhida, tom: 1 } : { voz: lista[k % Math.max(1, lista.length)], tom: tons[(Math.floor(k / Math.max(1, lista.length)) + (g ? 0 : 2)) % tons.length] });
   }
   const prox = () => {
     const minha = ++geracao; // pular ou parar invalida as falas antigas (o cancel do navegador dispara onend/onerror)
     if (falando === null || i >= pars.length) { pararVoz(); return; }
     const p = pars[i]; $$(".falando").forEach((x) => x.classList.remove("falando")); p.classList.add("falando");
     p.scrollIntoView({ block: "center", behavior: "smooth" });
-    const onde = $("#bv-onde"); if (onde) onde.textContent = `parágrafo ${i + 1} de ${pars.length}`;
+    const onde = $("#bv-onde"); if (onde) onde.textContent = `${i + 1} de ${pars.length} · ${Math.round(((i + 1) / pars.length) * 100)}%`;
+    const feito = $("#bv-feito"); if (feito) feito.style.width = `${((i + 1) / pars.length) * 100}%`;
     const lista = segs[i]; let k = 0;
     const fala = () => {
       if (falando === null || minha !== geracao) return;
       if (k >= lista.length) { i++; prox(); return; }
       const s = lista[k++]; const e = vozesPers && s.quem ? elenco.get(s.quem) : null;
-      const u = new SpeechSynthesisUtterance(s.texto); u.lang = "pt-BR"; u.voice = e?.voz || narr || null; u.pitch = e?.tom || 1; u.rate = vel;
+      const u = new SpeechSynthesisUtterance(s.texto); u.voice = e?.voz || narr || null; u.lang = u.voice?.lang || "pt-BR"; u.pitch = e?.tom || 1; u.rate = vel;
       u.onend = () => { if (minha === geracao) fala(); };
       u.onerror = (ev) => { if (minha === geracao && ev.error !== "interrupted" && ev.error !== "canceled") pararVoz(); };
       speechSynthesis.speak(u);
@@ -383,10 +429,11 @@ function ouvir(apartir = 0) {
   };
   ctrlVoz = {
     bloco: () => +(pars[Math.min(i, pars.length - 1)]?.dataset.b ?? 0),
+    pausarPara: () => { geracao++; speechSynthesis.cancel(); const pb = $("#bv-pausa"); if (pb) { pb.innerHTML = icv("play", 20, true); pb.title = "Continuar"; pb.onclick = () => { const b = ctrlVoz?.bloco() ?? blocoNaTela(); pararVoz(); ouvir(b); }; } }, // testar uma voz pausa a leitura; ▶ continua do parágrafo
     pular: (d) => { i = Math.max(0, Math.min(pars.length - 1, i + d)); speechSynthesis.cancel(); if (speechSynthesis.paused) speechSynthesis.resume(); const pb = $("#bv-pausa"); if (pb) pb.textContent = "⏸"; prox(); },
   };
   falando = 0; const b = $("#ouvir .rot-hud"); if (b) b.textContent = "Parar"; $("#ouvir")?.classList.add("on");
-  mostrarBarraVoz(todas);
+  mostrarBarraVoz([...elenco.keys()].map((id) => ({ id, nome: fichasVoz.find((f) => f.id === id)?.nome || "?", auto: elenco.get(id)?.voz?.name || "" })));
   prox();
 }
 
