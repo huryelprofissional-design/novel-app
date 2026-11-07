@@ -1,0 +1,75 @@
+name: Pacotes de voz
+
+# Monta as vozes neurais que o app baixa sob demanda (sem internet depois de baixar):
+#   espeak.zip         pronúncia (compartilhado por todas)
+#   piper-<nome>.zip   vozes masculinas Piper (Faber, Cadu, Jeff, Edresson)
+#   kokoro.zip         modelo Kokoro + vozes femininas (Dora misturada: jovem, expressiva, sussurrada)
+# Publica no release "vozes-v1" (não vira o "último release": o atualizador do app continua achando o APK).
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ ".github/workflows/vozes.yml" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  montar:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Baixar modelos
+        run: |
+          set -e
+          mkdir -p m p && cd m
+          base=https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models
+          for v in faber-medium cadu-medium jeff-medium edresson-low; do curl -fsSL "$base/vits-piper-pt_BR-$v.tar.bz2" | tar xj; done
+          curl -fsSL "$base/kokoro-int8-multi-lang-v1_0.tar.bz2" | tar xj
+          curl -fsSL -o voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+          curl -fsSL -o kokoro-v1.0.int8.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.int8.onnx
+          ls
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Misturar as vozes femininas
+        run: |
+          pip install -q kokoro-onnx numpy
+          cd m
+          python - <<'EOF'
+          import numpy as np
+          from kokoro_onnx import Kokoro
+          k = Kokoro("kokoro-v1.0.int8.onnx", "voices-v1.0.bin"); st = k.get_voice_style
+          d = "kokoro-int8-multi-lang-v1_0"
+          base = np.fromfile(f"{d}/voices.bin", dtype=np.float32).reshape(-1, 510, 256)
+          # as 4 primeiras posições viram as vozes do Novely (sid 0..3)
+          vozes = [st("pf_dora"), st("pf_dora") * 0.6 + st("af_heart") * 0.4, st("pf_dora") * 0.6 + st("af_bella") * 0.4, st("pf_dora") * 0.6 + st("af_nicole") * 0.4]
+          for i, v in enumerate(vozes): base[i] = np.asarray(v, dtype=np.float32).reshape(510, 256)
+          base.tofile(f"{d}/vozes-novely.bin")
+          print(base.shape)
+          EOF
+
+      - name: Empacotar
+        run: |
+          set -e
+          cd m
+          (cd vits-piper-pt_BR-faber-medium && zip -qr ../../p/espeak.zip espeak-ng-data)
+          for v in faber-medium cadu-medium jeff-medium edresson-low; do
+            n=${v%%-*}; d=vits-piper-pt_BR-$v
+            (cd $d && cp pt_BR-$v.onnx model.onnx && zip -q ../../p/piper-$n.zip model.onnx tokens.txt)
+          done
+          d=kokoro-int8-multi-lang-v1_0
+          (cd $d && zip -q ../../p/kokoro.zip model.int8.onnx tokens.txt vozes-novely.bin lexicon-us-en.txt)
+          ls -la ../p
+
+      - name: Publicar no release vozes-v1
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: vozes-v1
+          name: Vozes do Novely (v1)
+          body: Vozes neurais baixadas pelo app sob demanda. Não é uma versão do app.
+          prerelease: true
+          make_latest: "false"
+          files: p/*.zip
