@@ -211,6 +211,27 @@ object Narrador {
         ServicoVoz.atualizar(ctxApp)
         falarAtual()
     }
+
+    /**
+     * Guarda no capítulo o parágrafo que está sendo falado (a cada parágrafo).
+     * Se o Android fechar o app (tela apagada, pouca memória) ou a voz cortar, ao voltar o leitor abre
+     * exatamente aí e o Ouvir continua dali — antes voltava para onde a tela estava quando deu play.
+     */
+    private var ultimoGuardado = -1
+    private fun guardarPosicao(bloco: Int) {
+        val capId = _estado.value.chave.split(':').getOrNull(1)?.toLongOrNull() ?: return
+        if (bloco < 0 || bloco == ultimoGuardado || blocos.isEmpty()) return
+        ultimoGuardado = bloco
+        val total = blocos.size
+        escopo.launch(Dispatchers.IO) {
+            try {
+                val dao = com.huryel.novely.NovelyApp.instancia.repo.dao
+                val c = dao.capituloAgora(capId) ?: return@launch
+                // item 0 da lista do leitor é o cabeçalho: o parágrafo i é o item i + 1
+                dao.salvarPosicao(capId, maxOf(c.progresso, (bloco + 1f) / total), bloco + 1, 0)
+            } catch (_: Exception) {}
+        }
+    }
     fun pausar() { _estado.value = _estado.value.copy(tocando = false); tts?.stop(); ServicoVoz.atualizar(ctxApp) }
     fun parar() { tts?.stop(); timer?.cancel(); _estado.value = Estado(); if (::ctxApp.isInitialized) ServicoVoz.atualizar(ctxApp) }
     fun irPara(bloco: Int) { _estado.value = _estado.value.copy(bloco = bloco); if (_estado.value.tocando) falarAtual() }
@@ -242,6 +263,7 @@ object Narrador {
         val t = tts ?: return
         val i = _estado.value.bloco
         if (!falavel(i)) { val p = proximoFalavel(i); if (p == null) { fim(); return }; _estado.value = _estado.value.copy(bloco = p); return falarAtual() }
+        guardarPosicao(i)
         t.stop()
         val trechos = blocos[i]
         t.setSpeechRate(velocidade)
