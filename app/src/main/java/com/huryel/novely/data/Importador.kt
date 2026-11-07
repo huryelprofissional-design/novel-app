@@ -133,7 +133,7 @@ class Importador(private val ctx: Context, private val repo: Repositorio) {
         ctx.contentResolver.openInputStream(uri)!!.use { ins ->
             java.util.zip.ZipInputStream(ins).use { z ->
                 var e = z.nextEntry
-                while (e != null) { if (e.name == "word/document.xml") { xml = z.readBytes().toString(Charsets.UTF_8); break }; e = z.nextEntry }
+                while (e != null) { if (e.name == "word/document.xml") { xml = Limites.lerAte(z, Limites.TEXTO_ZIP).toString(Charsets.UTF_8); break }; e = z.nextEntry }
             }
         }
         if (xml.isEmpty()) error("não achei o texto dentro do Word")
@@ -270,7 +270,7 @@ class Importador(private val ctx: Context, private val repo: Repositorio) {
                 val caminho = normalizarCaminho(base + java.net.URLDecoder.decode(href.substringBefore('#'), "UTF-8"))
                 val entrada = zip.getEntry(caminho) ?: return@forEachIndexed
                 if (i % 10 == 0) _estado.value = EstadoImport.Lendo("Lendo $nome… parte ${i + 1} de ${espinha.size}")
-                val html = zip.getInputStream(entrada).use { it.readBytes().toString(Charsets.UTF_8) }
+                val html = zip.getInputStream(entrada).use { Limites.lerAte(it, Limites.TEXTO_ZIP).toString(Charsets.UTF_8) }
                 val md = Texto.htmlParaMarkdown(html)
                 val palavras = Texto.contarPalavras(md)
                 if (palavras == 0) return@forEachIndexed

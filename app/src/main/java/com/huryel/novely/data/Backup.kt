@@ -168,7 +168,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
         val zip = try { ZipFile(f) } catch (e: Exception) { throw IllegalStateException("Esse arquivo não é um backup do Novely (ou está corrompido).") }
         zip.use {
             val e = it.getEntry("manifest.json") ?: throw IllegalStateException("Backup sem manifest.json — arquivo incompleto ou de outro app.")
-            val m = JSONObject(it.getInputStream(e).use { s -> s.readBytes().toString(Charsets.UTF_8) })
+            val m = JSONObject(it.getInputStream(e).use { s -> Limites.lerAte(s, Limites.TEXTO_ZIP).toString(Charsets.UTF_8) })
             if (m.optString("formato") != FORMATO) throw IllegalStateException("Esse arquivo não é um backup do Novely.")
             if (m.optInt("versao") > VERSAO) throw IllegalStateException("Backup feito por uma versão mais nova do Novely. Atualize o app.")
             return m
@@ -197,7 +197,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                         val nome = o.optString(chave, "").ifEmpty { return null }
                         val ent = zip.getEntry(nome) ?: return null
                         val f = File(File(ctx.filesDir, "imagens").apply { mkdirs() }, "${java.util.UUID.randomUUID()}.jpg")
-                        zip.getInputStream(ent).use { ins -> f.outputStream().use { ins.copyTo(it) } }
+                        zip.getInputStream(ent).use { ins -> f.outputStream().use { Limites.copiarAte(ins, it, Limites.IMAGEM_ZIP) } }
                         return f.absolutePath
                     }
                     var idRestaurado = 0L
@@ -224,7 +224,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                             jf.optString("imagem", "").takeIf { it.isNotEmpty() }?.let { nome ->
                                 zip.getEntry(nome)?.let { ent ->
                                     val f = File(File(ctx.filesDir, "imagens").apply { mkdirs() }, "${java.util.UUID.randomUUID()}.jpg")
-                                    zip.getInputStream(ent).use { ins -> f.outputStream().use { ins.copyTo(it) } }
+                                    zip.getInputStream(ent).use { ins -> f.outputStream().use { Limites.copiarAte(ins, it, Limites.IMAGEM_ZIP) } }
                                     img = f.absolutePath
                                 }
                             }
