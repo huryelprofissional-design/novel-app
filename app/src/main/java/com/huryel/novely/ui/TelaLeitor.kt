@@ -524,7 +524,10 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
 
     // ── Marcadores, fichas, folha do parágrafo ──
     val marcas by remember(c.id) { repo.marcadoresCap(c.id) }.collectAsState(initial = emptyList())
-    val marcasPorBloco = remember(marcas) { marcas.associateBy { it.bloco } }
+    // presos ao texto: se o autor mexeu nos parágrafos, o grifo segue o trecho (e o número novo é guardado)
+    val ancoradas = remember(marcas, b) { val planos = b.map { it.plano }; marcas.map { it to com.huryel.novely.data.Ancora.ancorar(planos, it.bloco, it.trecho) } }
+    val marcasPorBloco = remember(ancoradas) { ancoradas.associate { (m, bi) -> bi to m } }
+    LaunchedEffect(ancoradas) { ancoradas.filter { (m, bi) -> bi != m.bloco }.forEach { (m, bi) -> repo.salvarMarcador(m.copy(bloco = bi)) } }
     val fichas by remember(c.obraId) { repo.fichas(c.obraId) }.collectAsState(initial = emptyList())
     LaunchedEffect(c.obraId) { repo.repararNomes(c.obraId) }
     val revelados = remember(capId) { mutableStateListOf<Int>() } // ||segredos|| que o leitor já abriu
@@ -1016,7 +1019,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                 Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(10.dp).fillMaxWidth()
                     .vidroLiquido(vidro, 32.dp, tinta = Color(0xE610131A)).pointerInput(Unit) { detectTapGestures { } }) {
                     Column {
-                        VerFicha(f, c.ordem)
+                        VerFicha(f, c.ordem, idx + 1)
                         // o autor corrige o reconhecimento: esta palavra não é este personagem (e pode desfazer)
                         val termo = termoVer
                         val ehObraMinha = obra?.publicaId.isNullOrEmpty()

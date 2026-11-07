@@ -258,7 +258,7 @@ export async function apagarObra(id) {
   await setDoc(doc(colObras(), id), { apagado: true, alteradoEm: agora(), servidorEm: serverTimestamp() }, { merge: true });
   E.obras.delete(id);
 }
-export const FICHA_VAZIA = { tipo: "PERSONAGEM", nome: "", descricao: "", apelidos: "", idade: "", aparencia: "", poder: "", faccao: "", relacoes: "", imagemHash: "" };
+export const FICHA_VAZIA = { tipo: "PERSONAGEM", nome: "", descricao: "", apelidos: "", idade: "", aparencia: "", poder: "", faccao: "", relacoes: "", extras: "", condicoes: "", segredos: "", imagemHash: "" };
 export async function salvarFicha(obraId, id, f) {
   const novo = !id; id = id || novoId();
   await salvarItem("fichas", obraId, id, { ...FICHA_VAZIA, ...(novo ? { criadaEm: agora() } : {}), ...f });

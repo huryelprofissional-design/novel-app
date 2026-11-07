@@ -199,6 +199,12 @@ private fun DialogoFicha(inicial: Ficha, fechar: () -> Unit) {
                 }
                 OutlinedTextField(f.descricao, { f = f.copy(descricao = it) }, label = { Text("Anotações") },
                     minLines = 3, maxLines = 10, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(f.extras, { f = f.copy(extras = it) }, label = { Text("Campos seus (um por linha: Arma: Espada Rúnica)") },
+                    minLines = 2, maxLines = 8, modifier = Modifier.fillMaxWidth())
+                if (f.tipo == TipoFicha.PERSONAGEM) OutlinedTextField(f.condicoes, { f = f.copy(condicoes = it) }, label = { Text("Condição por capítulo (1: vivo · 12: ferido · 30: morto)") },
+                    minLines = 2, maxLines = 8, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(f.segredos, { f = f.copy(segredos = it) }, label = { Text("🔒 Segredos (15: é filho do rei — o leitor só vê no cap. 15)") },
+                    minLines = 2, maxLines = 8, modifier = Modifier.fillMaxWidth())
                 Text("Dica: no texto, escreva @Nome, descrição… (ou &Lugar, …) e a ficha é criada e completada sozinha.", fontSize = 12.sp, color = p.textoSuave)
                 if (inicial.id != 0L) TextButton(onClick = { confirmarExclusao = true }) { Text("Excluir ficha", color = Color(0xFFE57373)) }
             }

@@ -107,7 +107,8 @@ fun FolhaParagrafo(
 
 /** Mostra uma ficha (somente leitura) em folha. */
 @Composable
-fun VerFicha(f: Ficha, ateOrdem: Double? = null) {
+/** ateCapitulo: número do capítulo que o leitor está (segredos e condição sem spoiler); null = visão do autor (tudo). */
+fun VerFicha(f: Ficha, ateOrdem: Double? = null, ateCapitulo: Int? = null) {
     val p = LocalPaleta.current
     val img = rememberImagem(f.imagem, 500)
     val trechos by remember(f.id) { com.huryel.novely.NovelyApp.instancia.repo.trechosFicha(f.id) }.collectAsState(initial = emptyList())
@@ -141,10 +142,17 @@ fun VerFicha(f: Ficha, ateOrdem: Double? = null) {
             }
             if (f.apelidos.isNotBlank()) Text("também chamado de ${f.apelidos}", fontSize = 12.5.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(top = 12.dp))
             if (f.descricao.isNotBlank()) Text(f.descricao, fontSize = 15.sp, lineHeight = 22.sp, color = Color.White.copy(alpha = 0.92f), modifier = Modifier.padding(top = 12.dp))
-            listOf("Aparência" to f.aparencia, "Poder" to f.poder, "Relações" to f.relacoes).filter { it.second.isNotBlank() }.forEach { (r, v) ->
+            val condicao = if (ateCapitulo != null) com.huryel.novely.data.CamposFicha.condicaoEm(f.condicoes, ateCapitulo).orEmpty()
+                else com.huryel.novely.data.CamposFicha.porCapitulo(f.condicoes).joinToString("  →  ") { "cap. ${it.first}: ${it.second}" }
+            val (segredos, faltam) = if (ateCapitulo != null) com.huryel.novely.data.CamposFicha.segredosAte(f.segredos, ateCapitulo)
+                else com.huryel.novely.data.CamposFicha.porCapitulo(f.segredos) to 0
+            (listOf("Condição" to condicao, "Aparência" to f.aparencia, "Poder" to f.poder, "Relações" to f.relacoes) + com.huryel.novely.data.CamposFicha.extras(f.extras)
+                + segredos.map { (n, t) -> (if (ateCapitulo == null) "🔒 Segredo · revela no cap. $n" else "Revelado no cap. $n") to t })
+                .filter { it.second.isNotBlank() }.forEach { (r, v) ->
                 Text(r.uppercase(), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(top = 12.dp))
                 Text(v, fontSize = 14.sp, lineHeight = 20.sp, color = Color.White.copy(alpha = 0.9f), modifier = Modifier.padding(top = 2.dp))
             }
+            if (faltam > 0) Text("🔒 $faltam segredo(s) ainda escondido(s) — continue lendo", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(top = 12.dp))
         }
         if (visiveis.isNotEmpty()) {
             Text("NA HISTÓRIA", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(top = 6.dp, start = 4.dp))

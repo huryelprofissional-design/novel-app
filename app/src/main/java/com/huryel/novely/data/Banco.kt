@@ -180,6 +180,12 @@ data class Ficha(
     @ColumnInfo(defaultValue = "") val poder: String = "",
     @ColumnInfo(defaultValue = "") val faccao: String = "",
     @ColumnInfo(defaultValue = "") val relacoes: String = "",
+    /** Campos que o autor inventa, um por linha: "Arma: Espada Rúnica". */
+    @ColumnInfo(defaultValue = "") val extras: String = "",
+    /** Condição ao longo da história, uma por linha: "1: vivo", "12: ferido", "30: morto". */
+    @ColumnInfo(defaultValue = "") val condicoes: String = "",
+    /** Segredos que o leitor só vê a partir do capítulo: "15: é filho do rei". */
+    @ColumnInfo(defaultValue = "") val segredos: String = "",
     /** Identidade na nuvem (igual em todos os aparelhos). */
     @ColumnInfo(defaultValue = "") val nuvemId: String = novoNuvemId(),
     /** Quando mudou neste aparelho (preenchido por gatilho do banco). */
@@ -391,7 +397,7 @@ interface NovelyDao {
     suspend fun tocarObra(id: Long, quando: Long)
 }
 
-@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 11, exportSchema = true)
+@Database(entities = [Obra::class, Volume::class, Capitulo::class, Ficha::class, ItemLixeira::class, Marcador::class, Evento::class, FichaTrecho::class], version = 12, exportSchema = true)
 abstract class BancoNovely : RoomDatabase() {
     abstract fun dao(): NovelyDao
 
@@ -402,7 +408,11 @@ abstract class BancoNovely : RoomDatabase() {
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) { Sinc.prepararBanco(db) }
                 })
-                .addMigrations(object : androidx.room.migration.Migration(1, 2) {
+                .addMigrations(object : androidx.room.migration.Migration(11, 12) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        for (c in listOf("extras", "condicoes", "segredos")) db.execSQL("ALTER TABLE fichas ADD COLUMN $c TEXT NOT NULL DEFAULT ''")
+                    }
+                }, object : androidx.room.migration.Migration(1, 2) {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         db.execSQL("ALTER TABLE capitulos ADD COLUMN resumo TEXT NOT NULL DEFAULT ''")
                     }

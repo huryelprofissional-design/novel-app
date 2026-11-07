@@ -256,7 +256,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
             if (f.alteradoEm > e.enviadoEm || imgH != e.capaHash) {
                 itemDoc("fichas", f.nuvemId, f.alteradoEm, nidObra[f.obraId] ?: continue, mapOf("tipo" to f.tipo, "nome" to f.nome, "descricao" to f.descricao,
                     "criadaEm" to f.criadaEm, "apelidos" to f.apelidos, "idade" to f.idade, "aparencia" to f.aparencia, "poder" to f.poder,
-                    "faccao" to f.faccao, "relacoes" to f.relacoes, "imagemHash" to imgH))
+                    "faccao" to f.faccao, "relacoes" to f.relacoes, "extras" to f.extras, "condicoes" to f.condicoes, "segredos" to f.segredos, "imagemHash" to imgH))
                 e.enviadoEm = f.alteradoEm; e.capaHash = imgH
             }
         }
@@ -434,7 +434,7 @@ class Sincronizador(private val ctx: Context, private val repo: Repositorio, pri
                 if (imgH != e.capaHash) { repo.imagens.apagar(img); img = if (imgH.isEmpty()) null else baixarImagem(eu, "$nid-foto"); e.capaHash = imgH }
                 val f = Ficha(id = local?.id ?: 0, obraId = obra.id, tipo = s("tipo").ifEmpty { TipoFicha.PERSONAGEM }, nome = s("nome"), descricao = s("descricao"),
                     imagem = img, criadaEm = l("criadaEm"), apelidos = s("apelidos"), idade = s("idade"), aparencia = s("aparencia"), poder = s("poder"),
-                    faccao = s("faccao"), relacoes = s("relacoes"), nuvemId = nid, alteradoEm = alt)
+                    faccao = s("faccao"), relacoes = s("relacoes"), extras = s("extras"), condicoes = s("condicoes"), segredos = s("segredos"), nuvemId = nid, alteradoEm = alt)
                 quieto { if (local == null) dao.inserirFicha(f) else dao.atualizarFicha(f) }
             }
             "capitulos" -> {

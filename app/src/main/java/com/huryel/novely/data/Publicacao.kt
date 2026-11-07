@@ -101,7 +101,8 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
             val lote = db.batch()
             fichas.forEach { f ->
                 lote.set(ref.collection("fichas").document(f.nuvemId), mapOf("tipo" to f.tipo, "nome" to f.nome, "apelidos" to f.apelidos, "idade" to f.idade,
-                    "aparencia" to f.aparencia, "poder" to f.poder, "faccao" to f.faccao, "relacoes" to f.relacoes, "descricao" to f.descricao))
+                    "aparencia" to f.aparencia, "poder" to f.poder, "faccao" to f.faccao, "relacoes" to f.relacoes, "descricao" to f.descricao,
+                    "extras" to f.extras, "condicoes" to f.condicoes, "segredos" to f.segredos))
             }
             (remotas - fichas.map { it.nuvemId }.toSet()).forEach { lote.delete(ref.collection("fichas").document(it)) }
             lote.commit().await()
@@ -234,7 +235,8 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
                 val f = locais.firstOrNull { it.nome.equals(nome, true) } ?: Ficha(obraId = obraId, nome = nome)
                 val nova = f.copy(tipo = d.getString("tipo") ?: f.tipo, apelidos = d.getString("apelidos") ?: "", idade = d.getString("idade") ?: "",
                     aparencia = d.getString("aparencia") ?: "", poder = d.getString("poder") ?: "", faccao = d.getString("faccao") ?: "",
-                    relacoes = d.getString("relacoes") ?: "", descricao = d.getString("descricao") ?: "")
+                    relacoes = d.getString("relacoes") ?: "", descricao = d.getString("descricao") ?: "",
+                    extras = d.getString("extras") ?: "", condicoes = d.getString("condicoes") ?: "", segredos = d.getString("segredos") ?: "")
                 if (f.id == 0L) dao.inserirFicha(nova) else if (nova != f) dao.atualizarFicha(nova)
             }
         } catch (_: Exception) {}

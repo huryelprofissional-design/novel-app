@@ -215,7 +215,8 @@ async function telaFichas(id, corpo, pode) {
 
 export async function verFicha(f, fotoUrl, termo = null) {
   const u = fotoUrl ?? (f.imagemHash && E.usuario ? await imagemMinha(f.id + "-foto") : null);
-  const campos = [["Aparência", f.aparencia], ["Poder", f.poder], ["Relações", f.relacoes]].filter(([, v]) => v);
+  const extras = (f.extras || "").split("\n").map((l) => [l.slice(0, l.indexOf(":")).trim(), l.slice(l.indexOf(":") + 1).trim()]).filter(([k, v], i, a) => k && v && (f.extras || "").split("\n")[i].includes(":"));
+  const campos = [["Aparência", f.aparencia], ["Poder", f.poder], ["Relações", f.relacoes], ...extras].filter(([, v]) => v);
   dialogo(`<div class="ficha-ver">${u ? `<div class="ficha-fundo" style="background-image:url(${u})"></div>` : ""}
     <div style="display:flex;gap:16px;align-items:center;position:relative"><span class="av" style="width:84px;height:84px;font-size:32px">${u ? `<img src="${u}">` : f.tipo === "LUGAR" ? "⌂" : esc(f.nome.slice(0, 1))}</span>
       <div><div style="font-size:28px;font-weight:400">${esc(f.nome)}</div><div class="chips" style="margin-top:8px"><span class="etiqueta">${TIPO_NOME[f.tipo] || "Personagem"}</span>${f.idade ? `<span class="etiqueta">${esc(f.idade)}</span>` : ""}${f.faccao ? `<span class="etiqueta">${esc(f.faccao)}</span>` : ""}</div></div></div>
@@ -248,6 +249,9 @@ function editarFicha(id, f, todas) {
     <label class="rot">Aparência</label><textarea class="campo" id="aparencia" rows="2">${esc(x.aparencia)}</textarea>
     <label class="rot">Poder / habilidades</label><textarea class="campo" id="poder" rows="2">${esc(x.poder)}</textarea>
     <label class="rot">Relações</label><textarea class="campo" id="relacoes" rows="2">${esc(x.relacoes)}</textarea>
+    <label class="rot">Campos seus (um por linha — Arma: Espada Rúnica)</label><textarea class="campo" id="extras" rows="2">${esc(x.extras || "")}</textarea>
+    <label class="rot">Condição por capítulo (1: vivo · 12: ferido · 30: morto)</label><textarea class="campo" id="condicoes" rows="2">${esc(x.condicoes || "")}</textarea>
+    <label class="rot">🔒 Segredos (15: é filho do rei — o leitor só vê no cap. 15)</label><textarea class="campo" id="segredos" rows="2">${esc(x.segredos || "")}</textarea>
     <div class="linha-botoes">${f ? `<button class="btn2 peq" id="apagar" style="margin-right:auto;color:var(--erro)">Excluir</button>` : ""}<button class="btn2 peq" data-n>Cancelar</button><button class="btn peq" id="ok">Salvar</button></div>`, true);
   let tipo = x.tipo, novaFoto = null;
   if (f?.imagemHash) imagemMinha(f.id + "-foto").then((u) => { if (u) $("#foto", d).innerHTML = `<img src="${u}">`; });
@@ -258,7 +262,7 @@ function editarFicha(id, f, todas) {
   $("#ok", d).onclick = async () => {
     const nome = $("#nome", d).value.trim(); if (!nome) { toast("Escreva o nome"); return; }
     if (!f && todas.some((y) => y.nome.toLowerCase() === nome.toLowerCase())) { toast("Já existe uma ficha com esse nome"); return; }
-    const dados = { tipo }; for (const k of ["nome", "apelidos", "idade", "faccao", "descricao", "aparencia", "poder", "relacoes"]) dados[k] = $("#" + k, d).value.trim();
+    const dados = { tipo }; for (const k of ["nome", "apelidos", "idade", "faccao", "descricao", "aparencia", "poder", "relacoes", "extras", "condicoes", "segredos"]) dados[k] = ($("#" + k, d)?.value || "").trim();
     const fid = f?.id || novoId();
     if (novaFoto) dados.imagemHash = await enviarImagemMinha(fid + "-foto", novaFoto);
     await salvarFicha(id, fid, f ? { ...f, ...dados } : { ...dados, criadaEm: agora() });

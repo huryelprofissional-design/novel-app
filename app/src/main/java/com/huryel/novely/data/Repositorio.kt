@@ -373,7 +373,8 @@ class Repositorio(ctx: Context) {
         fun junta(a: String, b: String) = if (a.isBlank()) b else if (b.isBlank() || a.contains(b)) a else "$a\n$b"
         dao.atualizarFicha(destino.copy(apelidos = apelidos.joinToString(", "), descricao = junta(destino.descricao, origem.descricao),
             idade = destino.idade.ifBlank { origem.idade }, aparencia = junta(destino.aparencia, origem.aparencia), poder = junta(destino.poder, origem.poder),
-            faccao = destino.faccao.ifBlank { origem.faccao }, relacoes = junta(destino.relacoes, origem.relacoes), imagem = destino.imagem ?: origem.imagem))
+            faccao = destino.faccao.ifBlank { origem.faccao }, relacoes = junta(destino.relacoes, origem.relacoes), imagem = destino.imagem ?: origem.imagem,
+            extras = junta(destino.extras, origem.extras), condicoes = junta(destino.condicoes, origem.condicoes), segredos = junta(destino.segredos, origem.segredos)))
         dao.excluirFicha(origem)
     }
 

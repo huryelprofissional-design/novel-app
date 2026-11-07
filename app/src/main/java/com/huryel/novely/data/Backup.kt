@@ -125,6 +125,7 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                 repo.dao.fichasAgora(o.id).forEach { f ->
                     val jf = JSONObject().put("tipo", f.tipo).put("nome", f.nome).put("descricao", f.descricao)
                         .put("apelidos", f.apelidos).put("idade", f.idade).put("aparencia", f.aparencia).put("poder", f.poder).put("faccao", f.faccao).put("relacoes", f.relacoes)
+                        .put("extras", f.extras).put("condicoes", f.condicoes).put("segredos", f.segredos)
                     imagem(f.imagem, "ficha-${f.id}")?.let { jf.put("imagem", it) }
                     fs.put(jf)
                 }
@@ -229,7 +230,8 @@ class Backup(private val ctx: Context, private val repo: Repositorio, private va
                             }
                             repo.dao.inserirFicha(Ficha(obraId = obraId, tipo = jf.optString("tipo", TipoFicha.PERSONAGEM), nome = jf.optString("nome"),
                                 descricao = jf.optString("descricao"), imagem = img, apelidos = jf.optString("apelidos"), idade = jf.optString("idade"),
-                                aparencia = jf.optString("aparencia"), poder = jf.optString("poder"), faccao = jf.optString("faccao"), relacoes = jf.optString("relacoes")))
+                                aparencia = jf.optString("aparencia"), poder = jf.optString("poder"), faccao = jf.optString("faccao"), relacoes = jf.optString("relacoes"),
+                                extras = jf.optString("extras"), condicoes = jf.optString("condicoes"), segredos = jf.optString("segredos")))
                         }
                         val caps = o.getJSONArray("capitulos")
                         for (k in 0 until caps.length()) {
