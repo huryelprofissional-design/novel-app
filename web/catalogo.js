@@ -28,7 +28,7 @@ rota("/genero/(.+)", async (g) => {
 // ───────── DESCOBRIR ─────────
 rota("/descobrir(?:/(\\w+))?", async (modo = "ALTA") => {
   const nomes = { ALTA: "Em alta", SEMANA: "Ranking da semana", NOVIDADES: "Novidades", CONCLUIDAS: "Concluídas" };
-  casca("descobrir", `<div class="topo"><h1>Descobrir</h1><a class="btn2 peq" href="#/buscar">⌕ Buscar</a><a class="btn2 peq" href="#/generos">Gêneros</a></div>
+  casca("descobrir", `<div class="topo"><h1>Explorar</h1><a class="btn2 peq" href="#/buscar">⌕ Buscar</a><a class="btn2 peq" href="#/generos">Gêneros</a></div>
     <div class="abas">${Object.keys(nomes).map((k) => `<a href="#/descobrir/${k}" class="${k === modo ? "on" : ""}">${nomes[k]}</a>`).join("")}</div><div class="carregando" style="height:200px">◆</div>`);
   let l = [], erro = "";
   try { l = await catalogo(modo); } catch (e) { erro = String(e.message || e).includes("permission") ? "O catálogo ainda não está liberado (faltam as Regras do Firestore)." : "Sem conexão com o catálogo."; }

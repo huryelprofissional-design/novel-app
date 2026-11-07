@@ -4,6 +4,9 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -96,32 +99,92 @@ private fun Barra(f: Float, modifier: Modifier, altura: Int = 4) {
     }
 }
 
-/** Barra de navegação inferior. */
+/** Barra de navegação inferior no estilo "E-Paper Ink": barra escura sólida, pílula branca que desliza e ícone preenchido na aba ativa. */
 @Composable
 fun BarraTema(abas: List<Triple<String, String, ImageVector>>, atual: String?, vidro: EstadoVidro? = null, ir: (String) -> Unit) {
-    // vidro líquido com uma "lente" que desliza (com um pulinho) até a aba escolhida
     val idx = abas.indexOfFirst { it.first == atual }.coerceAtLeast(0)
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp)) {
-        val larg = (maxWidth - 16.dp) / abas.size
+    val reduzir = reduzirAnimacoes()
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp), contentAlignment = Alignment.Center) {
+        val total = minOf(maxWidth, 440.dp)
+        val larg = (total - 12.dp) / abas.size
         val x by androidx.compose.animation.core.animateDpAsState(larg * idx,
-            androidx.compose.animation.core.spring(dampingRatio = 0.62f, stiffness = 320f), label = "lente")
-        Box(Modifier.fillMaxWidth().height(78.dp).vidroLiquido(vidro, 39.dp, borda = 24.dp, forca = 48.dp).padding(8.dp)) {
-            Box(Modifier.offset(x = x).width(larg).fillMaxHeight().clip(RoundedCornerShape(31.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.08f))))
-                .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.05f))), RoundedCornerShape(31.dp)))
+            if (reduzir) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)), label = "pilula")
+        Box(Modifier.width(total).height(72.dp).shadow(20.dp, RoundedCornerShape(36.dp)).clip(RoundedCornerShape(36.dp)).background(INK_BARRA)
+            .border(1.dp, INK_BORDA, RoundedCornerShape(36.dp)).padding(6.dp)) {
+            Box(Modifier.offset(x = x).width(larg).fillMaxHeight().clip(RoundedCornerShape(30.dp)).background(Color.White))
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                abas.forEach { (r, rot, ic) ->
-                    val sel = r == atual
-                    val cor = if (sel) Color.White else Color.White.copy(alpha = 0.72f)
-                    Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(31.dp)).clickable { ir(r) },
+                abas.forEachIndexed { i, (r, rot, _) ->
+                    val sel = i == idx
+                    val cor by androidx.compose.animation.animateColorAsState(if (sel) INK_ATIVO else INK_INATIVO, androidx.compose.animation.core.tween(if (reduzir) 0 else 180), label = "cor")
+                    val toque = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    val apertado by toque.collectIsPressedAsState()
+                    val escala by androidx.compose.animation.core.animateFloatAsState(if (apertado && !reduzir) 0.94f else 1f, label = "aperto")
+                    Column(Modifier.weight(1f).fillMaxHeight().graphicsLayer { scaleX = escala; scaleY = escala }.clip(RoundedCornerShape(30.dp))
+                        .clickable(toque, null, role = androidx.compose.ui.semantics.Role.Tab) { ir(r) }
+                        .semantics { selected = sel },
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Icon(ic, rot, tint = cor, modifier = Modifier.size(24.dp))
-                        Text(rot, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = cor, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+                        Image(iconeInk(r, sel), null, Modifier.size(22.dp).offset(y = if (sel) (-1).dp else 0.dp))
+                        Text(rot, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.1).sp, color = cor, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
                     }
                 }
             }
         }
     }
+}
+
+private val INK_BARRA = Color(0xFF18191D)
+private val INK_BORDA = Color(0xFF2A2C33)
+private val INK_ATIVO = Color(0xFF090A0C)
+private val INK_INATIVO = Color(0xFF80838E)
+
+/** "Reduzir animações": a opção do app ou a do sistema (escala de animação 0). */
+@Composable
+fun reduzirAnimacoes(): Boolean {
+    val pref by com.huryel.novely.NovelyApp.instancia.prefs.reduzirAnimacoes.estado.collectAsState()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val sistema = remember { try { android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f } catch (_: Exception) { false } }
+    return pref || sistema
+}
+
+// Ícones da barra: traço quando inativo; preenchido (com recortes brancos) quando ativo — iguais ao protótipo
+private val ICONES_INK: Map<String, List<Pair<String, Char>>> = mapOf( // 'f' = preenche, 'c' = recorte, 'l' = só traço
+    "inicio" to listOf("M3 19a9 9 0 0 1 9 0 9 9 0 0 1 9 0V5a9 9 0 0 0-9 0 9 9 0 0 0-9 0v14z" to 'f', "M12 5v14" to 'l', "M12 7l2 2-2 2" to 'c'),
+    "biblioteca" to listOf(
+        "M4.5 4h2a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-2a1.5 1.5 0 0 1-1.5-1.5v-13a1.5 1.5 0 0 1 1.5-1.5z" to 'f',
+        "M11 4h2a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-2a1.5 1.5 0 0 1-1.5-1.5v-13a1.5 1.5 0 0 1 1.5-1.5z" to 'f',
+        "M16 4h3.5a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5H16V4z" to 'f', "M5.5 8v3" to 'c', "M12 8v3" to 'c'),
+    "escrever" to listOf("M20.24 3.76a6 6 0 0 0-8.49 0L3.5 12.02a3 3 0 0 0-.82 1.57l-1.1 5.48a1 1 0 0 0 1.18 1.18l5.48-1.1a3 3 0 0 0 1.57-.82l8.26-8.25a6 6 0 0 0 0-8.52z" to 'f', "M16 8L8 16" to 'c'),
+    "descobrir" to listOf("M2.5 12a9.5 9.5 0 1 0 19 0a9.5 9.5 0 1 0-19 0" to 'l', "M16.24 7.76L14.12 14.12L7.76 16.24L9.88 9.88z" to 'f', "M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0" to 'c'),
+    "perfil" to listOf("M8 7.5a4 4 0 1 0 8 0a4 4 0 1 0-8 0" to 'f', "M4.5 20.25a7.5 7.5 0 0 1 15 0" to 'f'),
+)
+/** Ícones de traço do HUD do leitor (protótipo "Reader HUD"). */
+object IconesHud {
+    private fun t(nome: String, vararg d: String) = ImageVector.Builder(nome, 24.dp, 24.dp, 24f, 24f).apply {
+        d.forEach { addPath(androidx.compose.ui.graphics.vector.addPathNodes(it), stroke = androidx.compose.ui.graphics.SolidColor(Color.White), strokeLineWidth = 2f,
+            strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round, strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Round) }
+    }.build()
+    val voltar = t("voltar", "M19 12H5", "M12 19l-7-7 7-7")
+    val web = t("web", "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0", "M2 12h20", "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z")
+    val info = t("info", "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0", "M12 16v-4", "M12 8h0.01")
+    val editar = t("editar", "M12 20h9", "M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z")
+    val ouvir = t("ouvir", "M11 5L6 9H2v6h4l5 4V5z", "M19.07 4.93a10 10 0 0 1 0 14.14", "M15.54 8.46a5 5 0 0 1 0 7.07")
+    val buscar = t("buscar", "M3 11a8 8 0 1 0 16 0a8 8 0 1 0-16 0", "M21 21l-4.35-4.35")
+    val capitulos = t("capitulos", "M8 6h13", "M8 12h13", "M8 18h13", "M3 6h0.01", "M3 12h0.01", "M3 18h0.01")
+    val rolar = t("rolar", "M12 5v14", "M19 12l-7 7-7-7")
+    val leitura = t("leitura", "M4 19L10 5h4l6 14", "M6.5 14h11")
+}
+
+private val cacheInk = HashMap<String, ImageVector>()
+fun iconeInk(rota: String, ativo: Boolean): ImageVector = cacheInk.getOrPut("$rota$ativo") {
+    val traco = if (ativo) INK_ATIVO else INK_INATIVO
+    ImageVector.Builder("ink$rota$ativo", 24.dp, 24.dp, 24f, 24f).apply {
+        (ICONES_INK[rota] ?: emptyList()).forEach { (d, t) ->
+            addPath(androidx.compose.ui.graphics.vector.addPathNodes(d),
+                fill = if (ativo && t == 'f') androidx.compose.ui.graphics.SolidColor(INK_ATIVO) else null,
+                stroke = androidx.compose.ui.graphics.SolidColor(if (ativo && t == 'c') Color.White else traco),
+                strokeLineWidth = 1.8f, strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round, strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Round)
+        }
+    }.build()
 }
 
 // ───────────────────────── Visualizador de capa (zoom) ─────────────────────────

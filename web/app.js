@@ -125,12 +125,12 @@ rota("/biblioteca(?:/(\\w+))?", async (aba = "LENDO") => {
   const col = local.ler("colBib", "");
   let l = (grupos[aba] || []).filter((o) => !col || o.colecao === col);
   l.sort(ord === "TITULO" ? (a, b) => a.titulo.localeCompare(b.titulo) : ord === "ADICIONADA" ? (a, b) => (b.criadaEm || 0) - (a.criadaEm || 0) : (a, b) => (b.lidaEm || 0) - (a.lidaEm || 0));
-  casca("biblioteca", `<div class="topo"><h1>Biblioteca</h1><input class="campo" id="filtro" placeholder="Filtrar…" style="max-width:240px;border-radius:24px">
+  casca("biblioteca", `<div class="topo"><h1>Estante</h1><input class="campo" id="filtro" placeholder="Filtrar…" style="max-width:240px;border-radius:24px">
       <button class="btn2 peq" id="modoEst" title="Estante ou grade">${local.ler("estante", true) ? "📚 Estante" : "▦ Grade"}</button><select class="campo" id="ord" style="max-width:190px;border-radius:24px"><option value="RECENTE">Lidas recentemente</option><option value="TITULO">Título (A–Z)</option><option value="ADICIONADA">Adicionadas</option></select></div>
     <div class="abas">${Object.keys(nomes).map((k) => `<a href="#/biblioteca/${k}" class="${k === aba ? "on" : ""}">${nomes[k]} · ${grupos[k].length}</a>`).join("")}</div>
     ${colecoes.length ? `<div class="chips" style="margin-bottom:18px"><span class="chip ${!col ? "on" : ""}" data-col="">Todas</span>${colecoes.map((c) => `<span class="chip ${c === col ? "on" : ""}" data-col="${esc(c)}">${esc(c)}</span>`).join("")}</div>` : ""}
     ${l.length ? `<div class="grade ${local.ler("estante", true) ? "estante" : ""}" id="grade">${l.map((o, i) => cartao(o, o.autor ? "por " + o.autor : STATUS_NOME[o.status] || "").replace('class="obra-c"', `class="obra-c ${o.status === "CONCLUIDA" ? "lida" : ""}" style="--i:${i % 18}"`)).join("")}</div>`
-      : `<div class="card vazio"><b>Nada aqui ainda.</b><span class="suave">Encontre obras em Descobrir e toque em ♥ Seguir para elas aparecerem aqui.</span><a class="btn peq" href="#/descobrir">Descobrir</a></div>`}`);
+      : `<div class="card vazio"><b>Nada aqui ainda.</b><span class="suave">Encontre obras em Explorar e toque em ♥ Seguir para elas aparecerem aqui.</span><a class="btn peq" href="#/descobrir">Explorar</a></div>`}`);
   $("#modoEst").onclick = () => { local.gravar("estante", !local.ler("estante", true)); desenhar(); };
   $("#ord").value = ord; $("#ord").onchange = (e) => { local.gravar("ordBib", e.target.value); desenhar(); };
   raiz.querySelectorAll("[data-col]").forEach((c) => (c.onclick = () => { local.gravar("colBib", c.dataset.col); desenhar(); }));

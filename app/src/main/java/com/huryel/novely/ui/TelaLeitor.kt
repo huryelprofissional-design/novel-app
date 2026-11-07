@@ -3,6 +3,11 @@ package com.huryel.novely.ui
 import com.huryel.novely.ui.theme.forma
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -906,19 +911,23 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     }
                 }
             })
-        AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
-            Box(Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp).vidroLiquido(vidro, 26.dp)) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
-                    IconButton(onClick = { irInicio(nav) }) { Icon(Icons.Filled.Home, "Início") }
-                    Column(Modifier.weight(1f)) {
-                        Text(c.titulo, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val semMovimento = reduzirAnimacoes()
+        AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = if (semMovimento) fadeIn() else slideInVertically { -it } + fadeIn(), exit = if (semMovimento) fadeOut() else slideOutVertically { -it } + fadeOut()) {
+            Box(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                // HUD superior (protótipo "Reader HUD"): pílula de vidro escuro, máx. 440 dp
+                Row(Modifier.widthIn(max = 440.dp).fillMaxWidth().height(52.dp).vidroLiquido(vidro, 26.dp, tinta = Color(0xBF1A1D24)).padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    BotaoHud(IconesHud.voltar, "Voltar", 20.dp) { nav.popBackStack() }
+                    Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+                        Text(c.titulo, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = Color.White.copy(alpha = .9f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val restam = ((1f - progresso) * c.palavras / 230f).toInt()
-                        Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}" + if (restam >= 1 && progresso < 0.99f) " · faltam ~$restam min" else "", fontSize = 12.sp, color = p.textoSuave, maxLines = 1)
+                        Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}" + if (restam >= 1 && progresso < 0.99f) " · ~$restam min" else "", fontSize = 10.sp, lineHeight = 12.sp, color = Color.White.copy(alpha = .5f), maxLines = 1)
                     }
-                    IconButton(onClick = { escolherIdioma = true }) { Text(if (idiomaLeitura.isEmpty()) "🌐" else idiomaLeitura.uppercase(), fontWeight = FontWeight.ExtraBold, fontSize = if (idiomaLeitura.isEmpty()) 18.sp else 13.sp, color = if (idiomaLeitura.isEmpty()) p.texto else p.destaque) }
-                    IconButton(onClick = { mostrarSobre = true }) { Icon(Icons.Filled.Info, "Sobre a obra") }
-                    if (obra?.minha == true) IconButton(onClick = { nav.navigate("editor/${c.id}") }) { Icon(Icons.Filled.Edit, "Editar capítulo") }
+                    if (idiomaLeitura.isEmpty()) BotaoHud(IconesHud.web, "Traduzir capítulo") { escolherIdioma = true }
+                    else Box(Modifier.size(32.dp).clip(CircleShape).clickable { escolherIdioma = true }.semantics { contentDescription = "Idioma da leitura: $idiomaLeitura" }, contentAlignment = Alignment.Center) {
+                        Text(idiomaLeitura.uppercase(), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, color = p.destaque) }
+                    BotaoHud(IconesHud.info, "Sobre a obra") { mostrarSobre = true }
+                    if (obra?.minha == true) BotaoHud(IconesHud.editar, "Editar capítulo") { nav.navigate("editor/${c.id}") }
                 }
             }
         }
@@ -950,15 +959,16 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     { if (achados.isNotEmpty()) achadoAtual = (achadoAtual + 1) % achados.size },
                     { consulta = ""; painel = Painel.NENHUM })
             }
-            AnimatedVisibility(controles, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp)
-                    .vidroLiquido(vidro, 30.dp)) {
-                    Row(Modifier.fillMaxWidth().height(66.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, { Icon(Icons.Filled.PlayArrow, null) }) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
-                        BotaoBarra("Buscar", painel == Painel.BUSCA, { Icon(Icons.Filled.Search, null) }) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
-                        BotaoBarra("Capítulos", false, { Icon(Icons.AutoMirrored.Filled.List, null) }) { mostrarCapitulos = true }
-                        if (!modoPaginas) BotaoBarra("Rolar", rolando, { Text("⇣", fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
-                        BotaoBarra("Leitura", false, { Text("Aa", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp) }) { mostrarAjustes = true }
+            AnimatedVisibility(controles, enter = if (semMovimento) fadeIn() else slideInVertically { it } + fadeIn(), exit = if (semMovimento) fadeOut() else slideOutVertically { it } + fadeOut()) {
+                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                    // HUD inferior (protótipo "Reader HUD"): 64 dp, cantos de 32 dp, máx. 440 dp
+                    Row(Modifier.widthIn(max = 440.dp).fillMaxWidth().height(64.dp).vidroLiquido(vidro, 32.dp, tinta = Color(0xBF1A1D24)).padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+                        BotaoBarra("Ouvir", painel == Painel.VOZ || tocando, IconesHud.ouvir) { painel = if (painel == Painel.VOZ) Painel.NENHUM else Painel.VOZ }
+                        BotaoBarra("Buscar", painel == Painel.BUSCA, IconesHud.buscar) { painel = if (painel == Painel.BUSCA) Painel.NENHUM else Painel.BUSCA }
+                        BotaoBarra("Capítulos", false, IconesHud.capitulos) { mostrarCapitulos = true }
+                        if (!modoPaginas) BotaoBarra("Rolar", rolando, IconesHud.rolar) { rolando = !rolando; if (rolando) { controles = false; painel = Painel.NENHUM } }
+                        BotaoBarra("Leitura", false, IconesHud.leitura) { mostrarAjustes = true }
                     }
                 }
             }
@@ -1312,14 +1322,28 @@ private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, obra: com.huryel.nov
 }
 
 @Composable
-private fun BotaoBarra(rotulo: String, ativo: Boolean, icone: @Composable () -> Unit, aoTocar: () -> Unit) {
+private fun RowScope.BotaoBarra(rotulo: String, ativo: Boolean, icone: androidx.compose.ui.graphics.vector.ImageVector, aoTocar: () -> Unit) {
     val p = LocalPaleta.current
+    val toque = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val apertado by toque.collectIsPressedAsState()
+    val escala by animateFloatAsState(if (apertado && !reduzirAnimacoes()) 0.92f else 1f, label = "aperto")
+    val cor = if (ativo) p.destaque else Color.White.copy(alpha = 0.65f)
     Column(
-        Modifier.clip(forma(16.dp)).background(if (ativo) p.destaque.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = aoTocar).padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        Modifier.weight(1f).fillMaxHeight().graphicsLayer { scaleX = escala; scaleY = escala }
+            .clickable(toque, null, role = androidx.compose.ui.semantics.Role.Button, onClick = aoTocar)
+            .semantics { selected = ativo },
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
-        CompositionLocalProvider(LocalContentColor provides if (ativo) p.destaque else p.textoSuave) { icone() }
-        Text(rotulo, fontSize = 11.sp, color = if (ativo) p.destaque else p.textoSuave, fontWeight = FontWeight.SemiBold)
+        Icon(icone, null, tint = cor, modifier = Modifier.size(20.dp))
+        Text(rotulo, fontSize = 10.sp, letterSpacing = (-0.1).sp, color = cor, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 3.dp))
+    }
+}
+
+/** Botão redondo de ícone do HUD superior (32 dp). */
+@Composable
+private fun BotaoHud(icone: androidx.compose.ui.graphics.vector.ImageVector, descricao: String, tam: androidx.compose.ui.unit.Dp = 18.dp, aoTocar: () -> Unit) {
+    Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClickLabel = descricao, onClick = aoTocar), contentAlignment = Alignment.Center) {
+        Icon(icone, descricao, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(tam))
     }
 }
 

@@ -74,9 +74,9 @@ private data class Aba(val rota: String, val rotulo: String, val icone: ImageVec
 
 private val abas = listOf(
     Aba("inicio", "Início", Icones.inicio),
-    Aba("biblioteca", "Biblioteca", Icones.biblioteca),
+    Aba("biblioteca", "Estante", Icones.biblioteca),
     Aba("escrever", "Escrever", Icones.escrever),
-    Aba("descobrir", "Descobrir", Icones.descobrir),
+    Aba("descobrir", "Explorar", Icones.descobrir),
     Aba("perfil", "Perfil", Icones.perfil),
 )
 

@@ -429,6 +429,8 @@ class Preferencias(ctx: Context) {
     fun ignorarNome(fichaId: Long, termo: String) { naoEhNome.definir((ignorados() + "$fichaId|${termo.trim()}").joinToString("\n")) }
     fun voltarNome(fichaId: Long, termo: String) { naoEhNome.definir((ignorados() - "$fichaId|${termo.trim()}").joinToString("\n")) }
     val modoPaginas = bool("paginas", false)
+    /** Reduzir animações: troca movimentos por cortes/fades curtos e deixa os efeitos de escrita parados. */
+    val reduzirAnimacoes = bool("reduzirAnimacoes", false)
     val telaLigada = bool("telaLigada", true)
     val velocidadeVoz = real("voz", 1.0f)
     val narrador = texto("narrador", "")

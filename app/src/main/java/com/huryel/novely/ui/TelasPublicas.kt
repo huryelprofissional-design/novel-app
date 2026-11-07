@@ -121,7 +121,7 @@ fun TelaDescobrirCatalogo(nav: NavHostController) {
 
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(lista == null && recarregar > 0, onRefresh = { recarregar++ }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 120.dp)) {
-        item { TopoAba("Descobrir", nav) }
+        item { TopoAba("Explorar", nav) }
         item {
             Row(Modifier.padding(horizontal = 18.dp).padding(bottom = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp))
                 .background(Brush.linearGradient(listOf(Color(0xFF1B1B2F), Color(0xFF3B2A4A), Color(0xFFFF6A2B).copy(alpha = 0.6f))))

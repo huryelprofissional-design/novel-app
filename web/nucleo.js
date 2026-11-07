@@ -628,7 +628,7 @@ export const ir = (h) => { location.hash = h; };
 
 // ───────── casca (menu lateral) ─────────
 export function casca(aba, html) {
-  const itens = [["/", "inicio", "Início"], ["/biblioteca", "biblioteca", "Biblioteca"], ["/escrever", "escrever", "Escrever"], ["/descobrir", "descobrir", "Descobrir"], ["/perfil", "perfil", "Perfil"]];
+  const itens = [["/", "inicio", "Início"], ["/biblioteca", "biblioteca", "Estante"], ["/escrever", "escrever", "Escrever"], ["/descobrir", "descobrir", "Explorar"], ["/perfil", "perfil", "Perfil"]];
   const avisos = contarAvisos();
   raiz.innerHTML = `<div class="casca"><nav class="lado vidro"><div class="logo"><span class="losango"></span>Novely</div>
     ${itens.map(([h, ic, n]) => `<a class="item ${aba === ic ? "on" : ""}" href="#${h}">${svg(ic)}<span>${n}</span></a>`).join("")}

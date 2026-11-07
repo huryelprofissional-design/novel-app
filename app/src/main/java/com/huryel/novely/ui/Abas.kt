@@ -355,7 +355,7 @@ fun TelaBibliotecaAba(nav: NavHostController) {
     }
 
     Column(Modifier.fillMaxSize()) {
-    TopoAba("Biblioteca", nav)
+    TopoAba("Estante", nav)
     LazyVerticalGrid(GridCells.Fixed(if (grade) 3 else 1), Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = if (modo == "ESTANTE") 10.dp else 18.dp, end = if (modo == "ESTANTE") 10.dp else 18.dp, bottom = 120.dp),
         horizontalArrangement = Arrangement.spacedBy(if (modo == "ESTANTE") 0.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(if (modo == "ESTANTE") 22.dp else if (grade) 18.dp else 6.dp)) {
@@ -557,7 +557,7 @@ fun TelaDescobrirAba(nav: NavHostController) {
     val obras by remember { app.repo.resumos() }.collectAsState(initial = emptyList())
     val recebidas = obras.filter { it.trancada }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
-        item { TopoAba("Descobrir", nav) }
+        item { TopoAba("Explorar", nav) }
         item {
             Row(Modifier.padding(horizontal = 18.dp).padding(top = 4.dp).fillMaxWidth().height(46.dp).clip(RoundedCornerShape(14.dp)).background(p.superficie)
                 .border(1.dp, p.borda, RoundedCornerShape(14.dp)).clickable { nav.navigate("buscar") }.padding(horizontal = 14.dp),
@@ -783,6 +783,16 @@ fun TelaAjusteSecao(secao: String, nav: NavHostController) {
                                 Text(d, fontSize = 12.5.sp, color = p.textoSuave)
                             }
                         }
+                    }
+                    Text("MOVIMENTO", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
+                    val reduzirAnim by app.prefs.reduzirAnimacoes.estado.collectAsState()
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.superficie).border(1.dp, p.borda, RoundedCornerShape(16.dp))
+                        .clickable { app.prefs.reduzirAnimacoes.definir(!reduzirAnim) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Reduzir animações", fontWeight = FontWeight.Bold)
+                            Text("Barras e abas trocam sem deslizar e os efeitos de escrita ficam parados. Liga sozinho se o celular estiver com animações desativadas.", fontSize = 12.5.sp, color = p.textoSuave)
+                        }
+                        Switch(reduzirAnim, { app.prefs.reduzirAnimacoes.definir(it) }, colors = SwitchDefaults.colors(checkedTrackColor = p.destaque))
                     }
                     Text("ÍCONE DO APP", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
                     val icone by app.prefs.iconeApp.estado.collectAsState()
