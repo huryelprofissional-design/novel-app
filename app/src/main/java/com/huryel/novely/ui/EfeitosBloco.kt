@@ -72,7 +72,7 @@ val BLOCOS_FX = setOf(
     "post", "jornal", "email", "ligacao", "busca", "voz", "bloqueio", "apagada", "digitando", "grupo", "localizacao",
     "diario", "procurado",
     "aviso", "salto", "capitulo", "proximo",
-)
+) + BLOCOS_NOVOS
 private val APELIDOS_FX = mapOf("evolução" to "evolucao", "missão-ok" to "missao-ok", "missao-concluida" to "missao-ok", "missão-falhou" to "missao-falhou",
     "baú" to "bau", "técnica" to "tecnica", "pílula" to "pilula", "tribulação" to "tribulacao", "diário" to "diario", "ligação" to "ligacao",
     "localização" to "localizacao", "capítulo" to "capitulo", "próximo" to "proximo", "título" to "titulo", "alerta" to "alerta-vermelho", "transmissao" to "corte")
@@ -83,7 +83,7 @@ fun lerBlocoFx(linha: String): Triple<String, String?, String>? {
     val corpo = linha.substring(2, linha.length - 1)
     val cab = corpo.substringBefore(' ')
     val nome0 = cab.substringBefore(':').lowercase().trimEnd('+', '-')
-    val nome = APELIDOS_FX[nome0] ?: nome0
+    val nome = APELIDOS_FX[nome0] ?: APELIDOS_NOVOS[nome0] ?: nome0
     if (nome !in BLOCOS_FX) return null
     val cor = cab.substringAfter(':', "").ifEmpty { null }
     return Triple(nome, cor, corpo.substringAfter(' ', "").trim())
@@ -223,7 +223,7 @@ fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, mo
             "salto" -> fx54(nome, corNome, resto, c, f, estilo)
             "capitulo" -> fx55(nome, corNome, resto, c, f, estilo)
             "proximo" -> fx56(nome, corNome, resto, c, f, estilo)
-            else -> Text(resto, style = estilo)
+            else -> if (nome in BLOCOS_NOVOS) BlocoNovo(nome, corNome, c, estilo) else Text(resto, style = estilo)
         }
     }
 }
@@ -1205,8 +1205,8 @@ private val Rasgado = poli(0f, .04f, .06f, 0f, .12f, .03f, .19f, 0f, .27f, .04f,
 
 // ───── Mega Pack: estilos em linha {efeito: texto} ─────
 
-val INLINE_FX = setOf("fogo", "gelo", "neon", "medo", "eco", "runa", "idioma", "divino", "feitico", "cor", "sangue", "veneno", "raio", "sombra", "quebra", "vento", "ouro", "coracao")
-private val APELIDOS_INLINE = mapOf("feitiço" to "feitico", "coração" to "coracao", "chamas" to "fogo", "runas" to "runa")
+val INLINE_FX = setOf("fogo", "gelo", "neon", "medo", "eco", "runa", "idioma", "divino", "feitico", "cor", "sangue", "veneno", "raio", "sombra", "quebra", "vento", "ouro", "coracao") + INLINE_NOVOS
+private val APELIDOS_INLINE = mapOf("feitiço" to "feitico", "coração" to "coracao", "chamas" to "fogo", "runas" to "runa", "mão" to "mao", "telepatia" to "mente", "cinza" to "cinzas")
 private val RX_INLINE = Regex("\\{([a-zçãéíóúâêô]+)([+-])?(?::([a-zçãéíóúâêô]+))?:\\s")
 /** Um efeito em linha lido do texto: "{fogo+:azul: texto}" → nome, cor, texto, intensidade (-1, 0, 1) e onde acaba. */
 data class InlineFx(val nome: String, val cor: String?, val texto: String, val forca: Int, val fim: Int)
@@ -1253,12 +1253,13 @@ private fun estiloInlineBase(nome: String, cor: String?): SpanStyle {
         "quebra", "vento" -> SpanStyle(color = cc ?: Color.Unspecified, fontWeight = FontWeight.Bold)
         "ouro" -> SpanStyle(brush = Brush.linearGradient(listOf(Color(0xFF8A5A00), Color(0xFFFFD86B), Color(0xFFFFF6CF), Color(0xFFFFC94A), Color(0xFF8A5A00))), fontFamily = FontFamily.Serif, fontWeight = FontWeight.ExtraBold)
         "coracao" -> SpanStyle(color = cc ?: Color(0xFFFF6FA8), fontWeight = FontWeight.ExtraBold, shadow = androidx.compose.ui.graphics.Shadow(Color(0x80FF6FA8), blurRadius = 12f))
-        else -> SpanStyle()
+        else -> estiloInlineNovo(nome, cc) ?: SpanStyle()
     }
 }
 
 /** Efeitos em linha que mexem a cada quadro: treme, quebra, vento, raio, neon piscando, idioma trocando glifos. */
-fun animarInlineFx(t: AnnotatedString, quadro: Int): AnnotatedString {
+fun animarInlineFx(t0: AnnotatedString, quadro: Int): AnnotatedString {
+    val t = animarInlineNovos(t0, quadro)
     val fx = t.getStringAnnotations("fx", 0, t.length).filter { it.item in setOf("medo", "quebra", "vento", "raio", "neon", "idioma", "coracao") }
     if (fx.isEmpty()) return t
     val r = Random(quadro)
@@ -1354,4 +1355,40 @@ val MEGA_PACK = listOf(
     Triple("Localização ao vivo", "[#localizacao Hana | Torre Norte, 13º andar | ao vivo]", "celular"),
     Triple("Abertura de capítulo", "[#capitulo 12 | O Rei sem Nome]", "estrutura"),
     Triple("No próximo capítulo", "[#proximo texto]", "estrutura"),
+    Triple("Brilho estelar", "{estrela: a última estrela}", "inline"),
+    Triple("Fantasma", "{fantasma: estou atrás de você}", "inline"),
+    Triple("Luz sagrada", "{sagrado: Que a luz te guie}", "inline"),
+    Triple("Virando cinzas", "{cinzas: tudo o que restou}", "inline"),
+    Triple("Letra à mão", "{mao: me encontre às 3h}", "inline"),
+    Triple("Contagem regressiva", "{contagem: 10}", "inline"),
+    Triple("Telepatia", "{mente: consegue me ouvir?}", "inline"),
+    Triple("Corrompido", "{corrompido: não era humano}", "inline"),
+    Triple("Número de dano", "{dano: -9999}", "inline"),
+    Triple("Subiu de nível", "[#levelup 12 | +5 Força | +3 Agilidade]", "rpg"),
+    Triple("Loja do Sistema", "[#loja 1240 PTS | Poção de cura 50 | Pergaminho de fuga 300 | Ovo de dragão 9999]", "rpg"),
+    Triple("Buffs e debuffs", "[#status +Fúria 3t | +Escudo | -Veneno | -Lentidão]", "rpg"),
+    Triple("Drop raro", "[#drop lendário | Coração do Abismo]", "rpg"),
+    Triple("Medidor de ameaça", "[#ameaca Rei Demônio | 9/10]", "rpg"),
+    Triple("Pergaminho de técnica", "[#pergaminho Palma do Dragão Celeste | Terceira forma · Trovão que rasga o céu]", "murim"),
+    Triple("Vozes ao redor", "[#vozes volta… | fica | ele mente | abre a porta]", "terror"),
+    Triple("Monitor cardíaco", "[#ecg 142]", "terror"),
+    Triple("Carta lacrada", "[#lacre R | Abra só depois que eu morrer.]", "misterio"),
+    Triple("Grimório", "[#grimorio Aquele que ler estas palavras em voz alta abrirá a porta.]", "fantasia"),
+    Triple("Círculo mágico", "[#circulo Invocação | texto]", "fantasia"),
+    Triple("Bênção", "[#bencao Bênção da Lua | +10% de sorte]", "fantasia"),
+    Triple("Maldição", "[#maldicao Marca do Corvo | não pode mentir]", "fantasia"),
+    Triple("Carta de tarô", "[#taro XVI | A Torre | ruína e verdade]", "fantasia"),
+    Triple("Mira travando", "[#mira Alvo | 340 m | TRAVADO]", "scifi"),
+    Triple("Notificação no topo", "[#notificacao WhatsApp | Mãe | Onde você está?]", "celular"),
+    Triple("Chamadas perdidas", "[#perdidas Hana x7 03:12 | Número privado 03:09]", "celular"),
+    Triple("Story", "[#story yuna.k | ninguém vai sentir minha falta | 2 h]", "celular"),
+    Triple("Bateria acabando", "[#bateria 2% | O celular vai desligar]", "celular"),
+    Triple("Música tocando", "[#musica Last Breath | Night Echo]", "celular"),
+    Triple("Rádio antigo", "[#radio Atenção, cidadãos: toque de recolher.]", "epoca"),
+    Triple("Página datilografada", "[#datilografado Relatório nº 7 | texto]", "epoca"),
+    Triple("Fim de arco", "[#fimarco II | A Torre Caída | O próximo arco começa no capítulo 41]", "estrutura"),
+    Triple("Epígrafe", "[#epigrafe Todo monstro já foi alguém que ninguém ouviu. | Diário de Han]", "estrutura"),
+    Triple("Enquanto isso…", "[#enquanto Enquanto isso, em Seul]", "estrutura"),
+    Triple("Relógio da cena", "[#hora 03:17 | Madrugada]", "estrutura"),
+    Triple("Lembrança borrada", "[#lembranca …e ela sorriu.]", "estrutura"),
 )

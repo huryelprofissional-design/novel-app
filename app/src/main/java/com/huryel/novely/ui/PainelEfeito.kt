@@ -33,6 +33,8 @@ val EFEITOS_TRECHO = listOf(
     "fogo" to "Fogo", "gelo" to "Gelo", "neon" to "Neon", "raio" to "Raio", "sombra" to "Sombra", "divino" to "Divino",
     "feitico" to "Feitiço", "runa" to "Runas", "medo" to "Medo", "eco" to "Eco", "sangue" to "Sangue", "veneno" to "Veneno",
     "ouro" to "Ouro", "coracao" to "Coração", "quebra" to "Quebrando", "vento" to "Vento", "cor" to "Só a cor", "idioma" to "Outro idioma",
+    "estrela" to "Brilho estelar", "fantasma" to "Fantasma", "sagrado" to "Luz sagrada", "cinzas" to "Cinzas", "mao" to "Letra à mão",
+    "contagem" to "Contagem", "mente" to "Telepatia", "corrompido" to "Corrompido", "dano" to "Dano",
 )
 /** Efeitos de parágrafo: todos os do Mega Pack, por gênero (chave, nome, gênero, modelo de campos). */
 data class FxParagrafo(val chave: String, val nome: String, val cat: String, val modelo: String)
@@ -42,7 +44,7 @@ val EFEITOS_PARAGRAFO: List<FxParagrafo> = MEGA_PACK.filter { it.third != "inlin
 val CAT_FX = linkedMapOf("rpg" to "RPG / SISTEMA", "murim" to "MURIM", "terror" to "TERROR", "misterio" to "MISTÉRIO", "fantasia" to "FANTASIA",
     "scifi" to "SCI-FI", "celular" to "CELULAR", "epoca" to "ÉPOCA", "estrutura" to "ESTRUTURA")
 // estes levam o trecho inteiro; os outros vêm com o modelo de campos e o trecho no lugar do texto
-private val FX_SIMPLES = setOf("sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo")
+private val FX_SIMPLES = setOf("sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo", "radio", "enquanto", "lembranca", "grimorio", "epigrafe")
 
 /** O que vai dentro do [#efeito …]. */
 fun conteudoBloco(efeito: String, trecho: String): String {
@@ -53,7 +55,7 @@ fun conteudoBloco(efeito: String, trecho: String): String {
     val i = cs.indexOfFirst { it.trim().lowercase() in setOf("texto", "corpo", "transcrição", "mensagem", "legenda") }.coerceAtLeast(0)
     cs[i] = t.replace(Regex("\n+"), " "); return cs.joinToString(" | ")
 }
-private val PISCAM = setOf("raio", "neon", "medo", "quebra", "vento", "coracao", "perigo", "alerta-vermelho", "terminal")
+private val PISCAM = setOf("raio", "neon", "medo", "quebra", "vento", "coracao", "fantasma", "corrompido", "dano", "cinzas", "perigo", "alerta-vermelho", "terminal")
 
 /** Aviso de leitura para a combinação escolhida (null = tudo certo). */
 fun alertaLeitura(efeito: String, cor: String, forca: Int, bloco: Boolean, tamanho: Int): String? = when {

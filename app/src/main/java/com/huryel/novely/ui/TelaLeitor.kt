@@ -154,7 +154,7 @@ fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
             if (achado != null) {
                 val fim = achado.fim
                 val nome = achado.nome; val cor = achado.cor; val conteudo = achado.texto
-                val mostrado = when (nome) { "runa" -> runar(conteudo); "idioma" -> conteudo.map { if (it == ' ') ' ' else (0x1401 + Random(it.code).nextInt(0xBF)).toChar() }.joinToString(""); else -> conteudo }
+                val mostrado = when (nome) { "runa" -> runar(conteudo); "corrompido" -> corromper(conteudo); "idioma" -> conteudo.map { if (it == ' ') ' ' else (0x1401 + Random(it.code).nextInt(0xBF)).toChar() }.joinToString(""); else -> conteudo }
                 val a = length
                 append(estilizar(mostrado))
                 addStyle(estiloInlineFx(nome, cor, achado.forca), a, length)
@@ -1857,7 +1857,7 @@ private fun escalar(u: androidx.compose.ui.unit.TextUnit, f: Float) = if (u.isSp
 @Composable
 private fun textoComEfeitos(t: AnnotatedString, revelado: Boolean, revelar: () -> Unit): AnnotatedString {
     val temSegredo = remember(t) { t.getStringAnnotations("segredo", 0, t.length).isNotEmpty() || t.getStringAnnotations("decifra", 0, t.length).isNotEmpty() }
-    val temFx = remember(t) { t.getStringAnnotations("fx", 0, t.length).any { it.item in setOf("medo", "quebra", "vento", "raio", "neon", "idioma", "coracao") } }
+    val temFx = remember(t) { t.getStringAnnotations("fx", 0, t.length).any { it.item in INLINE_ANIMADOS } }
     val temGlitch = remember(t) { t.getStringAnnotations("glitch", 0, t.length).isNotEmpty() }
     val base = remember(t, revelado) {
         if (!temSegredo) t else if (revelado) decifrar(revelarSegredos(t)) else buildAnnotatedString {
