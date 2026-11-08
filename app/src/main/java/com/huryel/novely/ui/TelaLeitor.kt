@@ -957,15 +957,15 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             })
         val semMovimento = reduzirAnimacoes()
         AnimatedVisibility(controles, Modifier.align(Alignment.TopCenter), enter = if (semMovimento) fadeIn() else slideInVertically { -it } + fadeIn(), exit = if (semMovimento) fadeOut() else slideOutVertically { -it } + fadeOut()) {
-            Box(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
-                // HUD superior (protótipo "Reader HUD"): pílula de vidro escuro, máx. 440 dp
-                Row(Modifier.widthIn(max = 440.dp).fillMaxWidth().height(52.dp).vidroLiquido(vidro, 26.dp, tinta = Color(0xBF1A1D24)).padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    BotaoHud(IconesHud.voltar, "Voltar", 20.dp) { nav.popBackStack() }
+            // HUD superior: barra preta sólida (o texto não aparece por baixo), título em serifa e progresso numa linha fina
+            Column(Modifier.fillMaxWidth().background(Color.Black).pointerInput(Unit) { detectTapGestures { } }) {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(start = 4.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    BotaoHud(IconesHud.voltar, "Voltar", 22.dp) { nav.popBackStack() }
                     Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
-                        Text(c.titulo, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = Color.White.copy(alpha = .9f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(c.titulo, fontFamily = com.huryel.novely.ui.theme.InstrumentSerif, fontSize = 20.sp, lineHeight = 22.sp, color = Color(0xFFEDE6DA), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val restam = ((1f - progresso) * c.palavras / 230f).toInt()
-                        Text("${(progresso * 100).toInt()}% · cap. ${idx + 1} de ${lista.size}" + if (restam >= 1 && progresso < 0.99f) " · ~$restam min" else "", fontSize = 10.sp, lineHeight = 12.sp, color = Color.White.copy(alpha = .5f), maxLines = 1)
+                        Text(("cap. ${idx + 1} de ${lista.size}" + if (restam >= 1 && progresso < 0.99f) " · faltam ~$restam min" else "").uppercase(),
+                            fontFamily = com.huryel.novely.ui.theme.PlexMono, fontSize = 9.5.sp, letterSpacing = 1.4.sp, lineHeight = 12.sp, color = Color.White.copy(alpha = .5f), maxLines = 1)
                     }
                     if (idiomaLeitura.isEmpty()) BotaoHud(IconesHud.web, "Traduzir capítulo") { escolherIdioma = true }
                     else Box(Modifier.size(32.dp).clip(CircleShape).clickable { escolherIdioma = true }.semantics { contentDescription = "Idioma da leitura: $idiomaLeitura" }, contentAlignment = Alignment.Center) {
@@ -973,10 +973,19 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     BotaoHud(IconesHud.info, "Sobre a obra") { mostrarSobre = true }
                     if (obra?.minha == true) BotaoHud(IconesHud.editar, "Editar capítulo") { nav.navigate("editor/${c.id}") }
                 }
+                // progresso do capítulo: linha fina com a porcentagem
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f).height(2.dp).background(Color(0xFF1C1C1C))) {
+                        Box(Modifier.fillMaxWidth(progresso.coerceIn(0f, 1f)).fillMaxHeight().background(p.destaque))
+                    }
+                    Text("${(progresso * 100).toInt()}%", fontFamily = com.huryel.novely.ui.theme.PlexMono, fontSize = 10.sp, color = Color.White.copy(alpha = .6f),
+                        modifier = Modifier.padding(start = 10.dp))
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1A1A1A)))
             }
         }
 
-        AnimatedVisibility(avisoRetomar, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 70.dp),
+        AnimatedVisibility(avisoRetomar, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 86.dp),
             enter = fadeIn() + slideInVertically { -it / 2 }, exit = fadeOut()) {
             Row(
                 Modifier.shadow(10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(p.superficie)
@@ -1005,9 +1014,10 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     { consulta = ""; painel = Painel.NENHUM })
             }
             AnimatedVisibility(controles, enter = if (semMovimento) fadeIn() else slideInVertically { it } + fadeIn(), exit = if (semMovimento) fadeOut() else slideOutVertically { it } + fadeOut()) {
-                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    // HUD inferior (protótipo "Reader HUD"): 64 dp, cantos de 32 dp, máx. 440 dp
-                    Row(Modifier.widthIn(max = 440.dp).fillMaxWidth().height(64.dp).vidroLiquido(vidro, 32.dp, tinta = Color(0xBF1A1D24)).padding(horizontal = 8.dp),
+                // HUD inferior: barra preta sólida de ponta a ponta, rótulos em mono
+                Column(Modifier.fillMaxWidth().background(Color.Black).pointerInput(Unit) { detectTapGestures { } }) {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1A1A1A)))
+                    Row(Modifier.fillMaxWidth().navigationBarsPadding().height(66.dp).padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
                         val ocultosHud by prefs.ocultosHud.estado.collectAsState()
                         val esconde = remember(ocultosHud) { ocultosHud.split(',').toSet() }
@@ -1375,23 +1385,24 @@ private fun RowScope.BotaoBarra(rotulo: String, ativo: Boolean, icone: androidx.
     val toque = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val apertado by toque.collectIsPressedAsState()
     val escala by animateFloatAsState(if (apertado && !reduzirAnimacoes()) 0.92f else 1f, label = "aperto")
-    val cor = if (ativo) p.destaque else Color.White.copy(alpha = 0.65f)
+    val cor = if (ativo) p.destaque else Color.White.copy(alpha = 0.6f)
     Column(
         Modifier.weight(1f).fillMaxHeight().graphicsLayer { scaleX = escala; scaleY = escala }
             .clickable(toque, null, role = androidx.compose.ui.semantics.Role.Button, onClick = aoTocar)
             .semantics { selected = ativo },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
-        Icon(icone, null, tint = cor, modifier = Modifier.size(20.dp))
-        Text(rotulo, fontSize = 10.sp, letterSpacing = (-0.1).sp, color = cor, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 3.dp))
+        Box(Modifier.size(4.dp).clip(CircleShape).background(if (ativo) p.destaque else Color.Transparent))
+        Icon(icone, null, tint = cor, modifier = Modifier.padding(top = 5.dp).size(20.dp))
+        Text(rotulo.uppercase(), fontFamily = com.huryel.novely.ui.theme.PlexMono, fontSize = 9.sp, letterSpacing = 1.2.sp, color = cor, maxLines = 1, modifier = Modifier.padding(top = 5.dp))
     }
 }
 
 /** Botão redondo de ícone do HUD superior (32 dp). */
 @Composable
 private fun BotaoHud(icone: androidx.compose.ui.graphics.vector.ImageVector, descricao: String, tam: androidx.compose.ui.unit.Dp = 18.dp, aoTocar: () -> Unit) {
-    Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClickLabel = descricao, onClick = aoTocar), contentAlignment = Alignment.Center) {
-        Icon(icone, descricao, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(tam))
+    Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClickLabel = descricao, onClick = aoTocar), contentAlignment = Alignment.Center) {
+        Icon(icone, descricao, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(tam))
     }
 }
 

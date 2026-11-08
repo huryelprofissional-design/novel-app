@@ -135,8 +135,11 @@ fun CoresDeLeitura(acento: Color? = null, noite: Boolean = false, conteudo: @Com
             noite -> p.copy(fundo = Color.Black, texto = Color(0xFFA9824F), textoSuave = Color(0xFF7A5E3A), destaque = Color(0xFFD39A55), sobreDestaque = Color(0xFF1A1206),
                 destaque2 = Color(0xFFCFA46A), destaque3 = Color(0xFFD39A55), superficie = Color(0xFF120D08), borda = Color(0xFF2A1F14))
             // cor da obra: falas, nomes e enfeites na cor da capa
-            acento != null -> p.copy(destaque = acento, sobreDestaque = Color(0xFF0B0B0B), destaque2 = acento, destaque3 = acento)
-            else -> p.copy(destaque = Color(0xFF8FB0E0), sobreDestaque = Color(0xFF0B1220), destaque2 = Color(0xFF7FD1C2), destaque3 = Color(0xFF8FB0E0))
+            // preto puro (#000): na tela OLED os pixels apagam e economizam bateria
+            acento != null -> p.copy(fundo = Color.Black, superficie = Color(0xFF0D0D0D), borda = Color(0xFF1F1F1F),
+                destaque = acento, sobreDestaque = Color(0xFF0B0B0B), destaque2 = acento, destaque3 = acento)
+            else -> p.copy(fundo = Color.Black, superficie = Color(0xFF0D0D0D), borda = Color(0xFF1F1F1F),
+                destaque = Color(0xFF8FB0E0), sobreDestaque = Color(0xFF0B1220), destaque2 = Color(0xFF7FD1C2), destaque3 = Color(0xFF8FB0E0))
         }
     }
     androidx.compose.runtime.CompositionLocalProvider(com.huryel.novely.ui.theme.LocalPaleta provides calma) { conteudo() }
