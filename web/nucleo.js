@@ -632,18 +632,23 @@ export const ir = (h) => { location.hash = h; };
 
 // ───────── casca (menu lateral) ─────────
 export function casca(aba, html) {
-  const itens = [["/", "inicio", "Início"], ["/biblioteca", "biblioteca", "Estante"], ["/escrever", "escrever", "Escrever"], ["/descobrir", "descobrir", "Explorar"], ["/perfil", "perfil", "Perfil"]];
+  const itens = [["/", "inicio", "Ler"], ["/descobrir", "descobrir", "Descobrir"], ["/escrever", "escrever", "Escrever"], ["/perfil", "perfil", "Eu"]];
+  const ativo = aba === "biblioteca" ? "inicio" : aba;
   const avisos = contarAvisos();
-  raiz.innerHTML = `<div class="casca"><nav class="lado vidro"><div class="logo"><span class="losango"></span>Novely</div>
-    ${itens.map(([h, ic, n]) => `<a class="item ${aba === ic ? "on" : ""}" href="#${h}">${svg(ic)}<span>${n}</span></a>`).join("")}
+  // nível (mesma conta do efeitos.js) em algarismos romanos: "Capítulo XVI"
+  let xp = local.ler("xp", 0), n = 1; while (xp >= 300 + 150 * (n - 1)) { xp -= 300 + 150 * (n - 1); n++; }
+  let r = "", k = n; for (const [v, l] of [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]) while (k >= v) { r += l; k -= v; }
+  raiz.innerHTML = `<div class="casca"><nav class="lado"><a class="logo" href="#/">Novely</a>
+    <div class="lado-abas">${itens.map(([h, ic, nm]) => `<a class="item ${ativo === ic ? "on" : ""}" href="#${h}"><i></i><span>${nm}</span></a>`).join("")}</div>
     <div class="sep-lado"></div>
     <a class="item extra ${aba === "buscar" ? "on" : ""}" href="#/buscar">${svg("lupa")}<span>Buscar</span></a>
-    <a class="item extra ${aba === "avisos" ? "on" : ""}" href="#/avisos">${svg("sino")}<span>Avisos${avisos ? ` <b class="bolinha">${avisos}</b>` : ""}</span></a>
+    <a class="item extra ${aba === "avisos" ? "on" : ""}" href="#/avisos">${svg("sino")}<span>Avisos</span>${avisos ? `<b class="ponto"></b>` : ""}</a>
     <a class="item extra ${aba === "colab" ? "on" : ""}" href="#/colaborar">${svg("pessoas")}<span>Colaboração</span></a>
     <div class="rodape">${E.instalar ? `<button class="btn2 peq" id="instalar">⬇ Instalar no PC</button>` : ""}
-      <a class="suave peq" href="#/perfil" style="padding:0 8px">${esc(nomeAutor())}</a></div></nav>
+      <a class="eu-lado" href="#/perfil"><span class="av" id="avLado">${esc(nomeAutor().slice(0, 1).toUpperCase())}</span><span><b>${esc(nomeAutor())}</b><small>Capítulo ${r}</small></span></a></div></nav>
     <main class="conteudo">${html}</main></div>`;
   const b = $("#instalar"); if (b) b.onclick = async () => { await E.instalar.prompt(); E.instalar = null; };
+  if (E.perfil?.fotoHash) imagemMinha("perfil").then((f) => { const el = $("#avLado"); if (f && el) el.innerHTML = `<img src="${f}">`; }).catch(() => {});
 }
 export function contarAvisos() { return (local.ler("novidades", []) || []).length; }
 export const carregando = (aba) => casca(aba, `<div class="carregando" style="height:60vh">◆</div>`);

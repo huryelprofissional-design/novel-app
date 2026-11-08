@@ -25,20 +25,9 @@ rota("/genero/(.+)", async (g) => {
   $(".carregando").outerHTML = l.length ? `<div class="grade">${l.map((o) => cartaoPub(o)).join("")}</div>` : `<div class="card vazio"><b>Ainda não tem obra de ${esc(g)}.</b><span class="suave">Escreva a primeira!</span></div>`;
 });
 
-// ───────── DESCOBRIR ─────────
-rota("/descobrir(?:/(\\w+))?", async (modo = "ALTA") => {
-  const nomes = { ALTA: "Em alta", SEMANA: "Ranking da semana", NOVIDADES: "Novidades", CONCLUIDAS: "Concluídas" };
-  casca("descobrir", `<div class="topo"><h1>Explorar</h1><a class="btn2 peq" href="#/buscar">⌕ Buscar</a><a class="btn2 peq" href="#/generos">Gêneros</a></div>
-    <div class="abas">${Object.keys(nomes).map((k) => `<a href="#/descobrir/${k}" class="${k === modo ? "on" : ""}">${nomes[k]}</a>`).join("")}</div><div class="carregando" style="height:200px">◆</div>`);
-  let l = [], erro = "";
-  try { l = await catalogo(modo); } catch (e) { erro = String(e.message || e).includes("permission") ? "O catálogo ainda não está liberado (faltam as Regras do Firestore)." : "Sem conexão com o catálogo."; }
-  const ranking = modo === "ALTA" || modo === "SEMANA";
-  $(".carregando").outerHTML = erro ? `<p class="erro">${erro}</p>` : l.length ? `<div class="grade" id="grade">${l.map((o, i) => cartaoPub(o, ranking ? i + 1 : 0)).join("")}</div>` : `<div class="card vazio"><b>Nada por aqui ainda.</b></div>`;
-});
-
 // ───────── BUSCAR ─────────
 rota("/buscar", async () => {
-  casca("buscar", `<div class="topo"><h1>Buscar</h1></div><input class="campo vidro grande" id="q" placeholder="Obra, autor, tag ou gênero…" autofocus>
+  casca("buscar", `<div class="topo"><h1>Buscar</h1></div><input class="campo vidro grande" id="q" placeholder="Obra, autor, tag ou gênero…" autofocus value="${esc(local.ler("buscaInicial", ""))}">
     <div class="chips" style="margin:14px 0">${GENEROS.slice(0, 14).map((g) => `<span class="chip" data-g="${esc(g)}">${esc(g)}</span>`).join("")}</div><div id="res"></div>`);
   const res = $("#res");
   let todos = null;
@@ -53,6 +42,7 @@ rota("/buscar", async () => {
     const { preencherCapas } = await import("./nucleo.js"); preencherCapas(res);
   };
   let t = null; $("#q").oninput = () => { clearTimeout(t); t = setTimeout(buscar, 250); };
+  if (local.ler("buscaInicial", "")) { local.gravar("buscaInicial", ""); buscar(); }
   $$("[data-g]").forEach((c) => (c.onclick = () => ir("/genero/" + encodeURIComponent(c.dataset.g))));
 });
 

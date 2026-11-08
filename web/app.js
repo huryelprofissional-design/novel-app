@@ -7,6 +7,7 @@ import {
   segueAutor, CONQUISTAS, colItens, getDocs, query, where, obraPub, esc as escapar, carteira, diarioMoedas,
 } from "./nucleo.js";
 import { cartaoNivelHTML, ligarBau } from "./efeitos.js";
+import "./v2.js";
 import "./obra.js";
 import * as X from "./extras.js";
 import "./leitor.js";
@@ -82,40 +83,6 @@ export async function enfeitarPosteres() {
 window.enfeitarPosteres = enfeitarPosteres;
 document.addEventListener("click", (e) => { const a = e.target.closest("[data-autor]"); if (a && a.closest(".poster")) { e.preventDefault(); ir("/autor/" + a.dataset.autor); } });
 
-// ───────── INÍCIO ─────────
-rota("/", async () => {
-  const l = lista();
-  const cont = l.filter((o) => o.lidaEm > 0 && o.ultimoCap).sort((a, b) => b.lidaEm - a.lidaEm)[0];
-  const lendo = l.filter((o) => !o.minha && o.status === "LENDO").sort((a, b) => b.lidaEm - a.lidaEm);
-  const quero = l.filter((o) => !o.minha && o.status === "QUERO");
-  const minhas = l.filter((o) => o.minha && !o.trancada).sort((a, b) => b.atualizadaEm - a.atualizadaEm);
-  const h = new Date().getHours(); const saud = h >= 5 && h < 12 ? "Bom dia" : h >= 12 && h < 18 ? "Boa tarde" : "Boa noite";
-  let novas = [], alta = [], semana = [];
-  try { [novas, alta, semana] = await Promise.all([catalogo("NOVIDADES"), catalogo("ALTA"), catalogo("SEMANA")]); } catch (e) { console.warn(e); }
-  // autores: os que sigo; senão os do catálogo
-  const seguidos = local.ler("autoresSeguidos", []);
-  const todos = [...novas, ...alta];
-  const ativos = new Set(todos.filter((o) => recente(o.atualizadaEm)).map((o) => o.autorUid));
-  const nomes = Object.fromEntries(todos.map((o) => [o.autorUid, o.autorNome]));
-  const autores = seguidos.length ? seguidos.map((u) => [u, nomes[u] || ""]) : [...new Map(todos.filter((o) => o.autorUid !== E.usuario.uid).map((o) => [o.autorUid, o.autorNome])).entries()].slice(0, 12);
-  casca("inicio", `<div class="topo"><h1>${saud}${E.perfil.nome ? ", " + esc(E.perfil.nome.split(" ")[0]) : ""}</h1></div>
-    ${autores.length ? `<div class="sec" style="margin-top:6px"><h2>${seguidos.length ? "Seus autores" : "Autores no Novely"}</h2></div>
-      <div class="fileira autores">${autores.map(([u, n]) => `<a class="autor-q ${ativos.has(u) ? "ativo" : ""}" href="#/autor/${esc(u)}"><span class="av quad" data-av="${esc(u)}">${esc((n || "?").slice(0, 1).toUpperCase())}</span>${ativos.has(u) ? `<i class="online"></i>` : ""}<small>${esc((n || "Autor").split(" ")[0])}</small></a>`).join("")}</div>` : ""}
-    ${cont ? `<div class="hero" onclick="location.hash='#/ler/${cont.id}/${cont.ultimoCap}'" style="--cor:${corHex(cont.corBase)}"><div class="hero-fundo">${capaHTML(cont, cont.id, corHex(cont.corBase))}</div>
-      <div class="hero-capa">${capaHTML(cont, cont.id, corHex(cont.corBase))}</div>
-      <div class="hero-txt"><div class="rotulo">Continuar lendo</div><h2>${esc(cont.titulo)}</h2><div class="suave">Volta de onde você parou</div><span class="btn-branco">▶ Continuar</span></div></div>` : ""}
-    ${novas.length ? `<div class="sec"><h2>Saindo agora<span class="sub">capítulos que acabaram de sair</span></h2><a class="suave peq" href="#/descobrir/NOVIDADES">Ver tudo ›</a></div>
-      <div class="fileira">${novas.slice(0, 12).map(posterHTML).join("")}</div>` : ""}
-    ${alta.length ? `<div class="sec"><h2>Populares no Novely</h2><a class="suave peq" href="#/descobrir">Ver tudo ›</a></div><div class="grade">${alta.slice(0, 12).map((o) => cartaoPub(o)).join("")}</div>` : ""}
-    <div class="sec"><h2>Explorar gêneros</h2><a class="suave peq" href="#/generos">Todos ›</a></div><div class="fileira">${window.tilesGenero(12)}</div>
-    ${semana.length ? `<div class="sec"><h2>Ranking da semana</h2></div><div class="ranking vidro">${semana.slice(0, 5).map((o, i) => `<a href="#/pub/${o.id}"><b class="${i < 3 ? "top" : ""}">${i + 1}</b><span class="mini">${o.capaMini ? `<img src="${urlBlob(o.capaMini)}">` : ""}</span><div><div class="nm">${esc(o.titulo)}</div><div class="suave peq">por ${esc(o.autorNome)} · ▲ ${milhar(o.leiturasSemana)} leituras na semana</div></div></a>`).join("")}</div>` : ""}
-    ${lendo.length ? `<div class="sec"><h2>Na sua estante</h2><a class="suave peq" href="#/biblioteca">Ver tudo ›</a></div><div class="grade">${lendo.slice(0, 12).map((o) => cartao(o, "lendo")).join("")}</div>` : ""}
-    ${quero.length ? `<div class="sec"><h2>Quero ler</h2></div><div class="grade">${quero.slice(0, 12).map((o) => cartao(o, "")).join("")}</div>` : ""}
-    ${minhas.length ? `<div class="sec"><h2>Suas obras</h2><a class="suave peq" href="#/escrever">Ver tudo ›</a></div><div class="grade">${minhas.slice(0, 6).map((o) => cartao(o, o.publicada ? "● publicada" : "escrevendo")).join("")}</div>` : ""}
-    ${!l.length && !novas.length ? `<div class="card" style="margin-top:20px">Nenhuma obra ainda. Se você já usa o app no celular, abra ele uma vez para sincronizar — as obras aparecem aqui sozinhas.</div>` : ""}`);
-  preencherCapas(); enfeitarPosteres();
-});
-
 // ───────── BIBLIOTECA ─────────
 rota("/biblioteca(?:/(\\w+))?", async (aba = "LENDO") => {
   const outros = lista().filter((o) => !o.minha);
@@ -138,85 +105,6 @@ rota("/biblioteca(?:/(\\w+))?", async (aba = "LENDO") => {
   $("#filtro").oninput = (e) => { const t = e.target.value.toLowerCase(); for (const a of ($("#grade")?.children || [])) a.style.display = a.textContent.toLowerCase().includes(t) ? "" : "none"; };
   preencherCapas();
 });
-
-// ───────── ESCREVER ─────────
-rota("/escrever", async () => {
-  const minhas = lista().filter((o) => o.minha && !o.trancada).sort((a, b) => b.atualizadaEm - a.atualizadaEm);
-  casca("escrever", `<div class="topo"><h1>Escrever</h1><button class="btn2" id="importar">Importar TXT ou Word</button><button class="btn" id="nova">+ Nova obra</button></div>
-    ${minhas.length ? `<div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : STATUS_NOME[o.status] || "")).join("")}</div>` : `<div class="card vazio"><b>Crie sua primeira obra.</b><span class="suave">Ela aparece no celular também.</span></div>`}
-    <div class="sec"><h2>Sua escrita</h2></div>${X.numerosHTML()}
-    <div class="sec"><h2>Ferramentas</h2></div>
-    <div class="ferramentas">
-      ${minhas.length ? `<a class="card ferr ferr-ia" href="#/ia/${minhas[0].id}"><b>✨ Estúdio de IA</b><span class="suave peq">Prompts com todo o contexto da obra</span></a>` : ""}
-      <a class="card ferr" href="#/nomes"><b>Gerador de nomes</b><span class="suave peq">Coreano, japonês, chinês, fantasia…</span></a>
-      <a class="card ferr" href="#/colaborar"><b>Colaboração</b><span class="suave peq">Coautores e revisores por código</span></a>
-      <a class="card ferr" href="#/generos"><b>Gêneros</b><span class="suave peq">Veja o que está em alta em cada um</span></a>
-    </div>
-    <div class="card" style="margin-top:22px"><b>Dica:</b> <span class="suave">escreva <b>@Nome, descrição…</b> para criar um personagem e <b>&amp;Lugar, …</b> para um lugar. As fichas são montadas sozinhas.</span></div>`);
-  $("#nova").onclick = async () => { const t = await perguntar("Título da nova obra", "", "Ex.: O Herdeiro do Vazio"); if (t === null) return; const id = await novaObra(t.trim()); ir(`/obra/${id}`); };
-  $("#importar").onclick = () => window.importarTXT();
-  preencherCapas();
-});
-
-// ───────── PERFIL ─────────
-rota("/perfil", async () => {
-  const minhas = lista().filter((o) => o.minha && !o.trancada);
-  const lendo = lista().filter((o) => !o.minha && o.status === "LENDO");
-  carregando("perfil");
-  const [banner, foto] = await Promise.all([E.perfil.bannerHash ? imagemMinha("perfilBanner") : null, E.perfil.fotoHash ? imagemMinha("perfil") : null]);
-  const pub = await perfilPub(E.usuario.uid);
-  const palavras = minhas.reduce((s, o) => s + (o.palavras || 0), 0);
-  casca("perfil", `<div class="perfil-topo">${banner || foto ? `<img src="${banner || foto}" alt="">` : ""}</div>
-    <div class="perfil-card vidro">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="anel-gira"><span class="av" style="width:88px;height:88px;font-size:34px">${foto ? `<img src="${foto}">` : esc(nomeAutor().slice(0, 1).toUpperCase())}</span></span>
-        <div style="flex:1"></div><button class="btn peq" id="editar">Editar perfil</button><a class="btn2 peq" href="#/autor/${E.usuario.uid}">Perfil público</a><a class="btn2 peq" href="#/ajustes">Ajustes</a></div>
-      <div class="rotulo" style="margin-top:16px">${minhas.length ? `Autor · ${minhas.length} ${minhas.length === 1 ? "obra" : "obras"}` : "Leitor"}</div>
-      <div class="nome">${esc(nomeAutor())}</div>
-      <div class="suave">${esc(E.perfil.bio || "Escreva sua bio em Editar perfil.")}</div>
-      <div class="numeros"><div><b>${milhar(pub?.seguidores || 0)}</b><span>seguidores</span></div><div><b>${minhas.length}</b><span>obras</span></div><div><b>${lendo.length}</b><span>lendo</span></div><div><b>${local.ler("autoresSeguidos", []).length}</b><span>autores seguidos</span></div></div>
-    </div>
-    <div class="progresso-pc" id="progresso">${cartaoNivelHTML()}</div>
-    ${minhas.length ? `<div class="sec"><h2>Minhas obras</h2></div><div class="grade">${minhas.map((o) => cartao(o, o.publicada ? "● publicada" : "escrevendo")).join("")}</div>` : ""}
-    ${lendo.length ? `<div class="sec"><h2>Lendo agora</h2></div><div class="grade">${lendo.map((o) => cartao(o, o.autor ? "por " + o.autor : "")).join("")}</div>` : ""}
-    <div id="moedas"></div><div id="conquistas"></div><div id="citacoes"></div>`);
-  preencherCapas();
-  // conquistas (calculadas pelo app do celular)
-  const ganhas = new Set((E.perfil.conquistas || "").split(",").filter(Boolean));
-  carteira().then((c) => { const el = $("#moedas"); if (el) el.innerHTML = `<details class="card moedas"><summary><span style="font-size:26px">🪙</span><div><b><span data-saldo>${c.saldo}</span> moedas</b><div class="peq">Para ler capítulos antes de todo mundo · clique para ver como ganhar</div></div></summary>
-    <ul><li>Abrir o Novely: +3 por dia</li><li>Terminar um capítulo de outro autor: +1 (até 10 por dia)</li><li>Comentar: +1 (até 5 por dia)</li><li>Gastar: obras com 🔒 “Antes de todo mundo” liberam capítulos agendados</li></ul><span class="peq">As moedas são grátis e não valem dinheiro. A carteira é a mesma do celular.</span></details>`; });
-  $("#conquistas").innerHTML = `<div class="sec"><h2>Conquistas<span class="sub">${ganhas.size} de ${CONQUISTAS.length}${ganhas.size ? "" : " · abra o app no celular para atualizar"}</span></h2></div>
-    <div class="conquistas">${[...CONQUISTAS].sort((a, b) => ganhas.has(b[0]) - ganhas.has(a[0])).map(([id, ic, t, cor]) => `<div class="conquista ${ganhas.has(id) ? "brilha" : "apagada"}"><span style="--c:${cor}">${ic}</span><small>${t}</small></div>`).join("")}</div>`;
-  // citações favoritas (grifos)
-  try {
-    const gs = (await getDocs(query(colItens(), where("tipo", "==", "marcadores")))).docs.map((d) => ({ ...d.data().dados, obra: d.data().obra, apagado: d.data().apagado })).filter((m) => !m.apagado && (m.trecho || "").length > 20).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0)).slice(0, 12);
-    const CG = { AMBAR: "#E9A65A", VERDE: "#6FC2B4", AZUL: "#7FA7E6", ROSA: "#E88AA8" };
-    if (gs.length) $("#citacoes").innerHTML = `<div class="sec"><h2>Citações favoritas</h2></div><div class="fileira">${gs.map((m) => `<div class="citacao" style="--c:${CG[m.cor] || "#E9A65A"}"><p>“${esc(m.trecho.slice(0, 240))}”</p><small>${esc(E.obras.get(m.obra)?.titulo || "")}</small><button class="btn peq" data-copiar="${esc(m.trecho)}">Copiar</button></div>`).join("")}</div>`;
-    raiz.querySelectorAll("[data-copiar]").forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.dataset.copiar); toast("Copiado"); }));
-  } catch (e) { console.warn(e); }
-  const religarBau = () => { $("#progresso").innerHTML = cartaoNivelHTML(); ligarBau(religarBau); }; ligarBau(religarBau);
-  $("#editar").onclick = () => editarPerfil(foto, banner);
-});
-
-function editarPerfil(foto, banner) {
-  const d = dialogo(`<h3 style="margin-top:0">Editar perfil</h3>
-    <div class="banner-ed" id="bn">${banner ? `<img src="${banner}">` : ""}<span>${banner ? "Trocar banner" : "+ Banner do perfil"}</span></div>
-    <div style="display:flex;align-items:center;gap:14px;margin:14px 0"><span class="av" id="ft" style="width:76px;height:76px;font-size:28px;cursor:pointer">${foto ? `<img src="${foto}">` : esc(nomeAutor().slice(0, 1))}</span><span class="suave peq">Clique na foto ou no banner para trocar</span></div>
-    <label class="rot">Nome de autor</label><input class="campo" id="n" value="${esc(E.perfil.nome || "")}">
-    <label class="rot">Bio (o que você escreve)</label><textarea class="campo" id="b" rows="3" maxlength="160">${esc(E.perfil.bio || "")}</textarea>
-    <div class="linha-botoes">${banner ? `<button class="btn2 peq" id="tirar" style="margin-right:auto">Tirar banner</button>` : ""}<button class="btn2 peq" data-n>Cancelar</button><button class="btn peq" id="ok">Salvar</button></div>`);
-  const trocar = async (qual) => {
-    const f = await escolherArquivo(); if (!f) return;
-    toast("Enviando imagem…");
-    const bytes = await comprimirArquivo(f, qual === "perfil" ? 600 : 1600, .85);
-    const h = await enviarImagemMinha(qual, bytes);
-    await salvarPerfil(qual === "perfil" ? { fotoHash: h } : { bannerHash: h });
-    d.close(); toast("Imagem trocada"); desenhar();
-  };
-  $("#ft", d).onclick = () => trocar("perfil"); $("#bn", d).onclick = () => trocar("perfilBanner");
-  const t = $("#tirar", d); if (t) t.onclick = async () => { await salvarPerfil({ bannerHash: "" }); d.close(); desenhar(); };
-  $("[data-n]", d).onclick = () => d.close();
-  $("#ok", d).onclick = async () => { await salvarPerfil({ nome: $("#n", d).value.trim(), bio: $("#b", d).value.trim() }); d.close(); toast("Salvo"); desenhar(); };
-}
 
 // ───────── AJUSTES ─────────
 rota("/ajustes", async () => {
