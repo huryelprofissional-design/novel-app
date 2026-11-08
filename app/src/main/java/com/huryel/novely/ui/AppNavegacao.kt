@@ -73,11 +73,10 @@ const val ROTA_LEITOR = "leitor/{id}?q={q}&n={n}&b={b}"
 private data class Aba(val rota: String, val rotulo: String, val icone: ImageVector)
 
 private val abas = listOf(
-    Aba("inicio", "Início", Icones.inicio),
-    Aba("biblioteca", "Estante", Icones.biblioteca),
+    Aba("inicio", "Ler", Icones.inicio),
+    Aba("descobrir", "Descobrir", Icones.descobrir),
     Aba("escrever", "Escrever", Icones.escrever),
-    Aba("descobrir", "Explorar", Icones.descobrir),
-    Aba("perfil", "Perfil", Icones.perfil),
+    Aba("perfil", "Eu", Icones.perfil),
 )
 
 @Composable
@@ -150,11 +149,12 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             exitTransition = { fadeOut(tween(160)) },
             popEnterTransition = { fadeIn(tween(220)) },
             popExitTransition = { fadeOut(tween(160)) }) {
-            composable("inicio") { TelaInicioNova(nav) }
+            composable("inicio") { TelaLer(nav) }
             composable("biblioteca") { TelaBibliotecaAba(nav) }
-            composable("escrever") { TelaEscreverAba(nav) }
-            composable("descobrir") { TelaDescobrirCatalogo(nav) }
-            composable("perfil") { TelaPerfilAba(nav) }
+            composable("escrever") { TelaMesa(nav) }
+            composable("descobrir") { TelaDescobrirEd(nav) }
+            composable("perfil") { TelaEu(nav) }
+            composable("catalogo") { TelaDescobrirCatalogo(nav) }
             composable("buscar") { TelaBusca(nav) }
             composable("ajustes") { TelaAjustesNova(nav) }
             composable("ajustes/{s}") { e -> TelaAjusteSecao(e.arguments?.getString("s") ?: "", nav) }
@@ -219,7 +219,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         androidx.compose.animation.AnimatedVisibility(mostrarBarra && barraVisivel, Modifier.align(Alignment.BottomCenter),
             enter = androidx.compose.animation.slideInVertically { it } + fadeIn(),
             exit = androidx.compose.animation.slideOutVertically { it } + fadeOut()) {
-            BarraTema(abas.map { Triple(it.rota, it.rotulo, it.icone) }, rota, vidroApp) { r -> irAba(nav, r) }
+            BarraEditorial(abas.map { it.rota to it.rotulo }, rota) { r -> irAba(nav, r) }
         }
         AvisosGlobais(nav, rota)
         Celebracoes()

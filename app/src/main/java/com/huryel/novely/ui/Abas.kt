@@ -692,7 +692,7 @@ private fun CapaPerfil(o: ResumoObra, abrir: () -> Unit) {
 fun milharCurto(n: Long) = when { n >= 1_000_000 -> "%.1f mi".format(n / 1e6).replace('.', ','); n >= 1000 -> "%.1f mil".format(n / 1e3).replace('.', ','); else -> "$n" }
 
 @Composable
-private fun DialogoPerfil(fechar: () -> Unit) {
+internal fun DialogoPerfil(fechar: () -> Unit) {
     val app = NovelyApp.instancia
     val prefs = app.prefs
     var nome by remember { mutableStateOf(prefs.autorNome.valor) }
@@ -973,7 +973,7 @@ private fun ItemAvisoLinha(titulo: String, sub: String, acao: () -> Unit) {
 
 /** Saldo de moedas e como ganhar. */
 @Composable
-private fun CartaoMoedas() {
+internal fun CartaoMoedas() {
     val p = LocalPaleta.current
     val saldo by com.huryel.novely.data.Moedas.saldo.collectAsState()
     var aberto by remember { mutableStateOf(false) }

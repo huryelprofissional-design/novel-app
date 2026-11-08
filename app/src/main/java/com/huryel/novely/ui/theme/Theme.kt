@@ -34,6 +34,18 @@ val Inter = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal), Font(R.font.inter_semibold, FontWeight.SemiBold),
     Font(R.font.inter_bold, FontWeight.Bold), Font(R.font.inter_bold, FontWeight.ExtraBold), Font(R.font.inter_bold, FontWeight.Black),
 )
+/** Serifa editorial (títulos grandes). Só tem um peso: os pesos fortes usam o mesmo arquivo, sem negrito falso. */
+val InstrumentSerif = FontFamily(
+    Font(R.font.instrument_serif, FontWeight.Normal), Font(R.font.instrument_serif_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.instrument_serif, FontWeight.Medium), Font(R.font.instrument_serif, FontWeight.SemiBold), Font(R.font.instrument_serif, FontWeight.Bold),
+    Font(R.font.instrument_serif, FontWeight.ExtraBold), Font(R.font.instrument_serif, FontWeight.Black),
+    Font(R.font.instrument_serif_italic, FontWeight.Bold, FontStyle.Italic), Font(R.font.instrument_serif_italic, FontWeight.SemiBold, FontStyle.Italic),
+)
+/** Mono dos rótulos (CONTINUAR · CAPÍTULO 05). */
+val PlexMono = FontFamily(
+    Font(R.font.plex_mono, FontWeight.Normal), Font(R.font.plex_mono_medio, FontWeight.Medium),
+    Font(R.font.plex_mono_medio, FontWeight.SemiBold), Font(R.font.plex_mono_medio, FontWeight.Bold), Font(R.font.plex_mono_medio, FontWeight.Black),
+)
 /** Como as falas aparecem no leitor. */
 enum class EstiloFala { BARRA, FIO, BALAO, ETIQUETA }
 
@@ -69,10 +81,10 @@ data class Paleta(
 
 enum class TemaLeitura(val paleta: Paleta) {
     OLED(Paleta(
-        "Pôster", "Preto, laranja e brilho roxo",
-        Color(0xFF000000), Color(0xFF141414), Color(0xFF262626), Color(0xFFF4F4F4), Color(0xFFA3A3A3),
-        Color(0xFFFF6A2B), Color(0xFFFFFFFF), Color(0xFFC13DFF), Color(0xFF3A8BFF), true,
-        Inter, Inter, Newsreader, 1.25f, false, false, false, EstiloFala.BARRA, "◆   ◆   ◆",
+        "Editorial", "Papel escuro, creme e vermelho-laranja",
+        Color(0xFF12100E), Color(0xFF1A1714), Color(0xFF2E2924), Color(0xFFEDE6DA), Color(0xFF968D81),
+        Color(0xFFE5553B), Color(0xFF12100E), Color(0xFFC9A46A), Color(0xFF8DBB83), true,
+        InstrumentSerif, Inter, Newsreader, 0.35f, false, false, false, EstiloFala.BARRA, "—   ✦   —",
     )),
 }
 
@@ -138,7 +150,7 @@ fun NovelyTheme(tema: TemaLeitura = TemaLeitura.OLED, altoContraste: Boolean = f
 /** Alto contraste: texto secundário quase branco, bordas visíveis e superfícies separadas do fundo (todos ≥ 7:1 no preto). */
 fun altoContraste(p: Paleta): Paleta = p.copy(
     nome = p.nome + " · alto contraste", fundo = Color(0xFF000000), superficie = Color(0xFF111111), borda = Color(0xFF9A9A9A),
-    texto = Color(0xFFFFFFFF), textoSuave = Color(0xFFE2E2E2), destaque = Color(0xFFFF8A4C), sobreDestaque = Color(0xFF000000),
+    texto = Color(0xFFFFFFFF), textoSuave = Color(0xFFE2E2E2), destaque = Color(0xFFFF7A5C), sobreDestaque = Color(0xFF000000),
     destaque2 = Color(0xFFD9A3FF), destaque3 = Color(0xFF8CC2FF), brilho = false,
 )
 
