@@ -7,6 +7,7 @@ gerado: 2026-11-14
 Gerada do `git log` (mais novo primeiro). Para ver detalhes: `git log --stat`.
 
 ## 2026-11-14
+- Efeitos 2.0 no PC e no celular: 55 efeitos novos com `$`, começam quando aparecem, tocar repete, vibração; os antigos não mudam
 - Mestre (TelaEditor.kt): um salvamento por vez (texto velho não sobrescreve o novo, palavras de hoje não contam em dobro), desfazer separa botões/atalhos da digitação, capítulo gigante dividido uma vez só e fora da tela
 
 ## 2026-11-08

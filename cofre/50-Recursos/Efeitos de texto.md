@@ -7,7 +7,8 @@ O texto da obra é Markdown simples + símbolos. O leitor transforma os símbolo
 
 Há duas famílias:
 1. **Símbolos curtos** (mais antigos): `!!grito!!`, `((sussurro))`, `^^brilho^^`, `[[sistema]]`, `~chuva … ~fim` etc. Lista abaixo.
-2. **Mega Pack**: `{efeito: texto}` e `[#efeito campo | campo]`. Lista completa em [[Catálogo de efeitos]]. Como acrescentar um: [[Como criar um efeito novo]].
+2. **Efeitos 2.0** (nov/2026): `[$nome campo | campo]` e `{$nome: texto}`, 55 efeitos mais detalhados; começam quando aparecem na tela e tocar repete. Lista no fim do [[Catálogo de efeitos]].
+3. **Mega Pack**: `{efeito: texto}` e `[#efeito campo | campo]`. Lista completa em [[Catálogo de efeitos]]. Como acrescentar um: [[Como criar um efeito novo]].
 
 ## Formato base
 - Título do capítulo: linha sozinha `Capítulo 12 — Título` (ou Prólogo/Epílogo/Interlúdio).
