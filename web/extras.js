@@ -6,12 +6,13 @@ import {
   colObras, colItens, getDocs, getDoc, setDoc, doc, query, where, serverTimestamp, db, collection, contarPalavras,
 } from "./nucleo.js";
 import { blocoFx, inlineFx, ligarFx, CORES_FX, campos, MEGA } from "./fx.js";
+import { semEfeito2, RX_FX2_INLINE } from "./fx2.js";
 
 // ───────── efeitos: escrever, tirar e avisar ─────────
 const RX_FX_INLINE = /\{[a-zçãéíóúâêô]+[+-]?(?::[a-zçãéíóúâêô]+)?:\s([^}]*)\}/g;
 /** Tira os símbolos de efeito de um trecho (o texto fica). Mesma regra do app. */
 export function semEfeitoNoTrecho(s) {
-  let t = s.replace(RX_FX_INLINE, "$1");
+  let t = s.replace(RX_FX2_INLINE, "$1").replace(RX_FX_INLINE, "$1");
   for (const m of ["!!", "^^", "((", "))", "||", "%%", "~~"]) t = t.split(m).join("");
   t = t.replace(/<<(.*?)>>/g, "$1").replace(/(?<!\{)\{([^{}]+)\}(?!\})/g, "$1");
   return t;
@@ -19,6 +20,7 @@ export function semEfeitoNoTrecho(s) {
 /** "Remover efeito" de uma linha inteira (bloco vira parágrafo comum). */
 export function semEfeito(linha) {
   const l = linha.trim();
+  const v2 = semEfeito2(l); if (v2 !== null) return semEfeitoNoTrecho(v2);
   const juntar = (x) => campos(x).map((c) => semEfeitoNoTrecho(c.replace(/^\[x\]|^\[ \]/, "").trim())).filter(Boolean).join(". ");
   if (l.startsWith("[#") && l.endsWith("]")) { const corpo = l.slice(2, -1); const i = corpo.indexOf(" "); return i < 0 ? "" : juntar(corpo.slice(i + 1)); }
   if (l.startsWith("[[") && l.endsWith("]]")) return juntar(l.slice(2, -2));
@@ -32,13 +34,13 @@ export function semEfeito(linha) {
 }
 export function escreverEfeito(nome, cor, forca, texto, bloco) {
   const cab = nome + (forca > 0 ? "+" : forca < 0 ? "-" : "") + (cor && !(bloco && cor === "roxo") ? ":" + cor : "");
-  return bloco ? `[#${cab} ${texto.trim()}]` : `{${cab}: ${texto}}`;
+  return bloco ? `[${nome.startsWith("$") ? "" : "#"}${cab} ${texto.trim()}]` : `{${cab}: ${texto}}`;
 }
-const TRECHO = [["fogo", "Fogo"], ["gelo", "Gelo"], ["neon", "Neon"], ["raio", "Raio"], ["sombra", "Sombra"], ["divino", "Divino"], ["feitico", "Feitiço"], ["runa", "Runas"], ["medo", "Medo"], ["eco", "Eco"], ["sangue", "Sangue"], ["veneno", "Veneno"], ["ouro", "Ouro"], ["coracao", "Coração"], ["quebra", "Quebrando"], ["vento", "Vento"], ["cor", "Só a cor"], ["idioma", "Outro idioma"]];
+const TRECHO = [["$corte", "Corte 2.0"], ["$corar", "Corando 2.0"], ["$aura", "Aura 2.0"], ["$cristal", "Cristal 2.0"], ["$assinatura", "Assinatura 2.0"], ["fogo", "Fogo"], ["gelo", "Gelo"], ["neon", "Neon"], ["raio", "Raio"], ["sombra", "Sombra"], ["divino", "Divino"], ["feitico", "Feitiço"], ["runa", "Runas"], ["medo", "Medo"], ["eco", "Eco"], ["sangue", "Sangue"], ["veneno", "Veneno"], ["ouro", "Ouro"], ["coracao", "Coração"], ["quebra", "Quebrando"], ["vento", "Vento"], ["cor", "Só a cor"], ["idioma", "Outro idioma"]];
 // efeitos de parágrafo: todos os do Mega Pack, por gênero. Os "simples" levam o trecho inteiro; os outros vêm com o modelo de campos
-const SIMPLES = new Set(["sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo"]);
-const CAT_NOME = { rpg: "RPG / Sistema", murim: "Murim", terror: "Terror", misterio: "Mistério", fantasia: "Fantasia", scifi: "Sci-fi", celular: "Celular", epoca: "Época", estrutura: "Estrutura" };
-const PARAGRAFO = MEGA.filter((m) => m[2] !== "inline").map(([nome, cod, cat]) => { const m = cod.match(/^\[#([a-z0-9-]+)(?::[a-z]+)?\s*([\s\S]*)\]$/); return m && [m[1], nome.replace(/ \(.*\)$/, ""), cat, m[2]]; }).filter(Boolean);
+const SIMPLES = new Set(["$juramento", "$vitral", "$recortes", "$dobra", "$repete", "sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo"]);
+const CAT_NOME = { rpg: "RPG / Sistema", murim: "Murim", terror: "Terror", misterio: "Mistério", fantasia: "Fantasia", scifi: "Sci-fi", celular: "Celular", epoca: "Época", romance: "Romance", acao: "Ação", estrutura: "Estrutura" };
+const PARAGRAFO = MEGA.filter((m) => m[2] !== "inline").map(([nome, cod, cat]) => { const m = cod.match(/^\[([#$])([a-z0-9-]+)(?::[a-z]+)?\s*([\s\S]*)\]$/); return m && [(m[1] === "$" ? "$" : "") + m[2], nome.replace(/ \(.*\)$/, ""), cat, m[3]]; }).filter(Boolean);
 /** O que vai dentro do [#efeito …]: o trecho, ou o modelo de campos com o trecho no lugar do texto. */
 export function conteudoBloco(ef, trecho) {
   const t = (trecho || "").trim(); const modelo = PARAGRAFO.find((p) => p[0] === ef)?.[3] || "";

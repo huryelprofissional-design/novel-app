@@ -1,6 +1,6 @@
 // Guarda o app para abrir sem internet (os dados ficam no cache do próprio Firestore).
-const CACHE = "novely-v35";
-const BASE = ["./", "index.html", "app.js", "nucleo.js", "obra.js", "leitor.js", "vozneural.js", "v2.js", "catalogo.js", "ia.js", "biblia.js", "aovivo.js", "efeitos.js", "fx.js", "extras.js", "config.js", "estilo.css", "manifest.webmanifest", "icone-192.png", "icone-512.png"];
+const CACHE = "novely-v36";
+const BASE = ["./", "index.html", "app.js", "nucleo.js", "obra.js", "leitor.js", "vozneural.js", "v2.js", "catalogo.js", "ia.js", "biblia.js", "aovivo.js", "efeitos.js", "fx.js", "fx2.js", "fx2.css", "extras.js", "config.js", "estilo.css", "manifest.webmanifest", "icone-192.png", "icone-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE))); self.skipWaiting(); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && !k.startsWith("novely-vozes") && !k.startsWith("novely-motor")).map((k) => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener("fetch", (e) => {
