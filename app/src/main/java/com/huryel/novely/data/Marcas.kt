@@ -42,7 +42,7 @@ object Marcas {
         val saida = ArrayList<Pair<Marca, String?>>()
         texto.split('\n').forEach { par ->
             if ('@' !in par && '&' !in par) return@forEach
-            if (par.trimStart().startsWith("[#") || par.trimStart().startsWith("@@")) return@forEach // efeitos do Mega Pack não criam fichas
+            if (par.trimStart().startsWith("[#") || par.trimStart().startsWith("[$") || par.trimStart().startsWith("@@")) return@forEach // efeitos do Mega Pack não criam fichas
             val limpo by lazy { limpar(par).trim() }
             rx.findAll(par).forEach { m ->
                 var nome = nomeDe(m)
@@ -65,7 +65,7 @@ object Marcas {
             if (l.startsWith("[!") && l.endsWith("!]")) l = l.substring(2, l.length - 2)
             listOf("!!", "^^", "((", "))", "[[", "]]", "||", "%%", "<<", ">>", "{{", "}}", "~~", "{", "}").fold(l) { a, m -> a.replace(m, "") } }.joinToString("\n")
 
-    private val RX_FX_INLINE = Regex("\\{[a-zçãéíóúâêô]+[+-]?(?::[a-zçãéíóúâêô]+)?:\\s([^}]*)\\}")
+    private val RX_FX_INLINE = Regex("\\{\\$?[a-zçãéíóúâêô]+[+-]?(?::[a-zçãéíóúâêô]+)?:\\s([^}]*)\\}")
     private fun campos(s: String) = s.split(Regex("(?<!\\|)\\|(?!\\|)")).map { it.trim() }.filter { it.isNotEmpty() }
 
     /** Tira os símbolos de efeito do trecho e deixa só o texto: "{fogo+:azul: chamas}" → "chamas", "!!Corre!!" → "Corre". */
@@ -85,7 +85,7 @@ object Marcas {
         val l = linha.trim()
         fun juntar(x: String) = campos(x).map { semEfeitoNoTrecho(it.removePrefix("[x]").removePrefix("[ ]").trim()) }.filter { it.isNotEmpty() }.joinToString(". ")
         return when {
-            l.startsWith("[#") && l.endsWith("]") -> juntar(l.substring(2, l.length - 1).substringAfter(' ', ""))
+            (l.startsWith("[#") || l.startsWith("[$")) && l.endsWith("]") -> juntar(l.substring(2, l.length - 1).substringAfter(' ', ""))
             l.startsWith("[[") && l.endsWith("]]") -> juntar(l.substring(2, l.length - 2))
             l.startsWith("[!") && l.endsWith("!]") -> semEfeitoNoTrecho(l.substring(2, l.length - 2).trim())
             l.startsWith("{{") && l.endsWith("}}") -> juntar(l.substring(2, l.length - 2))
@@ -103,7 +103,7 @@ object Marcas {
     /** O trecho do jeito que o painel de efeitos escreve: em linha "{fogo+:azul: texto}" ou parágrafo "[#sistema-:verde texto]". */
     fun escreverEfeito(nome: String, cor: String?, forca: Int, texto: String, bloco: Boolean): String {
         val cab = nome + (if (forca > 0) "+" else if (forca < 0) "-" else "") + (cor?.takeIf { it != "roxo" || !bloco }?.let { ":$it" } ?: "")
-        return if (bloco) "[#$cab ${texto.trim()}]" else "{$cab: $texto}"
+        return if (bloco) "[${if (nome.startsWith("$")) "" else "#"}$cab ${texto.trim()}]" else "{$cab: $texto}"
     }
 
     fun limpar(s: String): String {

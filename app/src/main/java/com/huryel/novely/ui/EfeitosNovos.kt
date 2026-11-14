@@ -465,7 +465,7 @@ fun BlocoNovo(nome: String, corNome: String?, c: List<String>, estilo: TextStyle
 // ───────── efeitos em linha novos ─────────
 val INLINE_NOVOS = setOf("estrela", "fantasma", "sagrado", "cinzas", "mao", "contagem", "mente", "corrompido", "dano")
 /** Os que mudam a cada quadro (o leitor anima). */
-val INLINE_ANIMADOS = setOf("medo", "quebra", "vento", "raio", "neon", "idioma", "coracao", "estrela", "fantasma", "sagrado", "cinzas", "contagem", "mente", "corrompido", "dano")
+val INLINE_ANIMADOS = setOf("medo", "quebra", "vento", "raio", "neon", "idioma", "coracao", "estrela", "fantasma", "sagrado", "cinzas", "contagem", "mente", "corrompido", "dano") + INLINE_V2
 
 private val MARCAS_Z = listOf('̀', '́', '̴', '̶', '̷', '͒', '͓', '͡', 'ͪ', '̖', '̗', '̥', '̮')
 /** Texto amaldiçoado: acentos empilhados (fixos, para não mudar o tamanho do texto). */

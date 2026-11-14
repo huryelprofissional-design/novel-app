@@ -88,7 +88,7 @@ const VIBRA = { despertar: [60, 40, 120], penalidade: [200, 100, 200], morte: [3
 
 /** "[$sistema:azul …]" → html (ou null). */
 export function blocoFx2(linha, tx) {
-  const m = linha.match(/^\[\$([\wçãéíóúâêôõ-]+?)(?::([a-zçãéíóúâêô]+))?(?:\s+(.*))?\]$/i); if (!m) return null;
+  const m = linha.match(/^\[\$([\wçãéíóúâêôõ-]+?)[+-]?(?::([a-zçãéíóúâêô]+))?(?:\s+(.*))?\]$/i); if (!m) return null;
   const nome = APELIDO[m[1].toLowerCase()] || m[1].toLowerCase(); if (!B[nome]) return null;
   const cor = m[2] ? m[2].toLowerCase() : "";
   const estilo = cor && COR[cor] ? ` style="--cor:${COR[cor]}"` : "";
@@ -99,7 +99,7 @@ export function blocoFx2(linha, tx) {
 const INLINE2 = new Set(["corte", "corar", "aura", "cristal", "assinatura"]);
 /** Recebe html já escapado. */
 export function inlineFx2(h) {
-  return h.replace(/\{\$([a-zçãéíóúâêô]+)(?::([a-zçãéíóúâêô]+))?:\s([^{}]+)\}/g, (all, n, cor, t) => {
+  return h.replace(/\{\$([a-zçãéíóúâêô]+)[+-]?(?::([a-zçãéíóúâêô]+))?:\s([^{}]+)\}/g, (all, n, cor, t) => {
     if (!INLINE2.has(n)) return all;
     const c = cor && COR[cor] ? ` style="--cor:${COR[cor]}"` : "";
     if (n === "corte") return `<span class="fx2i v2-corte" data-t="${t.replace(/"/g, "&quot;")}">${t}</span>`;
@@ -182,7 +182,7 @@ export function semEfeito2(linha) {
   const m = linha.trim().match(/^\[\$[^\s\]]+(?:\s+(.*))?\]$/); if (!m) return null;
   return campos(m[1] || "").join(". ");
 }
-export const RX_FX2_INLINE = /\{\$[a-zçãéíóúâêô]+(?::[a-zçãéíóúâêô]+)?:\s([^}]*)\}/g;
+export const RX_FX2_INLINE = /\{\$[a-zçãéíóúâêô]+[+-]?(?::[a-zçãéíóúâêô]+)?:\s([^}]*)\}/g;
 
 /** Catálogo (painel e cola): [nome, símbolo, gênero] */
 export const MEGA2 = [

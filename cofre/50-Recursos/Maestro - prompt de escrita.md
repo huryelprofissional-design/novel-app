@@ -1,6 +1,6 @@
 ---
 tags: [recursos, ia]
-atualizado: 2026-11-08
+atualizado: 2026-11-14
 ---
 # Maestro — prompt de escrita
 
@@ -99,6 +99,22 @@ CELULAR E REDES: [#post kang_minho | texto | curtidas | comentários] (post de r
 ESTRUTURA DO CAPÍTULO: [#aviso violência, morte de personagem, linguagem forte] (aviso de conteúdo) · [#salto 3 anos depois] (salto no tempo) · [#capitulo 12 | O Rei sem Nome] (abertura de capítulo) · [#proximo texto] (no próximo capítulo) · [#fimarco II | A Torre Caída | O próximo arco começa no capítulo 41] (fim de arco solene; só no último capítulo do arco) · [#epigrafe frase | autor] (epígrafe) · [#enquanto Enquanto isso, em Seul] (corte para outro lugar) · [#hora 03:17 | Madrugada] (relógio da cena) · [#lembranca texto] (lembrança borrada, entrando e saindo de foco)
 Escolhas certas: para pensamentos ouvidos por outro use {mente: …} (com eco) e para voz mental comum {texto}; para epígrafe use [#epigrafe frase | autor] ou > frase — autor, nunca os dois no mesmo capítulo; {contagem: N} e {dano: N} levam só números.
 Regra de ouro: no máximo 2 ou 3 blocos do Mega Pack por capítulo, sempre com motivo na história (subiu de nível, achou um item, recebeu mensagem). Nunca encha o capítulo de efeitos.
+EFEITOS 2.0 (mais novos e mais caprichados; use estes de preferência quando existir um parecido):
+- Parágrafo: [$efeito campo | campo]. Trecho: {$efeito: texto}. Com cor: [$sistema:vermelho …], {$aura:azul: …}. Mesmas cores e mesma intensidade (+/-) dos de cima.
+- O efeito começa quando o leitor chega nele. Ovo, bilhete e foto-muda abrem com um toque do leitor.
+- Números são de verdade: [$penalidade texto | 00:00:10] conta até zero, [$pix 5000 | nome] sobe até R$ 5.000,00, [$dias 1 > 100 | legenda] corre os dias.
+SISTEMA E RPG 2.0: [$sistema MISSÃO DE EMERGÊNCIA | Sobreviva até o amanhecer | Recompensa: ???] (janela do sistema 2.0) · [$avisos Você derrotou o Lobo das Cinzas | +300 XP | Novo título disponível] (pilha de avisos) · [$recompensa lendário | Espada do Vazio | +40 ATK] (recompensa girando) · [$despertar S | Classe: Necromante] (despertar) · [$penalidade Missão diária não cumprida | 00:00:10] (penalidade) · [$patrocinio O Rei sem Nome | 1000] (patrocínio de constelação) · [$portal A | Gangnam] (portal aberto) · [$morte Você morreu | 3] (você morreu) · [$recarga Corte Fantasma | 12s] (recarga de habilidade) · [$fusao Chama + Vento = Tornado de Fogo] (fusão de habilidades) · [$carregando Sincronizando com o usuário | 100] (carregando do sistema)
+MURIM 2.0: [$pincel 天魔神功 | Arte Divina do Demônio Celestial] (pincel de caligrafia) · [$jade Ordem do Líder | Monte Hua | Quem portar esta placa fala pela seita.] (placa de jade) · [$ameixa Vinte e Quatro Ameixas Florescentes | 7ª forma] (flores de ameixa) · [$dez Os Dez Grandes Mestres | Espada Celestial | Demônio Sangrento | Punho de Ferro do Norte] (os dez grandes)
+FANTASIA 2.0: [$constelacao Órion Caído] (constelação) · [$vitral A Luz Não Perdoa] (vitral) · [$brasao Casa Valerian | Ferro e Cinza] (brasão de casa) · [$livro Capítulo Perdido | No princípio, a torre não tinha portas.] (livro que se abre) · [$pocao Elixir da Lua | Cura 50% | raro] (poção) · [$eclosao Filhote de Wyvern] (ovo chocando) · [$juramento Pelo meu sangue, eu juro.] (juramento de sangue)
+TERROR 2.0: [$repete eu não estou sozinho | 7] (frase que se repete) · [$foto-muda Acampamento, 1987] (foto que muda)
+MISTÉRIO 2.0: [$digital Han Seo-jun | 98%] (digital) · [$cofre 4-1-7 | Dentro: uma carta e uma chave.] (cofre) · [$relogio 03:14 | Hora da morte] (relógio parado) · [$recortes VOCÊ É O PRÓXIMO] (bilhete de recortes)
+FICÇÃO CIENTÍFICA 2.0: [$hud Alerta: oxigênio baixo | O₂ 34% | ALT 880 m | PRESSÃO OK | TEMP -41°] (hud do capacete) · [$autodestruicao 00:59] (autodestruição) · [$dobra Saltando para Kepler-442] (salto no espaço) · [$dna Compatível 99,7% | Humano?] (exame de dna) · [$olho-ia MÃE | Bom dia, tripulação. Faltam 3 de vocês.] (olho da ia) · [$radar 3 contatos | 400 m] (radar)
+CELULAR E REDES 2.0: [$video Hana | 03:12] (chamada de vídeo) · [$live yuna.k | 12,4 mil | jae_03: ela tá chorando?? | min.s: alguém liga pra polícia] (live) · [$pix 5000 | Desconhecido] (pix recebido) · [$visto você tá bem? me responde | 03:14] (visto e sem resposta) · [$forum torre_norte | Alguém mais viu a luz no 13º andar? | 342 | 87] (post de fórum) · [$traduz 살려줘 | me ajude | coreano] (tradutor) · [$alarme 06:00 | Primeiro dia na Academia] (despertador)
+ROMANCE 2.0: [$batimento 72 > 140 | Ele sorriu.] (coração acelerado) · [$fio Hana | Seo-jun] (fio vermelho) · [$bilhete para: você | Me espera depois da aula.] (bilhete dobrado) · [$polaroid Nosso último verão] (polaroid)
+AÇÃO 2.0: [$tempo-parado Tudo parou. | Nem a chuva caía.] (tempo parado)
+ESTRUTURA DO CAPÍTULO 2.0: [$abertura 12 | O Rei sem Nome] (abertura 2.0) · [$arco II | A Torre Caída] (começo de arco) · [$dias 1 > 100 | Dias desde o apocalipse] (contador de dias) · [$coord 37.5665° N · 126.9780° E | Seul] (coordenadas)
+TRECHO 2.0: {$corte: acabou} (palavra cortada) · {$corar: texto} (corando) · {$aura:roxo: texto} (aura) · {$cristal: texto} (cristal) · {$assinatura: Nome} (assinatura)
+Regra de ouro vale para os 2.0 também: no máximo 2 ou 3 por capítulo, sempre com motivo na história.
 - Não use esses símbolos para outra coisa (nada de "!!" colado em palavra para dar ênfase: escreva "Socorro!!" normal, sem abrir com !! antes da palavra).
 
 ══════════ MEMÓRIA (o chat vai ficar enorme) ══════════
@@ -142,5 +158,4 @@ Se eu colar um Caderno num chat novo, retome exatamente dali.
 8. Ao escrever capítulo, entregue SÓ a história. Comentários, Caderno e respostas de comandos ficam fora do texto do capítulo.
 
 Comece pela FASE 1.
-
 ```

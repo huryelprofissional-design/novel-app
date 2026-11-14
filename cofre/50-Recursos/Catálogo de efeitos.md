@@ -169,3 +169,117 @@ Forma geral: `{efeito: texto}` · `{efeito:cor: texto}` · `[#efeito campo | cam
 | Enquanto isso… | `[#enquanto Enquanto isso, em Seul]` |
 | Relógio da cena | `[#hora 03:17 \| Madrugada]` |
 | Lembrança borrada | `[#lembranca …e ela sorriu.]` |
+
+# Efeitos 2.0
+
+Gerado de `MEGA2` em `web/fx2.js` (55 entradas). No celular: `MEGA_PACK_V2` em `ui/EfeitosV2.kt`. Sintaxe com `$`; os de cima continuam valendo.
+
+## Sistema e rpg
+
+| Efeito | Como escrever |
+|---|---|
+| Janela do Sistema 2.0 | `[$sistema MISSÃO DE EMERGÊNCIA \| Sobreviva até o amanhecer \| Recompensa: ???]` |
+| Pilha de avisos | `[$avisos Você derrotou o Lobo das Cinzas \| +300 XP \| Novo título disponível]` |
+| Recompensa girando | `[$recompensa lendário \| Espada do Vazio \| +40 ATK]` |
+| Despertar | `[$despertar S \| Classe: Necromante]` |
+| Penalidade | `[$penalidade Missão diária não cumprida \| 00:00:10]` |
+| Patrocínio de constelação | `[$patrocinio O Rei sem Nome \| 1000]` |
+| Portal aberto | `[$portal A \| Gangnam]` |
+| Você morreu | `[$morte Você morreu \| 3]` |
+| Recarga de habilidade | `[$recarga Corte Fantasma \| 12s]` |
+| Fusão de habilidades | `[$fusao Chama + Vento = Tornado de Fogo]` |
+| Carregando do Sistema | `[$carregando Sincronizando com o usuário \| 100]` |
+
+## Murim
+
+| Efeito | Como escrever |
+|---|---|
+| Pincel de caligrafia | `[$pincel 天魔神功 \| Arte Divina do Demônio Celestial]` |
+| Placa de jade | `[$jade Ordem do Líder \| Monte Hua \| Quem portar esta placa fala pela seita.]` |
+| Flores de ameixa | `[$ameixa Vinte e Quatro Ameixas Florescentes \| 7ª forma]` |
+| Os Dez Grandes | `[$dez Os Dez Grandes Mestres \| Espada Celestial \| Demônio Sangrento \| Punho de Ferro do Norte]` |
+
+## Fantasia
+
+| Efeito | Como escrever |
+|---|---|
+| Constelação | `[$constelacao Órion Caído]` |
+| Vitral | `[$vitral A Luz Não Perdoa]` |
+| Brasão de casa | `[$brasao Casa Valerian \| Ferro e Cinza]` |
+| Livro que se abre | `[$livro Capítulo Perdido \| No princípio, a torre não tinha portas.]` |
+| Poção | `[$pocao Elixir da Lua \| Cura 50% \| raro]` |
+| Ovo chocando (toque) | `[$eclosao Filhote de Wyvern]` |
+| Juramento de sangue | `[$juramento Pelo meu sangue, eu juro.]` |
+
+## Terror
+
+| Efeito | Como escrever |
+|---|---|
+| Frase que se repete | `[$repete eu não estou sozinho \| 7]` |
+| Foto que muda (toque) | `[$foto-muda Acampamento, 1987]` |
+
+## Mistério
+
+| Efeito | Como escrever |
+|---|---|
+| Digital | `[$digital Han Seo-jun \| 98%]` |
+| Cofre | `[$cofre 4-1-7 \| Dentro: uma carta e uma chave.]` |
+| Relógio parado | `[$relogio 03:14 \| Hora da morte]` |
+| Bilhete de recortes | `[$recortes VOCÊ É O PRÓXIMO]` |
+
+## Ficção científica
+
+| Efeito | Como escrever |
+|---|---|
+| HUD do capacete | `[$hud Alerta: oxigênio baixo \| O₂ 34% \| ALT 880 m \| PRESSÃO OK \| TEMP -41°]` |
+| Autodestruição | `[$autodestruicao 00:59]` |
+| Salto no espaço | `[$dobra Saltando para Kepler-442]` |
+| Exame de DNA | `[$dna Compatível 99,7% \| Humano?]` |
+| Olho da IA | `[$olho-ia MÃE \| Bom dia, tripulação. Faltam 3 de vocês.]` |
+| Radar | `[$radar 3 contatos \| 400 m]` |
+
+## Celular e redes
+
+| Efeito | Como escrever |
+|---|---|
+| Chamada de vídeo | `[$video Hana \| 03:12]` |
+| Live | `[$live yuna.k \| 12,4 mil \| jae_03: ela tá chorando?? \| min.s: alguém liga pra polícia]` |
+| Pix recebido | `[$pix 5000 \| Desconhecido]` |
+| Visto e sem resposta | `[$visto você tá bem? me responde \| 03:14]` |
+| Post de fórum | `[$forum torre_norte \| Alguém mais viu a luz no 13º andar? \| 342 \| 87]` |
+| Tradutor | `[$traduz 살려줘 \| me ajude \| coreano]` |
+| Despertador | `[$alarme 06:00 \| Primeiro dia na Academia]` |
+
+## Romance
+
+| Efeito | Como escrever |
+|---|---|
+| Coração acelerado | `[$batimento 72 > 140 \| Ele sorriu.]` |
+| Fio vermelho | `[$fio Hana \| Seo-jun]` |
+| Bilhete dobrado (toque) | `[$bilhete para: você \| Me espera depois da aula.]` |
+| Polaroid | `[$polaroid Nosso último verão]` |
+
+## Ação
+
+| Efeito | Como escrever |
+|---|---|
+| Tempo parado | `[$tempo-parado Tudo parou. \| Nem a chuva caía.]` |
+
+## Estrutura do capítulo
+
+| Efeito | Como escrever |
+|---|---|
+| Abertura 2.0 | `[$abertura 12 \| O Rei sem Nome]` |
+| Começo de arco | `[$arco II \| A Torre Caída]` |
+| Contador de dias | `[$dias 1 > 100 \| Dias desde o apocalipse]` |
+| Coordenadas | `[$coord 37.5665° N · 126.9780° E \| Seul]` |
+
+## No trecho (em linha)
+
+| Efeito | Como escrever |
+|---|---|
+| Palavra cortada | `{$corte: acabou}` |
+| Corando | `{$corar: texto}` |
+| Aura | `{$aura:roxo: texto}` |
+| Cristal | `{$cristal: texto}` |
+| Assinatura | `{$assinatura: Nome}` |

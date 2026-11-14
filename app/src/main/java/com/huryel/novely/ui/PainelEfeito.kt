@@ -30,6 +30,7 @@ import com.huryel.novely.ui.theme.Paleta
 
 /** Efeitos que o painel oferece: em um trecho (dentro da frase) e no parágrafo inteiro. */
 val EFEITOS_TRECHO = listOf(
+    "\$corte" to "Corte 2.0", "\$corar" to "Corando 2.0", "\$aura" to "Aura 2.0", "\$cristal" to "Cristal 2.0", "\$assinatura" to "Assinatura 2.0",
     "fogo" to "Fogo", "gelo" to "Gelo", "neon" to "Neon", "raio" to "Raio", "sombra" to "Sombra", "divino" to "Divino",
     "feitico" to "Feitiço", "runa" to "Runas", "medo" to "Medo", "eco" to "Eco", "sangue" to "Sangue", "veneno" to "Veneno",
     "ouro" to "Ouro", "coracao" to "Coração", "quebra" to "Quebrando", "vento" to "Vento", "cor" to "Só a cor", "idioma" to "Outro idioma",
@@ -39,12 +40,12 @@ val EFEITOS_TRECHO = listOf(
 /** Efeitos de parágrafo: todos os do Mega Pack, por gênero (chave, nome, gênero, modelo de campos). */
 data class FxParagrafo(val chave: String, val nome: String, val cat: String, val modelo: String)
 val EFEITOS_PARAGRAFO: List<FxParagrafo> = MEGA_PACK.filter { it.third != "inline" }.mapNotNull { (nome, cod, cat) ->
-    Regex("""^\[#([a-z0-9-]+)(?::[a-z]+)?\s*([\s\S]*)]$""").find(cod)?.let { FxParagrafo(it.groupValues[1], nome.substringBefore(" ("), cat, it.groupValues[2]) }
+    Regex("""^\[([#$])([a-z0-9-]+)(?::[a-z]+)?\s*([\s\S]*)]$""").find(cod)?.let { FxParagrafo((if (it.groupValues[1] == "$") "$" else "") + it.groupValues[2], nome.substringBefore(" ("), cat, it.groupValues[3]) }
 }
 val CAT_FX = linkedMapOf("rpg" to "RPG / SISTEMA", "murim" to "MURIM", "terror" to "TERROR", "misterio" to "MISTÉRIO", "fantasia" to "FANTASIA",
-    "scifi" to "SCI-FI", "celular" to "CELULAR", "epoca" to "ÉPOCA", "estrutura" to "ESTRUTURA")
+    "scifi" to "SCI-FI", "celular" to "CELULAR", "romance" to "ROMANCE", "acao" to "AÇÃO", "epoca" to "ÉPOCA", "estrutura" to "ESTRUTURA")
 // estes levam o trecho inteiro; os outros vêm com o modelo de campos e o trecho no lugar do texto
-private val FX_SIMPLES = setOf("sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo", "radio", "enquanto", "lembranca", "grimorio", "epigrafe")
+private val FX_SIMPLES = setOf("\$juramento", "\$vitral", "\$recortes", "\$dobra", "\$repete", "sistema", "perigo", "conquista", "missao-ok", "missao-falhou", "aviso", "titulo", "alerta-vermelho", "terminal", "profecia", "diario", "telegrama", "ia", "proximo", "radio", "enquanto", "lembranca", "grimorio", "epigrafe")
 
 /** O que vai dentro do [#efeito …]. */
 fun conteudoBloco(efeito: String, trecho: String): String {

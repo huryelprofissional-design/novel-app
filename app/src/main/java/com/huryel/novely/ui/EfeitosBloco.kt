@@ -79,6 +79,11 @@ private val APELIDOS_FX = mapOf("evolução" to "evolucao", "missão-ok" to "mis
 
 /** "[#evolucao:dourado Nv 11 > 12 | …]" → (nome, cor, resto). */
 fun lerBlocoFx(linha: String): Triple<String, String?, String>? {
+    if (linha.startsWith("[$") && linha.endsWith("]")) {
+        val corpo2 = linha.substring(2, linha.length - 1); val cab2 = corpo2.substringBefore(' ')
+        val n2 = nomeBlocoV2(cab2) ?: return null
+        return Triple("$" + n2, cab2.substringAfter(':', "").ifEmpty { null }, corpo2.substringAfter(' ', "").trim())
+    }
     if (!linha.startsWith("[#") || !linha.endsWith("]")) return null
     val corpo = linha.substring(2, linha.length - 1)
     val cab = corpo.substringBefore(' ')
@@ -150,6 +155,7 @@ private fun piscar(ms: Int): Boolean {
 
 @Composable
 fun BlocoFx(nome: String, corNome: String?, resto: String, estilo: TextStyle, modifier: Modifier = Modifier, forca: Int = 0) {
+    if (nome.startsWith("$")) { BlocoV2(nome.drop(1), corNome, camposFx(resto), estilo, modifier); return }
     val c = camposFx(resto)
     val f = { i: Int -> c.getOrNull(i).orEmpty() }
     // intensidade: suave = mais apagado; forte = halo na cor do efeito, pulsando
@@ -1207,13 +1213,13 @@ private val Rasgado = poli(0f, .04f, .06f, 0f, .12f, .03f, .19f, 0f, .27f, .04f,
 
 val INLINE_FX = setOf("fogo", "gelo", "neon", "medo", "eco", "runa", "idioma", "divino", "feitico", "cor", "sangue", "veneno", "raio", "sombra", "quebra", "vento", "ouro", "coracao") + INLINE_NOVOS
 private val APELIDOS_INLINE = mapOf("feitiço" to "feitico", "coração" to "coracao", "chamas" to "fogo", "runas" to "runa", "mão" to "mao", "telepatia" to "mente", "cinza" to "cinzas")
-private val RX_INLINE = Regex("\\{([a-zçãéíóúâêô]+)([+-])?(?::([a-zçãéíóúâêô]+))?:\\s")
+private val RX_INLINE = Regex("\\{(\\$?[a-zçãéíóúâêô]+)([+-])?(?::([a-zçãéíóúâêô]+))?:\\s")
 /** Um efeito em linha lido do texto: "{fogo+:azul: texto}" → nome, cor, texto, intensidade (-1, 0, 1) e onde acaba. */
 data class InlineFx(val nome: String, val cor: String?, val texto: String, val forca: Int, val fim: Int)
 fun lerInlineFx(linha: String, i: Int): InlineFx? {
     val m = RX_INLINE.find(linha, i)?.takeIf { it.range.first == i } ?: return null
     val nome = APELIDOS_INLINE[m.groupValues[1]] ?: m.groupValues[1]
-    if (nome !in INLINE_FX) return null
+    if (nome !in INLINE_FX && nome !in INLINE_V2) return null
     val fim = linha.indexOf('}', m.range.last + 1).takeIf { it > 0 } ?: return null
     val forca = when (m.groupValues[2]) { "+" -> 1; "-" -> -1; else -> 0 }
     return InlineFx(nome, m.groupValues[3].ifEmpty { null }, linha.substring(m.range.last + 1, fim), forca, fim + 1)
@@ -1253,13 +1259,13 @@ private fun estiloInlineBase(nome: String, cor: String?): SpanStyle {
         "quebra", "vento" -> SpanStyle(color = cc ?: Color.Unspecified, fontWeight = FontWeight.Bold)
         "ouro" -> SpanStyle(brush = Brush.linearGradient(listOf(Color(0xFF8A5A00), Color(0xFFFFD86B), Color(0xFFFFF6CF), Color(0xFFFFC94A), Color(0xFF8A5A00))), fontFamily = FontFamily.Serif, fontWeight = FontWeight.ExtraBold)
         "coracao" -> SpanStyle(color = cc ?: Color(0xFFFF6FA8), fontWeight = FontWeight.ExtraBold, shadow = androidx.compose.ui.graphics.Shadow(Color(0x80FF6FA8), blurRadius = 12f))
-        else -> estiloInlineNovo(nome, cc) ?: SpanStyle()
+        else -> estiloInlineNovo(nome, cc) ?: estiloInlineV2(nome, cc) ?: SpanStyle()
     }
 }
 
 /** Efeitos em linha que mexem a cada quadro: treme, quebra, vento, raio, neon piscando, idioma trocando glifos. */
 fun animarInlineFx(t0: AnnotatedString, quadro: Int): AnnotatedString {
-    val t = animarInlineNovos(t0, quadro)
+    val t = animarInlineNovos(animarInlineV2(t0, quadro), quadro)
     val fx = t.getStringAnnotations("fx", 0, t.length).filter { it.item in setOf("medo", "quebra", "vento", "raio", "neon", "idioma", "coracao") }
     if (fx.isEmpty()) return t
     val r = Random(quadro)
@@ -1278,7 +1284,8 @@ fun animarInlineFx(t0: AnnotatedString, quadro: Int): AnnotatedString {
         }
     }
 }
-val MEGA_PACK = listOf(
+val MEGA_PACK: List<Triple<String, String, String>> by lazy { MEGA_PACK_V1 + MEGA_PACK_V2 }
+private val MEGA_PACK_V1 = listOf(
     Triple("Texto em chamas", "{fogo: texto}", "inline"),
     Triple("Texto congelado", "{gelo: texto}", "inline"),
     Triple("Neon", "{neon: texto}", "inline"),
