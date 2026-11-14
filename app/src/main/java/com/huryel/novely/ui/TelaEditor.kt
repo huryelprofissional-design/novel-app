@@ -79,6 +79,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -174,9 +176,13 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
     val batida = remember { androidx.compose.animation.core.Animatable(0f) }
     var centrar by remember { mutableIntStateOf(0) }
 
-    fun carregarTexto(texto: String) {
+    // Um salvamento por vez: sem isso, dois podiam gravar juntos (o texto mais velho terminava por último
+    // e as "palavras de hoje" contavam em dobro, porque os dois liam a contagem antiga).
+    val travaSalvar = remember { Mutex() }
+
+    fun carregarTexto(texto: String, partes: List<String> = Texto.dividirEmPedacos(texto, 3000)) {
         pedacos.clear()
-        Texto.dividirEmPedacos(texto, 3000).forEach { pedacos.add(Pedaco(proximoId++, TextFieldValue(it))) }
+        partes.forEach { pedacos.add(Pedaco(proximoId++, TextFieldValue(it))) }
         if (pedacos.isEmpty()) pedacos.add(Pedaco(proximoId++, TextFieldValue("")))
         desfazer.clear(); refazer.clear(); contadorPilhas++
     }
@@ -190,8 +196,9 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         }
         cap = c
         val texto = repo.lerTexto(capId)
-        withContext(Dispatchers.Default) { Texto.dividirEmPedacos(texto, 3000) } // aquece fora da thread principal
-        carregarTexto(texto)
+        // divide fora da thread principal (capítulo gigante não trava a tela) e usa o resultado
+        val partes = withContext(Dispatchers.Default) { Texto.dividirEmPedacos(texto, 3000) }
+        carregarTexto(texto, partes)
         palavras = c.palavras
         carregado = true
         // o app fechou antes de salvar? oferece o rascunho de emergência
@@ -213,39 +220,31 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         return sb.toString()
     }
 
+    /** Salvamento automático (o da pausa e o dos 5 s usam o mesmo caminho, um de cada vez). */
+    suspend fun salvarAuto(): Unit = travaSalvar.withLock<Unit> {
+        val c = cap ?: return@withLock
+        val v = versao
+        if (v == versaoSalva || ocupado) return@withLock
+        estadoSalvo = "Salvando…"
+        val t = textoCompleto()
+        val novos = repo.gravarTexto(c, t)
+        if (novos.isNotEmpty()) escopo.launch { snack.showSnackbar("✓ Ficha criada: ${novos.joinToString(", ")}") }
+        palavras = withContext(Dispatchers.Default) { Texto.contarPalavras(t) }
+        versaoSalva = v
+        estadoSalvo = "Salvo"
+        if (versao == v) repo.textos.apagarRascunho(c.id)
+    }
+
     // Salvamento automático: 1,5 s depois da última tecla.
     LaunchedEffect(carregado) {
         if (!carregado) return@LaunchedEffect
-        snapshotFlow { versao }.debounce(1500).collect { v ->
-            val c = cap ?: return@collect
-            if (v == versaoSalva || ocupado) return@collect
-            estadoSalvo = "Salvando…"
-            val t = textoCompleto()
-            val novos = repo.gravarTexto(c, t)
-            if (novos.isNotEmpty()) escopo.launch { snack.showSnackbar("✓ Ficha criada: ${novos.joinToString(", ")}") }
-            palavras = withContext(Dispatchers.Default) { Texto.contarPalavras(t) }
-            versaoSalva = v
-            estadoSalvo = "Salvo"
-            if (versao == v) repo.textos.apagarRascunho(c.id)
-        }
+        snapshotFlow { versao }.debounce(1500).collect { salvarAuto() }
     }
 
     // Digitando sem parar: salva também a cada 5 s (a pausa de 1,5 s pode nunca chegar).
     LaunchedEffect(carregado) {
         if (!carregado) return@LaunchedEffect
-        while (true) {
-            delay(5000)
-            val c = cap ?: continue
-            if (versao == versaoSalva || ocupado) continue
-            val v = versao
-            estadoSalvo = "Salvando…"
-            val t = textoCompleto()
-            repo.gravarTexto(c, t)
-            palavras = withContext(Dispatchers.Default) { Texto.contarPalavras(t) }
-            versaoSalva = v
-            estadoSalvo = "Salvo"
-            if (versao == v) repo.textos.apagarRascunho(c.id)
-        }
+        while (true) { delay(5000); salvarAuto() }
     }
 
     // Rascunho de emergência: 0,6 s depois de digitar, antes do salvamento normal (se o app cair, nada se perde).
@@ -267,7 +266,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
             if (versao == versaoSalva || ocupado) return
             val t = textoCompleto()
             versaoSalva = versao
-            app.escopo.launch { repo.gravarTexto(c, t) }
+            app.escopo.launch { travaSalvar.withLock { repo.gravarTexto(c, t) } }
         }
         val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_PAUSE) salvarJa() }
         dono.lifecycle.addObserver(obs)
@@ -283,7 +282,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         versaoSalva = versao
         val t = textoCompleto()
         app.escopo.launch {
-            repo.gravarTexto(c, t)
+            travaSalvar.withLock { repo.gravarTexto(c, t) }
             acao(c, t)
         }
     }
@@ -345,6 +344,9 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         ultimoPedacoPasso = pd.id
     }
 
+    /** Passo próprio no desfazer (botões e atalhos não se juntam com o que acabou de ser digitado). */
+    fun passoNovo(pd: Pedaco) { ultimoPedacoPasso = -1; empilhar(pd, pd.valor); ultimoPedacoPasso = -1 }
+
     fun aoMudar(i: Int, pd: Pedaco, novo: TextFieldValue) {
         if (ocupado) return
         val antigo = pd.valor
@@ -387,7 +389,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         val pd = pedacos[i]
         val v = pd.valor
         val sel = v.selection
-        empilhar(pd, v); ultimoPedacoPasso = -1
+        passoNovo(pd)
         val novo: TextFieldValue = if (envolver && !sel.collapsed) {
             val t = v.text.substring(0, sel.min) + marca + v.text.substring(sel.min, sel.max) + marca + v.text.substring(sel.max)
             TextFieldValue(t, TextRange(sel.max + marca.length * 2))
@@ -409,7 +411,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
             if (sel.min > 0 && v.text[sel.min - 1] != '\n') ins = "\n" + ins
             if (sel.max < v.text.length && v.text[sel.max] != '\n') ins += "\n"
         }
-        ultimoPedacoPasso = -1; empilhar(pd, v); ultimoPedacoPasso = -1
+        passoNovo(pd)
         pd.valor = TextFieldValue(v.text.substring(0, sel.min) + ins + v.text.substring(sel.max), TextRange(sel.min + ins.length))
         versao++
     }
@@ -437,7 +439,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         val linha = v.text.substring(a, b)
         val nova = Marcas.semEfeito(linha)
         if (nova == linha.trim()) return
-        ultimoPedacoPasso = -1; empilhar(pd, v); ultimoPedacoPasso = -1
+        passoNovo(pd)
         pd.valor = TextFieldValue(v.text.substring(0, a) + nova + v.text.substring(b), TextRange(a + nova.length))
         versao++; contadorPilhas++
         escopo.launch { if (snack.showSnackbar("Efeito removido", "Desfazer", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) aplicarPasso(desfazer, refazer) }
@@ -512,7 +514,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
     fun substituirAtual() {
         val (pi, pos) = achados.getOrNull(achadoAtual) ?: return
         val pd = pedacos[pi]
-        empilhar(pd, pd.valor); ultimoPedacoPasso = -1
+        passoNovo(pd)
         val t = pd.valor.text
         pd.valor = TextFieldValue(t.substring(0, pos) + substituto + t.substring(pos + consulta.length), TextRange(pos + substituto.length))
         versao++
@@ -524,7 +526,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
             val novo = t.replace(consulta, substituto, ignoreCase = ignorarCaixa)
             if (novo != t) {
                 n += Regex(Regex.escape(consulta), if (ignorarCaixa) setOf(RegexOption.IGNORE_CASE) else emptySet()).findAll(t).count()
-                empilhar(pd, pd.valor); ultimoPedacoPasso = -1
+                passoNovo(pd)
                 pd.valor = TextFieldValue(novo)
             }
         }
@@ -575,7 +577,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         val sel = selecao ?: return
         if (sel.collapsed) return
         val trecho = textoSelecionado
-        empilhar(pd, pd.valor); ultimoPedacoPasso = -1
+        passoNovo(pd)
         pd.valor = TextFieldValue(pd.valor.text.removeRange(sel.min, sel.max), TextRange(sel.min))
         versao++
         salvarEDepois { c, _ ->

@@ -13,7 +13,7 @@ atualizado: 2026-11-14
 - [ ] Prints do **V2 no celular**, do **leitor novo (#000)** e dos **35 efeitos** no aparelho (só o PC foi visto em print; o celular só compilou).
 
 ## Trabalho começado
-- [ ] Auditoria fase **mestre** (código limpo): próximo arquivo `ui/TelaEditor.kt`, depois o resto das telas grandes (`TelaLeitor.kt`, `TelaObra.kt`).
+- [ ] Auditoria fase **mestre** (código limpo): `ui/TelaEditor.kt` feito em 2026-11-14 (falta o autor conferir no celular). Próximo: `TelaLeitor.kt`, depois `TelaObra.kt`.
 - [ ] Telas internas ainda no visual antigo (só herdaram cores): obra, ajustes, painel, estatísticas; no perfil do celular, Ranking/Moedas/Conquistas/Citações.
 - [ ] Código antigo sem rota (`TelaInicioNova`, `TelaEscreverAba`, `TelaPerfilAba`, `TelaDescobrirCatalogo` como aba): avaliar remover.
 

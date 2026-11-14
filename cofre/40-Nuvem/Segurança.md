@@ -6,7 +6,7 @@ tags: [seguranca]
 ## Auditoria (nov/2026) — ordem "hacker, macaco e mestre"
 1. **Hacker** (red team): [[Regras do Firestore]] reescritas (FB-02…FB-06), limites de ZIP (`data/Limites.kt`: texto 64 MB, imagem 25 MB por entrada; proteção contra zip slip), `FLAG_SECURE` aprovado, flavor `play` sem instalar pacotes, rotação da chave de assinatura ([[Assinatura do APK]]).
 2. **Macaco** (monkey test): `MacacoTest` com 3.000 textos caóticos + capítulo de 10 MB; ações sociais em fila/Mutex.
-3. **Mestre** (código limpo): feito em `Nuvem.kt`, `Publicacao.kt`, `Colaboracao.kt`, `web/nucleo.js`. **Falta: `TelaEditor.kt` e o resto** (ver [[Pendências]]).
+3. **Mestre** (código limpo): feito em `Nuvem.kt`, `Publicacao.kt`, `Colaboracao.kt`, `web/nucleo.js`, `ui/TelaEditor.kt` (ver [[Editor]]). **Falta: `TelaLeitor.kt`, `TelaObra.kt` e o resto** (ver [[Pendências]]).
 
 Decisões do autor: 1A (rotação de chave com linhagem), 2 sim (flavors), 3 sim (FLAG_SECURE).
 

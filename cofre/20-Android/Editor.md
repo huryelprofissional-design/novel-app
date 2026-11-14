@@ -11,4 +11,6 @@ tags: [android, pc, editor]
 - Os símbolos ficam no texto (decisão aprovada) e o editor mostra prévia.
 - Atalhos de teclado físico.
 - Lixeira para fichas e obras.
-- Próximo passo da auditoria "mestre": revisar `TelaEditor.kt` (ver [[Pendências]]).
+- **Um salvamento por vez** (`travaSalvar`, Mutex): o da pausa de 1,5 s, o dos 5 s, o de sair/minimizar e o de antes de dividir/juntar/mover. Antes dois podiam gravar juntos: o texto velho terminava por último e as palavras de hoje contavam em dobro.
+- Desfazer: botões e atalhos (B, I, efeito, fala, substituir, mover trecho) sempre viram um passo próprio (`passoNovo`), não se juntam com a digitação de antes.
+- Auditoria "mestre" do `TelaEditor.kt` feita em 2026-11-14 (ver [[Pendências]]).
