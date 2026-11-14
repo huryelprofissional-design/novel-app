@@ -1,6 +1,6 @@
 ---
 tags: [design]
-atualizado: 2026-11-08
+atualizado: 2026-11-14
 ---
 # Design V2 — editorial
 
@@ -43,5 +43,23 @@ Conceito enviado pelo autor em 2026-11-07 (PDFs/PNGs "Novely-V2-telas" e "Novely
 - Android: `ui/Editorial.kt` (objeto `Ed`, `Mono`, `Serif`, `BotaoCreme`, `BotaoLinha`, `CapaFaixa`, `BarraEditorial`, `TelaLer`, `TelaDescobrirEd`, `TelaMesa`, `TelaEu`), `ui/theme/Theme.kt` (paleta "Editorial", fontes `InstrumentSerif`, `PlexMono`).
 - PC: `web/v2.js` (rotas `/`, `/descobrir`, `/escrever`, `/perfil`), bloco `/* Novely V2 · editorial */` no fim de `web/estilo.css`, `casca()` em `web/nucleo.js`.
 
+## Telas novas (2026-11-14, escolhidas pelo autor: U3, U5–U12, U14, U15, U17, U18)
+| Tela | Celular | PC |
+|---|---|---|
+| U3 Editor de mesa limpa (ferramentas no botão ✎) | `TelaEditor.kt` (`ferrAbertas`) | `leitor.js` editor, `.editor.mesa`, `#bferr` |
+| U17 Foco de um parágrafo | `FocoParagrafo` (TelasV2) como `visualTransformation` | espelho atrás do textarea (`#espelho`), Ctrl+Shift+F |
+| U5 Ajustes como sumário | `TelaAjustesSumario` | `/ajustes` (`.aj-*`) |
+| U6 Relatório do mês | `TelaRelatorioMes` (rota `estatisticas`) | `/retro` (link "Seu mês no Novely") |
+| U7 Selos e extrato | `SelosConquistas`, `ExtratoMoedasV2`, `Moedas.extrato()` | perfil `.selos`, `extratoHTML`, `extratoMoedas()` no núcleo |
+| U8 Pódio | `PodioSemana` (perfil), `PodioPrimeiro` (Descobrir · Em alta) | `podioHTML` (Em alta / Ranking da semana) |
+| U9 Abertura com capitular | `AberturaV2` em `CabecalhoCapitulo` | `aberturaHTML` |
+| U10 Barra com mapa | `BarraComMapa` + `marcasMapa` | `ligarMapa` (`#mapa-cap`) |
+| U11 Fim de capítulo | `FimV2` | `fimCartaoHTML` (+ comentário em destaque no público) |
+| U12 Ouvir com quem fala | `FalandoAgora` + `Narrador.falante(i)` | `#bv-quem` + onda |
+| U14 Capa da semana | `PaginaCapaSemana` (1ª página das Linhas) | `capaDaSemana` no topo do Descobrir |
+| U15 Busca como comando | `TelaBusca` (obras, personagens, lugares do app, capítulos, trechos) | `/buscar` + Ctrl+K (trechos sob demanda) |
+| U18 Avisos como telegramas | `Telegrama` em `TelaAvisos` | `/avisos` (`.telegrama`) |
+Peças comuns do celular em `ui/TelasV2.kt` (`TopoV2`, `SecaoSumario`, `LinhaPontilhada`, `romanoV2`). CSS do PC no fim de `web/estilo.css` ("Telas novas").
+
 ## Ainda com visual antigo
-Telas internas (obra, editor, ajustes, painel…) só herdaram as cores. No perfil do celular, Ranking/Moedas/Conquistas/Citações ficaram no fim com o visual antigo.
+Página da obra, painel e fichas (U1, U2, U4, U13 e U16 não foram escolhidos). Proposta completa: https://claude.ai/artifact/TVnM24ACLrHNiZ7nmkwuCi

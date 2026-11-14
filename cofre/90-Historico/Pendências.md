@@ -5,7 +5,7 @@ atualizado: 2026-11-14
 # Pendências
 
 ## Esperando resposta do autor
-- [ ] **Telas novas** (2026-11-14): 18 ideias de UI no visual V2 (U1–U18, foco nas telas ainda antigas: obra, editor, ajustes, estatísticas, perfil; mais leitor, estante, busca, fichas, avisos) em https://claude.ai/artifact/TVnM24ACLrHNiZ7nmkwuCi. Esperando "Quero estas telas: …". Depois fazer no celular (`ui/Editorial.kt`) e no PC (`web/v2.js`).
+- [ ] **Telas novas no aparelho** (2026-11-14): as 13 escolhidas foram feitas no PC (visual conferido no Chromium com HTML de exemplo; sem login) e no celular (só compilou no CI). Pedir print, principalmente leitor (abertura, barra com mapa, fim, Ouvir), editor com ✎ e modo foco, e busca.
 - [ ] **Efeitos 2.0 no aparelho** (2026-11-14): os 55 foram feitos no PC (testados no Chromium) e no celular (só compilou no CI; ninguém viu a tela). Pedir print/retorno, principalmente de vibração, ovo/bilhete/foto (toque) e do HUD. No celular os títulos usam Instrument Serif no lugar da Cinzel e a fonte de pincel do sistema (Ma Shan Zheng ficaria pesada no APK).
 - [ ] **Vozes no PC lentas**: qual voz usa, se o problema é demorar a começar ou pausas, quantos núcleos o PC tem. Ver [[Vozes]].
 - [ ] **Vozes no celular**: retorno de uso real (pausas entre parágrafos, erro ao baixar).
@@ -16,7 +16,7 @@ atualizado: 2026-11-14
 
 ## Trabalho começado
 - [ ] Auditoria fase **mestre** (código limpo): `ui/TelaEditor.kt` feito em 2026-11-14 (falta o autor conferir no celular). Próximo: `TelaLeitor.kt`, depois `TelaObra.kt`.
-- [ ] Telas internas ainda no visual antigo (só herdaram cores): obra, ajustes, painel, estatísticas; no perfil do celular, Ranking/Moedas/Conquistas/Citações.
+- [ ] Telas internas ainda no visual antigo: página da obra, painel e fichas (as outras ganharam as telas novas em 2026-11-14).
 - [ ] Código antigo sem rota (`TelaInicioNova`, `TelaEscreverAba`, `TelaPerfilAba`, `TelaDescobrirCatalogo` como aba): avaliar remover.
 
 ## Ideias guardadas
