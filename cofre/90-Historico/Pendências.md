@@ -5,6 +5,7 @@ atualizado: 2026-11-14
 # Pendências
 
 ## Esperando resposta do autor
+- [ ] **Efeitos 2.0** (2026-11-14): proposta com 82 efeitos novos (N1–N82) + 10 melhorias do leitor (M1–M10) em https://claude.ai/artifact/9dTn3j9ZddXKzVNv9hvaEk. Os antigos continuam funcionando; os novos usam `[$nome …]` e `{$nome: …}`. Esperando a lista "Quero estes efeitos: …". Depois: receita [[Como criar um efeito novo]] nos dois lados.
 - [ ] **Vozes no PC lentas**: qual voz usa, se o problema é demorar a começar ou pausas, quantos núcleos o PC tem. Ver [[Vozes]].
 - [ ] **Vozes no celular**: retorno de uso real (pausas entre parágrafos, erro ao baixar).
 - [ ] **Regras etapa 2**: contadores em lote + ID de semana igual em todos os aparelhos — quer?
