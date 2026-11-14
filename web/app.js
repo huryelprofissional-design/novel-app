@@ -4,7 +4,7 @@ import {
   auth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   eu, colObras, getDoc, onSnapshot, doc, db, catalogo, urlBlob, notaTxt, imagemPub, imagemMinha, nomeAutor, novaObra, perguntar, dialogo,
   salvarPerfil, escolherArquivo, comprimirArquivo, enviarImagemMinha, publicarPerfil, STATUS_NOME, salvarObra, confirmar, apagarObra, perfilPub,
-  segueAutor, CONQUISTAS, colItens, getDocs, query, where, obraPub, esc as escapar, carteira, diarioMoedas,
+  segueAutor, CONQUISTAS, colItens, getDocs, query, where, obraPub, esc as escapar, carteira, diarioMoedas, EMAIL_DONO,
 } from "./nucleo.js";
 import { cartaoNivelHTML, ligarBau } from "./efeitos.js";
 import "./v2.js";
@@ -108,18 +108,21 @@ rota("/biblioteca(?:/(\\w+))?", async (aba = "LENDO") => {
 
 // ───────── AJUSTES ─────────
 rota("/ajustes", async () => {
+  const dono = (E.usuario.email || "").toLowerCase() === EMAIL_DONO;
+  const linha = (k, v, extra = "") => `<div class="aj-linha"${extra}><span>${k}</span><i></i><span class="aj-v">${v}</span></div>`;
+  const secao = (n, t, corpo) => `<section class="aj-sec"><div class="aj-cab"><span class="aj-rom">${n}</span><h2>${t}</h2></div>${corpo}</section>`;
   casca("perfil", `<div class="topo"><a class="voltar vidro" href="#/perfil">←</a><h1>Ajustes</h1></div>
-    <div class="lista-ajustes">
-      <div class="card"><b>Conta</b><div class="suave peq" style="margin:4px 0 12px">${esc(E.usuario.email || "")} — tudo fica salvo na nuvem e aparece no celular.</div><button class="btn2 peq" id="sair">Sair da conta</button></div>
-      <div class="card"><b>📱 Aparelhos conectados</b><div id="aparelhos" class="suave peq" style="margin-top:8px">Carregando…</div><div class="suave peq" style="margin-top:8px">Perdeu um celular? Desconecte aqui: ele sai da conta na próxima vez que ligar a internet.</div></div>
-      <a class="card" href="#/lixeira"><b>🗑 Lixeira</b><div class="suave peq" style="margin-top:4px">Capítulos, fichas e obras apagados nos últimos 30 dias</div></a>
-      <div class="card"><b>Conteúdo adulto</b><div class="suave peq" style="margin:4px 0 12px">Obras +18 pedem confirmação antes de abrir.</div>
-        <label class="troca"><input type="checkbox" id="m18" ${local.ler("maior18", false) ? "checked" : ""}> Tenho 18 anos ou mais</label></div>
-      <div class="card"><b>Instalar no Windows</b><div class="suave peq" style="margin-top:4px">No Chrome ou Edge: menu ⋯ › Aplicativos › Instalar este site como um aplicativo. O Novely abre como um programa e funciona sem internet com o que já foi aberto.</div></div>
-      <div class="card"><b>App para Android</b><div class="suave peq" style="margin:4px 0 12px">Mesma conta, tudo sincronizado.</div><a class="btn2 peq" href="https://github.com/huryelprofissional-design/novel-app/releases/latest/download/novely.apk">⬇ Baixar APK</a></div>
-      ${(E.usuario.email || "").toLowerCase() === "huryelprofissional@gmail.com" ? `<a class="card" href="#/dono"><b>Painel de dono</b><div class="suave peq" style="margin-top:4px">Obras do catálogo e pessoas</div></a>` : ""}
+    <div class="aj-sumario">
+      ${secao("I", "Conta", linha("E-mail", esc(E.usuario.email || "")) + linha("Nuvem", '<b style="color:var(--verde)">● em dia</b>') + `<div class="aj-acao"><button class="btn2 peq" id="sair">Sair da conta</button></div>`)}
+      ${secao("II", "Aparelhos", `<div id="aparelhos" class="aj-caixa suave peq">Carregando…</div><div class="aj-nota">Perdeu um celular? Desconecte aqui: ele sai da conta na próxima vez que ligar a internet.</div>`)}
+      ${secao("III", "Leitura", `<label class="aj-linha aj-troca"><span>Tenho 18 anos ou mais</span><i></i><input type="checkbox" id="m18" ${local.ler("maior18", false) ? "checked" : ""}></label><div class="aj-nota">Obras +18 pedem confirmação antes de abrir. Fonte, tamanho e fundo ficam no botão Leitura, dentro de um capítulo.</div>`)}
+      ${secao("IV", "Escrita", linha("Meta diária", (local.ler("metaDiaria", 1000)).toLocaleString("pt-BR") + " palavras", ' id="meta" role="button" tabindex="0"'))}
+      ${secao("V", "Dados", `<a class="aj-linha" href="#/lixeira"><span>Lixeira</span><i></i><span class="aj-v">30 dias →</span></a>`)}
+      ${secao("VI", "Aplicativos", `<a class="aj-linha" href="https://github.com/huryelprofissional-design/novel-app/releases/latest/download/novely.apk"><span>App para Android</span><i></i><span class="aj-v">Baixar APK →</span></a><div class="aj-nota">No Windows, pelo Chrome ou Edge: menu ⋯ › Aplicativos › Instalar este site como um aplicativo.</div>`)}
+      ${dono ? secao("VII", "Dono", `<a class="aj-linha" href="#/dono"><span>Painel de dono</span><i></i><span class="aj-v">Obras e pessoas →</span></a>`) : ""}
     </div>`);
   $("#sair").onclick = async () => { if (await confirmar("Sair da conta?", "Suas obras continuam salvas na nuvem.", "Sair")) { await X.sairDesteAparelho(); signOut(auth); } };
+  $("#meta").onclick = async () => { const r = await perguntar("Meta diária de palavras", String(local.ler("metaDiaria", 1000)), "1000"); const v = parseInt(r); if (v > 0) { local.gravar("metaDiaria", v); window.redesenhar(); } };
   const pintarAp = async () => {
     const caixa = $("#aparelhos"); if (!caixa) return;
     try { caixa.innerHTML = X.aparelhosHTML(await X.listaAparelhos()); } catch (_) { caixa.textContent = "Não deu para carregar agora."; }

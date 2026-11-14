@@ -217,6 +217,50 @@ export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
   }).join("");
 }
 
+// ───────── telas V2 do leitor: abertura (U9), fim (U11), mapa na barra (U10) ─────────
+const ESPECIAL = /^(pr[oó]logo|ep[ií]logo|interl[uú]dio)/i;
+export function romano(n) { let r = ""; for (const [v, s] of [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]) while (n >= v) { r += s; n -= v; } return r; }
+/** Número do capítulo na obra (prólogo/epílogo não contam). */
+function numeroCap(caps, i) { let n = 0; for (let k = 0; k <= i; k++) if (!ESPECIAL.test(caps[k]?.titulo || "")) n++; return ESPECIAL.test(caps[i]?.titulo || "") ? 0 : n; }
+const minLeitura = (p) => Math.max(1, Math.round((p || 0) / 230));
+/** Abertura do capítulo: número romano grande, título em serifa e uma linha laranja. */
+function aberturaHTML(o, c, caps, i, extra = "") {
+  const n = numeroCap(caps, i); const total = caps.filter((x) => !ESPECIAL.test(x.titulo || "")).length;
+  const esp = (c.titulo || "").match(ESPECIAL)?.[0];
+  return `<div class="cabec ab-cap"><div class="ab-rom">${n ? romano(n) : esc((esp || "◆").toUpperCase())}</div>
+    <h1 class="ab-tit">${esc((c.titulo || "Sem título").replace(/^cap[ií]tulo\s*\d+\s*[—–:-]\s*/i, ""))}</h1><i class="ab-linha"></i>
+    <div class="ab-meta">${esc(o.titulo)}${extra}</div>
+    <div class="ab-meta">${n ? `Cap. ${n} de ${total} · ` : ""}${palavrasFmt(c.palavras || 0)} palavras · ~${minLeitura(c.palavras)} min</div></div>`;
+}
+/** Cartão de fim de capítulo: título, (reações e comentário em destaque) e o próximo. */
+function fimCartaoHTML({ caps, i, link, meio = "", depois = "" }) {
+  const c = caps[i], prox = caps[i + 1], ant = caps[i - 1], n = numeroCap(caps, i);
+  return `<div class="fim fim-v2"><div class="fv-rot">Fim do ${n ? "capítulo " + n : esc((c.titulo || "capítulo").toLowerCase())}</div>
+    <div class="fv-tit">${esc(c.titulo || "")}</div>${meio}
+    ${prox ? `<div class="fv-prox"><div class="fv-rot">Próximo</div><div class="fv-ptit">${numeroCap(caps, i + 1) ? numeroCap(caps, i + 1) + " · " : ""}${esc(prox.titulo || "")}</div>
+      <div class="fv-rot">~${minLeitura(prox.palavras)} min · ${palavrasFmt(prox.palavras || 0)} palavras</div>
+      <a class="btn fv-bt" href="${link(prox)}">Ler agora <span>→</span></a>${depois}</div>`
+    : `<div class="fv-rot" style="margin-top:14px">Último capítulo${depois ? "" : " por enquanto"}.</div>${depois}`}
+    ${ant ? `<a class="fv-ant" href="${link(ant)}">‹ ${esc(ant.titulo || "Anterior")}</a>` : ""}</div>`;
+}
+/** Barra de progresso com o mapa do capítulo: cenas, efeitos e onde a pessoa parou. Tocar pula. */
+function ligarMapa(parouBloco = -1) {
+  $("#mapa-cap")?.remove();
+  const alt = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
+  const m = document.createElement("div"); m.id = "mapa-cap"; m.className = "mapa-cap"; m.setAttribute("aria-label", "Mapa do capítulo");
+  const marcas = [];
+  $$("#texto .sep").forEach((el) => marcas.push(["cena", el]));
+  $$("#texto .fx-bloco, #texto .sistema, #texto .aviso, #texto .item-obtido, #texto .pergaminho, #texto .impacto, #texto .fx2").forEach((el) => marcas.push(["fx", el]));
+  if (parouBloco > 1) { const el = $(`#texto [data-b="${parouBloco - 1}"]`); if (el) marcas.push(["parou", el]); }
+  m.innerHTML = `<div class="mc-trilho"></div><div class="mc-feito" id="prog"></div>` + marcas.map(([t, el], k) => `<button class="mc-${t}" data-k="${k}" title="${t === "cena" ? "Troca de cena" : t === "fx" ? "Efeito" : "Você parou aqui"}"></button>`).join("");
+  document.body.appendChild(m);
+  const pos = () => marcas.forEach(([, el], k) => { const b = m.querySelector(`[data-k="${k}"]`); if (b) b.style.left = Math.min(99.4, Math.max(0, (el.getBoundingClientRect().top + scrollY - innerHeight * .3) / alt() * 100)) + "%"; });
+  pos(); setTimeout(pos, 800);
+  m.onclick = (e) => { const b = e.target.closest("[data-k]"); if (!b) return; marcas[+b.dataset.k][1].scrollIntoView({ block: "center", behavior: "smooth" }); };
+  addEventListener("resize", pos);
+  return () => { removeEventListener("resize", pos); m.remove(); };
+}
+
 // ───────── maratona: no fim do capítulo, o próximo começa sozinho ─────────
 let contagem = null;
 function maratona(proxima) {
@@ -348,7 +392,8 @@ function mostrarBarraVoz(personagens) {
   const vel = local.ler("velVoz", 1), aberto = local.ler("vozesAbertas", false);
   const d = document.createElement("div"); d.id = "barra-voz"; d.className = "barra-voz";
   d.innerHTML = `
-    <div class="bv-topo"><span class="bv-ponto"></span><b>Ouvindo</b><span class="bv-onde" id="bv-onde"></span>
+    <div class="bv-quem"><span class="bv-rot">Falando agora</span><div class="bv-qlin"><b id="bv-quem">Narrador</b><span class="bv-onda">${"<i></i>".repeat(14)}</span></div></div>
+    <div class="bv-topo"><span class="bv-ponto"></span><span class="bv-onde" id="bv-onde"></span>
       <button class="bv-tela" id="bv-tela" hidden>Ouvir o que está na tela</button></div>
     <div class="bv-trilho"><div class="bv-feito" id="bv-feito"></div></div>
     <div class="bv-linha">
@@ -457,6 +502,7 @@ function ouvir(apartir = 0) {
       if (falando === null || minha !== geracao) return;
       if (k >= lista.length) { i++; prox(); return; }
       const s = lista[k++]; const e = vozesPers && s.quem ? elenco.get(s.quem) : null;
+      const q = $("#bv-quem"); if (q) q.textContent = s.quem ? (fichasVoz.find((f) => f.id === s.quem)?.nome || "Personagem") : "Narrador";
       const n = neuralDe(s);
       if (n) {
         if (!NV.tocouAlgo()) { const o = $("#bv-onde"); if (o) o.textContent = "Preparando a voz… (só demora na primeira vez)"; }
@@ -519,17 +565,16 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   const grifos = new Map(mks.filter((m) => m.cap === capId).map((m) => [m.bloco, m]));
   const ant = caps[i - 1], prox = caps[i + 1];
   const pode = o.minha && !o.trancada;
+  let pararMapa = null;
   const { imagemMinha } = await import("./nucleo.js");
   await corDoLeitor(o.capaHash ? await imagemMinha(obraId + "-capa") : null, o.corBase);
   const desenhar = () => {
-    casca(aba, `<div class="prog" id="prog"></div><div class="leitor tema-leitura" style="${estiloLeitura()}">
+    casca(aba, `<div class="leitor tema-leitura" style="${estiloLeitura()}">
       ${hudTopo(`#/obra/${obraId}`, `${esc(o.titulo)} · ${esc(c.titulo)}`, pode ? `#/editar/${obraId}/${capId}` : "")}${hudBaixo()}
-      <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo || "Sem título")}</h1><div class="suave peq">${palavrasFmt(c.palavras || 0)} palavras · ◷ ${Math.max(1, Math.round((c.palavras || 0) / 230))} min</div></div>
+      ${aberturaHTML(o, c, caps, i)}
       ${(c.progresso || 0) < .05 ? cartaoAnterior(ant) : ""}
       <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fs), grifos, { enfeite: o.enfeite, autor: o.autor || nomeAutor() }) || '<p class="suave">Capítulo vazio.</p>'}</div>
-      <div class="fim"><div class="losango" style="width:14px;height:14px"></div><div class="rotulo" style="color:var(--suave)">Fim do capítulo</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${ant ? `<a class="btn2" href="#/ler/${obraId}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/ler/${obraId}/${prox.id}">Próximo: ${esc(prox.titulo)} ›</a>` : `<span class="suave">Último capítulo.</span>`}</div>
-        ${!prox && o.status === "LENDO" && !o.minha ? `<button class="btn2 peq" id="concluir">Marcar obra como lida</button>` : ""}</div>
+      ${fimCartaoHTML({ caps, i, link: (x) => `#/ler/${obraId}/${x.id}`, depois: !prox && o.status === "LENDO" && !o.minha ? `<button class="btn2 peq" id="concluir" style="margin-top:10px">Marcar obra como lida</button>` : prox ? `<a class="btn2 fv-bt2" href="#/obra/${obraId}">Voltar à obra</a>` : "" })}
       <p class="suave peq dica-leitor">Dica: clique num nome para ver a ficha · clique com o botão direito num parágrafo para grifar · ← → trocam de capítulo</p></div>`);
     ligar();
   };
@@ -537,7 +582,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
     ligarNomes(fs, async (f) => (f.imagemHash ? (await import("./nucleo.js")).imagemMinha(f.id + "-foto") : null));
     fichasVoz = fs; traduzirTela();
     if ($("#ouvir")) $("#ouvir").onclick = () => ouvir(blocoNaTela());
-    ligarHud();
+    ligarHud(); pararMapa?.(); pararMapa = ligarMapa(c.posicaoBloco || -1);
     $("#aj").onclick = () => painelAjustes(() => { $(".leitor").setAttribute("style", estiloLeitura()); });
     if ($("#lcaps")) $("#lcaps").onclick = () => painelCapitulos(caps, capId, (x) => `#/ler/${obraId}/${x.id}`);
     const cc = $("#concluir"); if (cc) cc.onclick = async () => { await salvarObra(obraId, { status: "CONCLUIDA" }); toast("Obra marcada como lida"); cc.remove(); };
@@ -570,7 +615,7 @@ rota("/ler/(\\w+)/(\\w+)", async (obraId, capId) => {
   window.onscroll = () => { aoRolar(); fimXp(); maratona(prox && `/ler/${obraId}/${prox.id}`); }; aoRolar();
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/ler/${obraId}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/ler/${obraId}/${ant.id}`); };
   const desligarClima = (() => { const a = ligarClima(), z = ligarEfeitosTexto(); return () => { a(); z(); }; })();
-  E.saindo = async () => { pararVoz(); desligarClima(); };
+  E.saindo = async () => { pararVoz(); desligarClima(); pararMapa?.(); };
 });
 
 function menuParagrafo(p, bloco, obraId, capId, grifos, redesenhar) {
@@ -605,7 +650,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
   const c = caps.find((x) => x.id === capId); if (!c) { ir(`/obra/${obraId}`); return; }
   const [original, fs] = await Promise.all([lerTexto(colTextos(), capId, c.partes), fichas(obraId).catch(() => [])]);
   const i = caps.indexOf(c);
-  casca("escrever", `<div class="editor">
+  casca("escrever", `<div class="editor mesa${local.ler("ferrAbertas", false) ? " ferr-aberta" : ""}">
     <div class="barra-ed vidro"><a class="voltar" href="#/obra/${obraId}" title="Voltar">←</a><input class="titulo" id="titulo" value="${esc(c.titulo || "")}" placeholder="Título do capítulo">
       <span class="estado suave" id="estado">Salvo</span>${i > 0 ? `<a class="btn2 peq" href="#/editar/${obraId}/${caps[i - 1].id}" title="Capítulo anterior">‹</a>` : ""}${i < caps.length - 1 ? `<a class="btn2 peq" href="#/editar/${obraId}/${caps[i + 1].id}" title="Próximo capítulo">›</a>` : ""}<a class="btn2 peq" href="#/ler/${obraId}/${capId}">Ler</a></div>
     <div class="ferramentas-ed vidro">
@@ -617,7 +662,8 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     <div class="busca-ed vidro" id="busca" hidden><input class="campo" id="q" placeholder="Buscar…"><input class="campo" id="r" placeholder="Substituir por…"><span class="suave peq" id="qn"></span>
       <button class="btn2 peq" id="qant">‹</button><button class="btn2 peq" id="qprox">›</button><button class="btn2 peq" id="rum">Substituir</button><button class="btn2 peq" id="rtodos">Todos</button><button class="btn2 peq" id="qx">✕</button></div>
     <div class="sugestoes-ed" id="sug" hidden></div>
-    <textarea id="txt" spellcheck="true" placeholder="Escreva aqui… (@Personagem, descrição · &Lugar, descrição)"></textarea>
+    <div class="ed-area"><div class="espelho" id="espelho" aria-hidden="true"></div><textarea id="txt" spellcheck="true" placeholder="Escreva aqui… (@Personagem, descrição · &Lugar, descrição)"></textarea></div>
+    <button class="ed-ferr" id="bferr" title="Ferramentas (B, I, fala, efeitos, fichas…)" aria-label="Ferramentas">✎</button>
     <div class="texto previa-ed" id="prev" hidden></div>
     <div class="rodape-ed suave peq"><span id="cont" style="cursor:pointer" title="Contagem completa"></span><span id="sessao"></span></div></div>`);
   const ta = $("#txt"), ti = $("#titulo"), est = $("#estado"), cont = $("#cont");
@@ -679,7 +725,19 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     d.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { d.close?.(); d.remove?.(); const x = b.dataset.x; if (x === "((" || x === "<<" || x === "{") { const f = x === "((" ? "))" : x === "<<" ? ">>" : "}"; const a = ta.selectionStart, z = ta.selectionEnd; ta.setRangeText(x + ta.value.slice(a, z) + f, a, z, "end"); ta.dispatchEvent(new Event("input")); ta.focus(); } else inserir(x, b.hasAttribute("data-e")); }));
   };
   $("[data-fala]").onclick = () => { const a = ta.selectionStart; const antes = ta.value.slice(0, a); inserir((antes && !antes.endsWith("\n") ? "\n\n" : "") + "— "); };
-  $("#bfoco").onclick = () => document.body.classList.toggle("foco");
+  // U3 mesa limpa: as ferramentas ficam guardadas no botão redondo
+  $("#bferr").onclick = () => { const ed = $(".editor"); const ab = !ed.classList.contains("ferr-aberta"); ed.classList.toggle("ferr-aberta", ab); local.gravar("ferrAbertas", ab); };
+  // U17 foco de um parágrafo: um espelho atrás do texto deixa aceso só o parágrafo do cursor
+  const espelho = $("#espelho");
+  const pintarFoco = () => {
+    if (!document.body.classList.contains("foco")) return;
+    const v = ta.value, cur = ta.selectionStart; const ini = v.lastIndexOf("\n", cur - 1) + 1; let fim = v.indexOf("\n", cur); if (fim < 0) fim = v.length;
+    espelho.innerHTML = esc(v.slice(0, ini)) + `<mark>${esc(v.slice(ini, fim)) || " "}</mark>` + esc(v.slice(fim)) + "\n";
+    espelho.scrollTop = ta.scrollTop;
+  };
+  ["input", "click", "keyup", "select"].forEach((ev) => ta.addEventListener(ev, pintarFoco));
+  ta.addEventListener("scroll", () => { if (document.body.classList.contains("foco")) espelho.scrollTop = ta.scrollTop; });
+  $("#bfoco").onclick = () => { document.body.classList.toggle("foco"); pintarFoco(); ta.focus(); };
   // máquina de escrever: papel, letra de máquina, som de cada tecla e a linha atual sempre no meio da tela
   const maq = maquinaDeEscrever(ta);
   $("#bmaq").classList.toggle("on", maq.ligada());
@@ -726,6 +784,7 @@ rota("/editar/(\\w+)/(\\w+)", async (obraId, capId) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b" && document.activeElement === ta) { e.preventDefault(); inserir("**", true); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i" && document.activeElement === ta) { e.preventDefault(); inserir("*", true); }
     if (e.key === "Escape") { sug.hidden = true; document.body.classList.remove("foco"); }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); $("#bfoco").click(); }
   };
   // ── vindos do celular: salva a cada 5 s digitando, rascunho de emergência, versões, contagem e prévia ──
   const cada5 = setInterval(() => { if (!gravando && (ta.value !== salvo || ti.value !== tituloSalvo)) salvar(); }, 5000);
@@ -793,13 +852,15 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   const [gostei, coms] = await Promise.all([curtiu(pid, cid), comentarios(pid, cid).catch(() => [])]);
   const fichasLista = fs.map((f) => ({ ...f, id: f.id }));
   const porTrecho = new Map(); for (const m of coms) if ((m.bloco ?? -1) >= 0) porTrecho.set(m.bloco, (porTrecho.get(m.bloco) || 0) + 1);
-  casca("descobrir", `<div class="prog" id="prog"></div><div class="leitor tema-leitura" style="${estiloLeitura()}">${hudTopo(`#/pub/${pid}`, `${esc(o.titulo)} · ${esc(c.titulo)}`, "")}${hudBaixo()}
-    <div class="cabec"><div class="rotulo">${esc(o.titulo)}</div><h1>${esc(c.titulo)}</h1><div class="suave peq">por <a href="#/autor/${esc(o.autorUid)}" style="text-decoration:underline">${esc(o.autorNome)}</a> · ${palavrasFmt(c.palavras)} palavras</div></div>
+  const destaque = [...coms].filter((m) => (m.bloco ?? -1) < 0 && (m.texto || "").length > 8).sort((a, b) => (b.curtidas || 0) - (a.curtidas || 0) || (b.em || 0) - (a.em || 0))[0];
+  casca("descobrir", `<div class="leitor tema-leitura" style="${estiloLeitura()}">${hudTopo(`#/pub/${pid}`, `${esc(o.titulo)} · ${esc(c.titulo)}`, "")}${hudBaixo()}
+    ${aberturaHTML(o, c, caps, i, ` · por <a href="#/autor/${esc(o.autorUid)}" style="text-decoration:underline">${esc(o.autorNome)}</a>`)}
     ${cartaoAnterior(ant)}
     <div class="texto" id="texto">${htmlTexto(texto, mapaNomes(fichasLista), new Map(), { enfeite: o.enfeite, coms: porTrecho, autor: o.autorNome })}</div>
-    <div class="fim">${fimHTML(i + 1, caps.length, i + 1)}${await reacoesHTML(pid, cid)}
-      <div class="social"><button class="btn2 ${gostei ? "on" : ""}" id="curtir">${gostei ? "♥" : "♡"} <span id="nc">${c.curtidas || 0}</span></button><span class="suave">💬 ${coms.length}</span></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${ant ? `<a class="btn2" href="#/publer/${pid}/${ant.id}">‹ Anterior</a>` : ""}${prox ? `<a class="btn" href="#/publer/${pid}/${prox.id}">Próximo ›</a>` : `<span class="suave">Último capítulo publicado.</span>`}</div></div>
+    ${fimCartaoHTML({ caps, i, link: (x) => `#/publer/${pid}/${x.id}`,
+      meio: `${await reacoesHTML(pid, cid)}<div class="social"><button class="btn2 ${gostei ? "on" : ""}" id="curtir">${gostei ? "♥" : "♡"} <span id="nc">${c.curtidas || 0}</span></button><span class="suave">💬 ${coms.length}</span></div>
+        ${destaque ? `<blockquote class="fv-com">“${esc(destaque.texto.slice(0, 220))}”<span>${esc(destaque.nome || "")}${destaque.curtidas ? " · " + destaque.curtidas + " ♥" : ""}</span></blockquote>` : ""}`,
+      depois: prox ? `<a class="btn2 fv-bt2" href="#/pub/${pid}">Voltar à obra</a>` : "" })}
     <div class="comentarios vidro"><h3 style="margin-top:0">Comentários</h3>
       <div style="display:flex;gap:10px"><textarea class="campo" id="com" rows="2" placeholder="O que achou do capítulo?"></textarea><button class="btn peq" id="enviar">Enviar</button></div>
       <div id="lcom">${coms.map((m) => `<div class="comentario"><span class="av" style="width:34px;height:34px">${esc((m.nome || "?").slice(0, 1))}</span><div style="flex:1"><b>${esc(m.nome)}</b> <span class="suave peq">${haQuanto(m.em)}</span><div>${esc(m.texto)}</div></div>${m.uid === E.usuario.uid || o.autorUid === E.usuario.uid ? `<button class="btn2 peq" data-ac="${m.id}">Apagar</button>` : ""}</div>`).join("") || `<p class="suave">Seja o primeiro a comentar.</p>`}</div></div></div>`);
@@ -814,6 +875,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   ligarReacoes();
   $$("[data-ac]").forEach((b) => (b.onclick = async () => { if (await confirmar("Apagar comentário?", "", "Apagar", true)) { await apagarComentario(pid, cid, b.dataset.ac); window.redesenhar(); } }));
   scrollTo(0, 0);
+  const pararMapa = ligarMapa();
   contarLeitura(pid, cid);
   $$("[data-trecho]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); comentariosTrecho(pid, cid, +b.dataset.trecho, b.closest("p").textContent.replace(/💬.*$/, "").trim(), coms); }));
   // progresso de quem segue: guarda o último capítulo lido nesta obra
@@ -833,7 +895,7 @@ rota("/publer/(\\w+)/(\\w+)", async (pid, cid) => {
   window.onscroll = () => { aoRolar(); medir(); };
   window.onkeydown = (e) => { if (e.target.closest("input,textarea,dialog")) return; if (e.key === "ArrowRight" && prox) ir(`/publer/${pid}/${prox.id}`); if (e.key === "ArrowLeft" && ant) ir(`/publer/${pid}/${ant.id}`); };
   const desligarClima = (() => { const a = ligarClima(), z = ligarEfeitosTexto(); return () => { a(); z(); }; })();
-  E.saindo = async () => { document.removeEventListener("visibilitychange", aoEsconder); enviar(); pararVoz(); desligarClima(); };
+  E.saindo = async () => { document.removeEventListener("visibilitychange", aoEsconder); enviar(); pararVoz(); desligarClima(); pararMapa(); };
 });
 
 // ───────── REVISÃO (notas de revisores) ─────────

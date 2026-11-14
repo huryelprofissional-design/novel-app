@@ -2,7 +2,7 @@
 import {
   E, $, $$, esc, raiz, toast, milhar, corHex, local, lista, capaHTML, preencherCapas, casca, carregando, rota, ir, catalogo, urlBlob, imagemPub, imagemMinha,
   nomeAutor, novaObra, perguntar, dialogo, salvarPerfil, escolherArquivo, comprimirArquivo, enviarImagemMinha, perfilPub, segueAutor, seguirAutor, seguindo, seguir,
-  capitulos, capsPub, lerTexto, collection, db, CONQUISTAS, carteira, GENEROS,
+  capitulos, capsPub, lerTexto, collection, db, CONQUISTAS, carteira, GENEROS, extratoMoedas,
 } from "./nucleo.js";
 import { infoNivel, tituloNivel, missoes, bauPronto, celebrar } from "./efeitos.js";
 
@@ -94,6 +94,7 @@ async function primeiraFrase(o) {
 rota("/descobrir(?:/(\\w+))?", async (modo = "LINHAS") => {
   if (!MODOS[modo]) modo = "LINHAS";
   casca("descobrir", `<div class="ed-cab"><h1 class="ed-h1 grande">Descobrir</h1><label class="ed-busca">${'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>'}<input id="q" placeholder="Obras, autores, tags"></label><a class="ed-btn2 peq" href="#/generos">Gêneros</a></div>
+    ${modo === "LINHAS" ? `<section class="capa-semana" id="capa-semana"></section>` : ""}
     <nav class="ed-abas-l">${Object.entries(MODOS).map(([k, n]) => `<a href="#/descobrir/${k}" class="${k === modo ? "on" : ""}">${n}</a>`).join("")}</nav>
     <div class="ed-desc"><div id="principal"><div class="ed-mono" style="padding:40px 0">Carregando…</div></div>
       <aside><div class="ed-sec"><h2 class="ed-h2">Em alta</h2><span class="ed-mono">Esta semana</span></div><div id="alta"></div>
@@ -105,8 +106,10 @@ rota("/descobrir(?:/(\\w+))?", async (modo = "LINHAS") => {
     l = modo === "LINHAS" ? [...new Map([...alta, ...(await catalogo("NOVIDADES").catch(() => []))].map((o) => [o.id, o])).values()] : await catalogo(modo);
   } catch (e) { const p = $("#principal"); if (p) p.innerHTML = `<p class="erro">Sem conexão com o catálogo.</p>`; return; }
   const elA = $("#alta"); if (elA) elA.innerHTML = alta.slice(0, 5).map((o, i) => linhaRank(o, i + 1)).join("") || `<p class="suave">Nada ainda.</p>`;
+  if (alta[0]) capaDaSemana(alta[0]);
   const p = $("#principal"); if (!p) return;
-  if (modo !== "LINHAS") { p.innerHTML = l.length ? l.map((o, i) => linhaRank(o, modo === "ALTA" || modo === "SEMANA" ? i + 1 : 0)).join("") : `<p class="suave">Nada por aqui ainda.</p>`; return; }
+  if (modo === "ALTA" || modo === "SEMANA") { p.innerHTML = l.length ? podioHTML(l) : `<p class="suave">Nada por aqui ainda.</p>`; return; }
+  if (modo !== "LINHAS") { p.innerHTML = l.length ? l.map((o) => linhaRank(o, 0)).join("") : `<p class="suave">Nada por aqui ainda.</p>`; return; }
   if (!l.length) { p.innerHTML = `<p class="suave">Quando houver obras publicadas, as primeiras linhas aparecem aqui.</p>`; return; }
   // embaralha uma vez por dia
   let s = new Date().getDate(); l.sort(() => ((s = (s * 9301 + 49297) % 233280) / 233280) - .5);
@@ -129,6 +132,23 @@ rota("/descobrir(?:/(\\w+))?", async (modo = "LINHAS") => {
   window.onkeydown = (e) => { if (e.target.closest("input,textarea")) return; if (e.key === "ArrowDown" && i < l.length - 1) { i++; mostrar(); } if (e.key === "ArrowUp" && i > 0) { i--; mostrar(); } };
   mostrar();
 });
+/** Semana do ano (ISO), para o número da "edição". */
+function semanaDoAno(d = new Date()) { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dia = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - dia); const ini = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - ini) / 864e5 + 1) / 7); }
+// U14: capa de revista com a obra mais lida da semana e a primeira frase do capítulo 1
+async function capaDaSemana(o) {
+  const el = $("#capa-semana"); if (!el) return;
+  const img = await imagemPub(o.id, "capa").catch(() => null) || (o.capaMini ? urlBlob(o.capaMini) : null);
+  el.innerHTML = `<a class="cs-img" href="#/pub/${o.id}" style="${img ? `background-image:url('${img}')` : ""}"><div class="cs-topo"><span>Capa da semana</span><span>Edição ${semanaDoAno()}</span></div>
+    <div class="cs-base"><h2>${esc(o.titulo)}</h2><span>por ${esc(o.autorNome || "")}${(o.generos || [])[0] ? " · " + esc(o.generos[0]) : ""}</span></div></a>
+    <div class="cs-lado"><p class="cs-frase" id="cs-frase">…</p><a class="ed-btn" href="#/pub/${o.id}">Ler o capítulo 1 <span>→</span></a></div>`;
+  const f = await primeiraFrase(o).catch(() => ""); const fr = $("#cs-frase"); if (fr) fr.innerHTML = f ? `“${esc(f)}”` : esc(o.sinopse || "").slice(0, 220);
+}
+// U8: pódio tipográfico — o 1º gigante, o resto em lista; a obra de quem lê fica em laranja
+function podioHTML(l) {
+  const [a, ...r] = l; const meu = (o) => o.autorUid === E.usuario.uid;
+  return `<a class="podio-1${meu(a) ? " minha" : ""}" href="#/pub/${a.id}"><b>1</b><span class="ed-mini g">${a.capaMini ? `<img src="${urlBlob(a.capaMini)}">` : ""}</span><div><h3>${esc(a.titulo)}</h3><span class="ed-mono">${esc(a.autorNome || "")} · ${mil(a.leituras || 0)} leituras</span></div></a>
+    ${r.map((o, k) => `<a class="podio-l${meu(o) ? " minha" : ""}" href="#/pub/${o.id}"><b>${k + 2}</b><span>${esc(o.titulo)}</span><span class="ed-mono">${esc(o.autorNome || "")}</span></a>`).join("")}`;
+}
 function linhaRank(o, pos) {
   return `<a class="ed-linha" href="#/pub/${o.id}">${pos ? `<b class="ed-pos ${pos === 1 ? "laranja" : ""}">${pos}</b>` : ""}<span class="ed-mini">${o.capaMini ? `<img src="${urlBlob(o.capaMini)}">` : ""}</span>
     <div style="flex:1;min-width:0"><div class="ed-nome">${esc(o.titulo)}</div><div class="suave peq">${esc(o.autorNome)} · ${o.numCaps || 0} caps</div></div>${o.classificacao === "18" ? `<span class="ed-18">+18</span>` : ""}</a>`;
@@ -220,9 +240,41 @@ rota("/perfil", async () => {
   const b = $("#bau"); if (b) b.onclick = () => { local.gravar("bau", new Date().toISOString().slice(0, 10)); local.gravar("xp", local.ler("xp", 0) + 50); celebrar("🎁", "Baú aberto!", "+50 XP de bônus"); window.redesenhar(); };
   preencherCapas();
   const ganhas = new Set((E.perfil.conquistas || "").split(",").filter(Boolean));
-  carteira().then((c) => { const el = $("#moedas"); if (el) el.innerHTML = `<div class="ed-sec" style="margin-top:30px"><span class="ed-mono">Moedas</span><span class="ed-mono laranja">${c.saldo}</span></div><p class="suave peq">Grátis, para ler capítulos antes de todo mundo. Ganhe abrindo o Novely (+3 por dia), terminando capítulos e comentando.</p>`; }).catch(() => {});
+  carteira().then((c) => { const el = $("#moedas"); if (el) el.innerHTML = extratoHTML(c.saldo); }).catch(() => {});
   $("#conquistas").innerHTML = `<div class="ed-sec" style="margin-top:22px"><span class="ed-mono">Conquistas</span><span class="ed-mono">${ganhas.size} de ${CONQUISTAS.length}</span></div>
-    <div class="ed-conq">${[...CONQUISTAS].sort((a, b) => ganhas.has(b[0]) - ganhas.has(a[0])).map(([id, ic, t]) => `<span class="${ganhas.has(id) ? "on" : ""}" title="${esc(t)}">${ic}</span>`).join("")}</div>`;
+    <div class="selos">${[...CONQUISTAS].sort((a, b) => ganhas.has(b[0]) - ganhas.has(a[0])).map(([id, ic, t]) => `<span class="selo-l${ganhas.has(id) ? " on" : ""}" title="${esc(t)}${ganhas.has(id) ? "" : " (falta)"}"><i>${ganhas.has(id) ? ic : "?"}</i><small>${esc(t)}</small></span>`).join("")}</div>`;
+});
+
+// U7: moedas como extrato de conta
+function extratoHTML(saldo) {
+  const l = extratoMoedas().slice(0, 8); const d = (t) => new Date(t).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "");
+  return `<div class="ed-sec" style="margin-top:30px"><span class="ed-mono">Moedas</span><span class="ed-mono" style="color:var(--creme)">${saldo}</span></div>
+    <div class="extrato">${l.length ? l.map((x) => `<div><span class="ed-mono">${d(x.em)}</span><span>${esc(x.motivo)}</span><b class="${x.qtd >= 0 ? "mais" : "menos"}">${x.qtd >= 0 ? "+" : "−"}${Math.abs(x.qtd)}</b></div>`).join("")
+      : `<p class="suave peq">Grátis, para ler capítulos antes de todo mundo. Ganhe lendo e voltando todo dia. O extrato aparece aqui.</p>`}</div>`;
+}
+
+// ───────── U6: relatório do mês (#/retro) ─────────
+rota("/retro", async () => {
+  const m = local.ler("escritaDias", {}); const hoje = new Date(); const ano = hoje.getFullYear(), mes = hoje.getMonth();
+  const dias = new Date(ano, mes + 1, 0).getDate(); const id = (d) => `${ano}${String(mes + 1).padStart(2, "0")}${String(d).padStart(2, "0")}`;
+  const vals = Array.from({ length: dias }, (_, k) => m[id(k + 1)] || 0); const total = vals.reduce((a, b) => a + b, 0), max = Math.max(1, ...vals);
+  const pm = new Date(ano, mes - 1, 1); const idA = (d) => `${pm.getFullYear()}${String(pm.getMonth() + 1).padStart(2, "0")}${String(d).padStart(2, "0")}`;
+  const totalAnt = Array.from({ length: 31 }, (_, k) => m[idA(k + 1)] || 0).reduce((a, b) => a + b, 0);
+  const comp = totalAnt ? Math.round((total / totalAnt - 1) * 100) : null;
+  const melhor = vals.reduce((b, v, k) => (v > b[0] ? [v, k + 1] : b), [0, 0]);
+  const escritos = vals.filter((v) => v > 0).length; const seq = diasSeguidos();
+  const nomeMes = hoje.toLocaleDateString("pt-BR", { month: "long" }); const Mes = nomeMes[0].toUpperCase() + nomeMes.slice(1);
+  const todosCaps = (await Promise.all(lista().filter((o) => o.minha && !o.trancada).map((o) => capitulos(o.id).catch(() => [])))).flat(); const comData = todosCaps.some((c) => c.criadoEm);
+  const caps = todosCaps.filter((c) => { const t = new Date(c.criadoEm || 0); return t.getFullYear() === ano && t.getMonth() === mes; }).length;
+  const frase = !total ? "Ainda não há palavras neste mês. A primeira linha é a mais difícil." : comp !== null && comp > 0 ? `${comp}% a mais que o mês passado. Continue assim.` : escritos >= 15 ? "Mais da metade dos dias com escrita. Isso é constância." : "Cada dia escrito conta. O mês ainda não acabou.";
+  casca("perfil", `<article class="relatorio"><div class="topo"><a class="voltar vidro" href="#/perfil">←</a></div>
+    <div class="ed-mono">${Mes} · relatório</div><div class="rel-num">${total.toLocaleString("pt-BR")}</div>
+    <div class="ed-mono">palavras escritas${comp !== null ? ` · ${comp >= 0 ? "+" : ""}${comp}% que o mês passado` : ""}</div>
+    <div class="rel-barras">${vals.map((v, k) => `<i title="${k + 1}: ${v.toLocaleString("pt-BR")} palavras" class="${k + 1 === hoje.getDate() ? "hoje" : v ? "" : "zero"}" style="height:${v ? Math.max(4, v / max * 100) : 2}%"></i>`).join("")}</div>
+    <div class="rel-eixo ed-mono"><span>1</span><span>hoje · ${hoje.getDate()}</span><span>${dias}</span></div>
+    <div class="rel-linhas">${[["Maior dia", melhor[0] ? `${melhor[0].toLocaleString("pt-BR")} palavras · dia ${melhor[1]}` : "—"], ["Dias com escrita", `${escritos} de ${hoje.getDate()}`], ["Sequência", `${seq} ${seq === 1 ? "dia" : "dias"}`], ...(comData ? [["Capítulos novos", String(caps)]] : []), ["Média por dia escrito", escritos ? Math.round(total / escritos).toLocaleString("pt-BR") : "—"]]
+      .map(([k, v]) => `<div class="aj-linha"><span>${k}</span><i></i><span class="aj-v">${v}</span></div>`).join("")}</div>
+    <p class="rel-frase">“${esc(frase)}”</p></article>`);
 });
 
 function editarPerfil(foto, banner) {

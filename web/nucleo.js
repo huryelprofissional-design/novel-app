@@ -425,19 +425,23 @@ async function gravarCarteira() {
   document.querySelectorAll("[data-saldo]").forEach((el) => (el.textContent = c.saldo));
 }
 /** Ganha moedas com limite por dia por motivo; [unico] evita ganhar duas vezes pela mesma coisa. */
+/** Extrato das moedas neste aparelho (últimas 60 entradas). */
+const MOTIVO_MOEDA = { leitura: "Capítulo lido", diario: "Moeda do dia", desbloqueio: "Capítulo desbloqueado", missao: "Missão diária", curtida: "Curtida recebida" };
+function anotarExtrato(qtd, motivo) { const l = local.ler("extratoMoedas", []); l.unshift({ em: agora(), qtd, motivo: MOTIVO_MOEDA[motivo] || motivo }); local.gravar("extratoMoedas", l.slice(0, 60)); }
+export const extratoMoedas = () => local.ler("extratoMoedas", []);
 export async function ganharMoedas(qtd, motivo, limite, unico) {
   const c = await carteira(); const reg = local.ler("moedasDia", {}); const k = hojeId() + "|" + motivo;
   if (unico) { const u = local.ler("moedasUnicas", {}); if (u[unico]) return 0; u[unico] = 1; local.gravar("moedasUnicas", u); }
   const dar = Math.max(0, Math.min(qtd, limite - (reg[k] || 0))); if (!dar) return 0;
   for (const x of Object.keys(reg)) if (!x.startsWith(hojeId())) delete reg[x];
   reg[k] = (reg[k] || 0) + dar; local.gravar("moedasDia", reg);
-  c.saldo += dar; await gravarCarteira(); return dar;
+  c.saldo += dar; anotarExtrato(dar, motivo); await gravarCarteira(); return dar;
 }
 export async function diarioMoedas() { if (local.ler("moedaDiariaPC", "") === hojeId()) return 0; local.gravar("moedaDiariaPC", hojeId()); return ganharMoedas(3, "diario", 3); }
 export const liberado = (pid, cid) => !!E.carteira?.liberados.includes(pid + "/" + cid);
 export async function gastarMoedas(qtd, pid, cid) {
   const c = await carteira(true); if (c.liberados.includes(pid + "/" + cid)) return true; if (c.saldo < qtd) return false;
-  c.saldo -= qtd; c.liberados.push(pid + "/" + cid); await gravarCarteira();
+  c.saldo -= qtd; c.liberados.push(pid + "/" + cid); anotarExtrato(-qtd, "desbloqueio"); await gravarCarteira();
   try { await updateDoc(doc(colPub(), pid), { desbloqueios: increment(1) }); } catch (_) {}
   return true;
 }

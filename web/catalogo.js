@@ -3,7 +3,7 @@ import {
   E, $, $$, esc, raiz, agora, toast, milhar, palavrasFmt, haQuanto, dataFmt, recente, casca, carregando, rota, ir, local, lista, urlBlob, notaTxt,
   catalogo, obraPub, capsPub, imagemPub, seguindo, seguir, minhaNota, avaliar, perfilPub, obrasDoAutor, segueAutor, seguirAutor, GENEROS, GENEROS_GRUPOS,
   corGenero, dialogo, confirmar, perguntar, entrarColab, minhasColabs, sairColab, capsRevisao, sugerir, colPub, getDocs, query, orderBy, limit,
-  fichasPub, EMAIL_DONO, collection, db, doc, getDoc, carteira, liberado, gastarMoedas,
+  fichasPub, EMAIL_DONO, collection, db, doc, getDoc, carteira, liberado, gastarMoedas, capitulos, fichas, lerTexto, colTextos,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
 
@@ -26,25 +26,55 @@ rota("/genero/(.+)", async (g) => {
 });
 
 // ───────── BUSCAR ─────────
+const LUGARES = [["Ajustes", "#/ajustes", "conta, aparelhos, meta diária"], ["Lixeira", "#/lixeira", "capítulos, fichas e obras apagados"], ["Avisos", "#/avisos", "novos capítulos de quem você segue"],
+  ["Gêneros", "#/generos", "todos os gêneros"], ["Colaborar", "#/colaborar", "entrar numa obra com código"], ["Gerador de nomes", "#/nomes", "nomes para personagens"], ["Escrever", "#/escrever", "mesa do escritor"], ["Perfil", "#/perfil", "sua página de autor"]];
+const sem = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const marcar = (t, q) => { const i = sem(t).indexOf(sem(q)); return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<b class="cmd-acho">${esc(t.slice(i, i + q.length))}</b>` + esc(t.slice(i + q.length)); };
+// U15: uma caixa só que procura em obras, capítulos, fichas, trechos e lugares do app
 rota("/buscar", async () => {
-  casca("buscar", `<div class="topo"><h1>Buscar</h1></div><input class="campo vidro grande" id="q" placeholder="Obra, autor, tag ou gênero…" autofocus value="${esc(local.ler("buscaInicial", ""))}">
-    <div class="chips" style="margin:14px 0">${GENEROS.slice(0, 14).map((g) => `<span class="chip" data-g="${esc(g)}">${esc(g)}</span>`).join("")}</div><div id="res"></div>`);
+  casca("buscar", `<div class="cmd"><div class="cmd-caixa"><span>⌕</span><input id="q" placeholder="Obra, capítulo, personagem, trecho ou ajuste…" autofocus value="${esc(local.ler("buscaInicial", ""))}" autocomplete="off"><kbd>Ctrl K</kbd></div>
+    <div class="chips" style="margin:14px 0">${GENEROS.slice(0, 12).map((g) => `<span class="chip" data-g="${esc(g)}">${esc(g)}</span>`).join("")}</div><div id="res"></div></div>`);
   const res = $("#res");
-  let todos = null;
-  const carregar = async () => { if (todos) return todos; const [a, b] = await Promise.all([catalogo("ALTA"), catalogo("NOVIDADES")]); todos = [...new Map([...a, ...b].map((o) => [o.id, o])).values()]; return todos; };
+  let todos = null; const capsCache = new Map(), fichasCache = new Map();
+  const carregar = async () => { if (todos) return todos; const [a, b] = await Promise.all([catalogo("ALTA").catch(() => []), catalogo("NOVIDADES").catch(() => [])]); todos = [...new Map([...a, ...b].map((o) => [o.id, o])).values()]; return todos; };
+  const minhas = () => lista();
+  const capsDe = async (o) => { if (!capsCache.has(o.id)) capsCache.set(o.id, await capitulos(o.id).catch(() => [])); return capsCache.get(o.id); };
+  const fichasDe = async (o) => { if (!fichasCache.has(o.id)) fichasCache.set(o.id, await fichas(o.id).catch(() => [])); return fichasCache.get(o.id); };
+  const grupo = (rot, itens) => itens.length ? `<div class="cmd-grupo"><div class="cmd-rot">${rot}<span>${itens.length}</span></div>${itens.slice(0, 8).join("")}</div>` : "";
+  const item = (href, t, sub) => `<a class="cmd-item" href="${href}"><div>${t}</div><small>${sub}</small></a>`;
+  let vez = 0;
   const buscar = async () => {
-    const t = $("#q").value.trim().toLowerCase();
-    if (t.length < 2) { res.innerHTML = ""; return; }
-    const minhas = lista().filter((o) => o.titulo.toLowerCase().includes(t) || (o.autor || "").toLowerCase().includes(t));
-    const pub = (await carregar()).filter((o) => [o.titulo, o.autorNome, ...(o.tags || []), ...(o.generos || [])].join(" ").toLowerCase().includes(t));
-    res.innerHTML = `${minhas.length ? `<div class="sec"><h2>Na sua biblioteca</h2></div><div class="grade">${minhas.map((o) => window.cartaoLocal(o, o.autor ? "por " + o.autor : "")).join("")}</div>` : ""}
-      <div class="sec"><h2>No catálogo</h2></div>${pub.length ? `<div class="grade">${pub.map((o) => cartaoPub(o)).join("")}</div>` : `<p class="suave">Nada encontrado.</p>`}`;
-    const { preencherCapas } = await import("./nucleo.js"); preencherCapas(res);
+    const q = $("#q").value.trim(); const minha = ++vez;
+    if (q.length < 2) { res.innerHTML = `<p class="cmd-dica">Digite pelo menos 2 letras. Procura nas suas obras, capítulos, personagens e no catálogo.</p>`; return; }
+    const k = sem(q); const ms = minhas();
+    const obrasM = ms.filter((o) => sem(o.titulo + " " + (o.autor || "")).includes(k)).map((o) => item(`#/obra/${o.id}`, marcar(o.titulo, q), "sua biblioteca" + (o.autor ? " · por " + esc(o.autor) : "")));
+    const lugares = LUGARES.filter(([n, , d]) => sem(n + " " + d).includes(k)).map(([n, h, d]) => item(h, marcar(n, q), d));
+    const [capsTodos, fichasTodas] = await Promise.all([Promise.all(ms.map(async (o) => (await capsDe(o)).map((c) => [o, c]))), Promise.all(ms.map(async (o) => (await fichasDe(o)).map((f) => [o, f])))]);
+    if (minha !== vez) return;
+    const caps = capsTodos.flat().filter(([, c]) => sem(c.titulo).includes(k)).map(([o, c]) => item(o.minha && !o.trancada ? `#/editar/${o.id}/${c.id}` : `#/ler/${o.id}/${c.id}`, marcar(c.titulo || "Sem título", q), esc(o.titulo)));
+    const fs = fichasTodas.flat().filter(([, f]) => sem(f.nome + " " + (f.apelidos || "")).includes(k)).map(([o, f]) => item(`#/obra/${o.id}/fichas`, marcar(f.nome, q), `${f.tipo === "LUGAR" ? "lugar" : "personagem"} · ${esc(o.titulo)}`));
+    const pub = (await carregar()).filter((o) => sem([o.titulo, o.autorNome, ...(o.tags || []), ...(o.generos || [])].join(" ")).includes(k)).map((o) => item(`#/pub/${o.id}`, marcar(o.titulo, q), "catálogo · por " + esc(o.autorNome || "")));
+    if (minha !== vez) return;
+    const tudo = grupo("Obras", [...obrasM, ...pub]) + grupo("Capítulos", caps) + grupo("Personagens e lugares", fs) + grupo("No app", lugares);
+    res.innerHTML = (tudo || `<p class="cmd-dica">Nada com “${esc(q)}” nos nomes.</p>`) + `<div class="cmd-grupo" id="trechos"><button class="btn2 peq" id="btrechos">Procurar “${esc(q)}” dentro dos capítulos das suas obras</button></div>`;
+    $("#btrechos").onclick = async () => {
+      const box = $("#trechos"); box.innerHTML = `<div class="cmd-rot">Trechos<span>procurando…</span></div>`; const achados = [];
+      for (const [o, c] of capsTodos.flat()) {
+        if (minha !== vez || achados.length >= 30) break;
+        const t = await lerTexto(colTextos(), c.id, c.partes).catch(() => ""); const st = sem(t); let p = st.indexOf(k);
+        while (p >= 0 && achados.length < 30) { const a = Math.max(0, p - 50), b = Math.min(t.length, p + k.length + 70); achados.push(item(`#/ler/${o.id}/${c.id}`, "…" + marcar(t.slice(a, b).replace(/\n/g, " "), q) + "…", `${esc(o.titulo)} · ${esc(c.titulo || "")}`)); p = st.indexOf(k, p + k.length + 200); }
+      }
+      if (minha === vez) box.innerHTML = achados.length ? `<div class="cmd-rot">Trechos<span>${achados.length}</span></div>${achados.join("")}` : `<p class="cmd-dica">Nenhum trecho com “${esc(q)}”.</p>`;
+    };
   };
-  let t = null; $("#q").oninput = () => { clearTimeout(t); t = setTimeout(buscar, 250); };
-  if (local.ler("buscaInicial", "")) { local.gravar("buscaInicial", ""); buscar(); }
+  let t = null; $("#q").oninput = () => { clearTimeout(t); t = setTimeout(buscar, 220); };
+  $("#q").onkeydown = (e) => { if (e.key === "Enter") { const a = $("#res .cmd-item"); if (a) location.hash = a.getAttribute("href"); } };
+  if (local.ler("buscaInicial", "")) local.gravar("buscaInicial", "");
+  buscar();
   $$("[data-g]").forEach((c) => (c.onclick = () => ir("/genero/" + encodeURIComponent(c.dataset.g))));
 });
+// Ctrl+K abre a busca de qualquer lugar
+addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (location.hash !== "#/buscar") ir("/buscar"); else $("#q")?.focus(); } });
 
 // ───────── PÁGINA PÚBLICA DA OBRA ─────────
 rota("/pub/(\\w+)", async (pid) => {
@@ -142,10 +172,13 @@ window.verificarNovidades = async () => {
 };
 rota("/avisos", async () => {
   await window.verificarNovidades();
-  const l = local.ler("novidades", []);
+  const l = local.ler("novidades", []); const vistos = local.ler("avisosVistos", 0);
+  const tipo = (n) => n.tipo === "obra" ? "Obra nova" : n.tipo === "comentario" ? "Comentário" : n.tipo === "conflito" ? "Conflito" : "Novo capítulo";
   casca("avisos", `<div class="topo"><h1>Avisos</h1>${l.length ? `<button class="btn2 peq" id="limpar">Limpar</button>` : ""}</div>
-    ${l.length ? `<div class="lista-avisos">${l.map((n) => `<a class="aviso-item vidro" href="#/pub/${n.pid}"><span class="selo">${n.tipo === "obra" ? "OBRA NOVA" : "NOVO CAP"}</span><div style="flex:1"><b>${esc(n.titulo)}</b><div class="suave peq">${haQuanto(n.em)}</div></div><span>›</span></a>`).join("")}</div>`
+    ${l.length ? `<div class="telegramas">${l.map((n) => `<a class="telegrama${(n.em || 0) > vistos ? " novo" : ""}${n.tipo === "conflito" ? " alerta" : ""}" href="${n.href || "#/pub/" + n.pid}">
+      <div class="tg-cab"><span>${(n.em || 0) > vistos ? "● " : ""}${tipo(n)}</span><span>${haQuanto(n.em)}</span></div><div class="tg-txt">${esc(n.titulo)}</div></a>`).join("")}</div>`
       : `<div class="card vazio"><b>Nenhum aviso.</b><span class="suave">Siga obras e autores para ser avisado quando sair coisa nova.</span></div>`}`);
+  local.gravar("avisosVistos", agora());
   const b = $("#limpar"); if (b) b.onclick = () => { local.gravar("novidades", []); window.redesenhar(); };
 });
 
