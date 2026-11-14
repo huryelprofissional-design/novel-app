@@ -135,6 +135,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
 
     var menu by remember { mutableStateOf(false) }
     var modoFoco by rememberSaveable { mutableStateOf(false) }
+    var ferrAbertas by rememberSaveable { mutableStateOf(false) } // U3: ferramentas guardadas no botão redondo
     var repeticoes by rememberSaveable { mutableStateOf(false) }
     var painel by remember { mutableStateOf(PainelEd.NENHUM) }
     var dialogo by remember { mutableStateOf("") } // resumo | notas | meta | juntar | sessao
@@ -783,14 +784,14 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                             textStyle = estilo,
                             cursorBrush = SolidColor(if (maquina) Color(0xFFB3261E) else p.destaque),
                             onTextLayout = { layouts[pd.id] = it },
-                            visualTransformation = realce,
+                            visualTransformation = if (modoFoco) FocoParagrafo(realce, if (i == focado) pd.valor.selection.start else -1) else realce,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             modifier = Modifier.fillMaxWidth().focusRequester(pd.foco).onFocusChanged { if (it.isFocused) focado = i },
                         )
                     }
                     item { Spacer(Modifier.height(240.dp)) }
                 }
-                androidx.compose.animation.AnimatedVisibility(visible = !modoFoco && !previa, modifier = Modifier.align(Alignment.BottomCenter)) {
+                androidx.compose.animation.AnimatedVisibility(visible = !modoFoco && !previa && (ferrAbertas || textoSelecionado.isNotEmpty() || digitandoMarca != null), modifier = Modifier.align(Alignment.BottomCenter)) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).vidroLiquido(vidroEd, 26.dp)) {
                         if (textoSelecionado.isNotEmpty()) {
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
@@ -819,7 +820,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                                 if (opcoes.isEmpty() && termo.trim().length < 2) Text("digite o nome… (vírgula depois do nome = descrever)", fontSize = 12.sp, color = p.textoSuave)
                             }
                         }
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp),
+                        if (ferrAbertas) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             BotaoFerramenta("@", p, FontWeight.ExtraBold, cor = p.destaque2) { inserir("@", false) }
                             BotaoFerramenta("&", p, FontWeight.ExtraBold, cor = p.destaque) { inserir("&", false) }
@@ -846,6 +847,10 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         if (carregado && !modoFoco) {
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = if (textoSelecionado.isNotEmpty()) 124.dp else 76.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(46.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (ferrAbertas) Ed.laranja else Ed.creme)
+                    .clickable { ferrAbertas = !ferrAbertas }, contentAlignment = Alignment.Center) {
+                    Text(if (ferrAbertas) "✕" else "✎", color = if (ferrAbertas) Color.White else Ed.fundo, fontSize = 18.sp)
+                }
                 var somEd by remember { mutableStateOf(com.huryel.novely.data.Ambiente.atual) }
                 DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }
                 Fogueira(hoje, meta, somEd) { somEd = it; com.huryel.novely.data.Ambiente.tocar(it) }

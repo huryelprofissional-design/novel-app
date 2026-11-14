@@ -580,6 +580,7 @@ class Preferencias(ctx: Context) {
         }
     }
     private val escritaDiasP = texto("escritaDias", "")
+    val extratoMoedas = texto("extratoMoedas", "")
     private val escritaHorasP = texto("escritaHoras", "")
     val totalEscrito = longo("totalEscrito", 0L)
     val maiorSequencia = longo("maiorSequencia", 0L)

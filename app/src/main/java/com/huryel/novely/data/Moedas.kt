@@ -23,6 +23,16 @@ object Moedas {
     private fun hoje() = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
 
     /** Ganha moedas com limite por dia por motivo ("leitura", "comentario"). [unico] evita ganhar duas vezes pelo mesmo capítulo. */
+    private val MOTIVOS = mapOf("leitura" to "Capítulo lido", "comentario" to "Comentário", "diario" to "Moeda do dia", "desbloqueio" to "Capítulo desbloqueado")
+    /** Anota no extrato deste aparelho (últimas 60 entradas): "quando;qtd;motivo" por linha. */
+    private fun anotar(qtd: Int, motivo: String) {
+        val l = (listOf("${System.currentTimeMillis()};$qtd;${MOTIVOS[motivo] ?: motivo}") + prefs.extratoMoedas.valor.split('\n').filter { it.isNotBlank() }).take(60)
+        prefs.extratoMoedas.definir(l.joinToString("\n"))
+    }
+    /** Extrato: (quando, quantidade, motivo), do mais novo para o mais velho. */
+    fun extrato(): List<Triple<Long, Int, String>> = prefs.extratoMoedas.valor.split('\n').mapNotNull { l ->
+        val p = l.split(';', limit = 3); if (p.size < 3) null else Triple(p[0].toLongOrNull() ?: return@mapNotNull null, p[1].toIntOrNull() ?: 0, p[2]) }
+
     fun ganhar(qtd: Int, motivo: String, limiteDia: Int, unico: String? = null): Int {
         if (unico != null && prefs.jaContado("moeda/$unico")) return 0
         val dia = hoje()
@@ -36,6 +46,7 @@ object Moedas {
         prefs.moedasDia.definir(mapa.entries.joinToString(";") { "${it.key}=${it.value}" })
         if (unico != null) prefs.marcarContado("moeda/$unico")
         prefs.moedas.definir(prefs.moedas.valor + dar)
+        anotar(dar, motivo)
         salvarNaNuvem()
         return dar
     }
@@ -49,6 +60,7 @@ object Moedas {
         prefs.moedaDiaria.definir(dia); prefs.moedaSequencia.definir(seq)
         val dar = 3 + if (seq % 7 == 0L) 10 else 0
         prefs.moedas.definir(prefs.moedas.valor + dar)
+        anotar(dar, "diario")
         salvarNaNuvem()
         return dar
     }
@@ -59,6 +71,7 @@ object Moedas {
         if (liberado(pid, cid)) return true
         if (prefs.moedas.valor < qtd) return false
         prefs.moedas.definir(prefs.moedas.valor - qtd)
+        anotar(-qtd, "desbloqueio")
         prefs.desbloqueados.definir((prefs.desbloqueados.valor.split('\n').filter { it.isNotBlank() } + "$pid/$cid").takeLast(2000).joinToString("\n"))
         salvarNaNuvem()
         return true

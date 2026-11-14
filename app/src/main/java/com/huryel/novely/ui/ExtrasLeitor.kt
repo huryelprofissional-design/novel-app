@@ -272,51 +272,7 @@ fun TelaMarcadores(obraId: Long, nav: NavHostController) {
 // ───────── Estatísticas ─────────
 
 @Composable
-fun TelaEstatisticas(nav: NavHostController) {
-    val prefs = NovelyApp.instancia.prefs
-    val p = LocalPaleta.current
-    val dados = remember { prefs.estatisticas() }
-    val hoje by prefs.palavrasHoje.estado.collectAsState()
-    val seq by prefs.sequencia.estado.collectAsState()
-    val fmt = remember { SimpleDateFormat("yyyyMMdd", Locale.US) }
-    val dias = remember {
-        (6 downTo 0).map { d ->
-            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -d) }
-            val chave = fmt.format(cal.time)
-            Triple(SimpleDateFormat("EEE", Locale("pt", "BR")).format(cal.time).take(3), dados[chave]?.first ?: 0, dados[chave]?.second ?: 0)
-        }
-    }
-    val maxMin = (dias.maxOfOrNull { it.second } ?: 0).coerceAtLeast(60)
-    val totalSeg = dados.values.sumOf { it.first }
-    val totalPal = dados.values.sumOf { it.second.toLong() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
-        item { Topo("Estatísticas", nav) }
-        item {
-            Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("LEITURA NOS ÚLTIMOS 7 DIAS (MINUTOS)", style = MaterialTheme.typography.labelSmall, color = p.textoSuave)
-                Row(Modifier.fillMaxWidth().height(170.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                    dias.forEach { (nome, seg, _) ->
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${seg / 60}", fontSize = 11.sp, color = p.textoSuave)
-                            Box(Modifier.fillMaxWidth().height((130f * seg / maxMin).dp.coerceAtLeast(3.dp)).clip(forma(6.dp))
-                                .background(if (seg > 0) p.destaque else p.borda))
-                            Text(nome, fontSize = 11.sp, color = p.textoSuave)
-                        }
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CartaoNumero("${totalSeg / 3600}h ${totalSeg / 60 % 60}min", "lendo (120 dias)", Modifier.weight(1f))
-                    CartaoNumero(formatarPalavras(totalPal), "palavras lidas", Modifier.weight(1f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CartaoNumero("$hoje", "escritas hoje", Modifier.weight(1f))
-                    CartaoNumero("🔥 $seq", "dias seguidos na meta", Modifier.weight(1f))
-                }
-                Text("Tudo é calculado e guardado só neste aparelho.", fontSize = 12.sp, color = p.textoSuave)
-            }
-        }
-    }
-}
+fun TelaEstatisticas(nav: NavHostController) = TelaRelatorioMes(nav)
 
 @Composable
 private fun CartaoNumero(valor: String, rotulo: String, modifier: Modifier) {

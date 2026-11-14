@@ -739,24 +739,7 @@ internal fun DialogoPerfil(fechar: () -> Unit) {
 // ───────────────────────── AJUSTES (engrenagem do Perfil) ─────────────────────────
 
 @Composable
-fun TelaAjustesNova(nav: NavHostController) {
-    val p = LocalPaleta.current
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Topo("Ajustes", nav)
-        Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ItemAjuste("Aparência", "Vidro das barras e ícone do app") { nav.navigate("ajustes/aparencia") }
-            ItemAjuste("Escrita", "Meta diária de palavras") { nav.navigate("ajustes/escrita") }
-            ItemAjuste("Conta", "Entrar com Google ou e-mail (em breve)") { nav.navigate("ajustes/conta") }
-            ItemAjuste("Privacidade", "Pedir digital ou senha ao abrir") { nav.navigate("ajustes/privacidade") }
-            ItemAjuste("Backup e restauração", "Cópia de segurança das suas obras") { nav.navigate("backup") }
-            ItemAjuste("Importar TXT / EPUB", "Trazer novels para a biblioteca") { nav.navigate("importar") }
-            ItemAjuste("Atualizações e problemas", "Versão ${NovelyApp.instancia.atualizador.nomeInstalado}") { nav.navigate("atualizar") }
-            ItemAjuste("Sobre", "O que é o Novely · rever o tutorial") { nav.navigate("ajustes/sobre") }
-            if (NovelyApp.instancia.conta.usuario.value?.email.equals(EMAIL_DONO, true)) ItemAjuste("Painel de dono", "Obras do catálogo e pessoas") { nav.navigate("dono") }
-            Text("A leitura (fonte, tamanho, páginas…) se ajusta no botão Aa dentro do leitor.", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
-        }
-    }
-}
+fun TelaAjustesNova(nav: NavHostController) = TelaAjustesSumario(nav)
 
 @Composable
 private fun ItemAjuste(titulo: String, sub: String, acao: () -> Unit) {
@@ -935,30 +918,30 @@ fun textoSinc(e: com.huryel.novely.data.EstadoSinc, ultima: Long): String = when
 @Composable
 fun TelaAvisos(nav: NavHostController) {
     val app = NovelyApp.instancia
-    val p = LocalPaleta.current
     val estado by app.atualizador.estado.collectAsState()
-    Column(Modifier.fillMaxSize()) {
-        Topo("Avisos", nav)
+    val quando = { t: Long -> if (t <= 0) "" else { val min = (System.currentTimeMillis() - t) / 60000; when { min < 2 -> "agora"; min < 60 -> "$min min"; min < 1440 -> "${min / 60} h"; else -> "${min / 1440} d" } } }
+    Column(Modifier.fillMaxSize().background(Ed.fundo).verticalScroll(rememberScrollState()).padding(bottom = 30.dp)) {
+        TopoV2("Avisos", nav)
         val v = (estado as? EstadoAtualizacao.Disponivel)?.v
         val conflitos by app.prefs.conflitos.estado.collectAsState()
         val linhas = conflitos.split('\n').filter { it.isNotBlank() }.mapNotNull { l -> l.split('|').takeIf { it.size >= 2 } }
-        if (v != null) ItemAvisoLinha("✦ Versão nova do Novely (build ${v.numero})", "Toque para atualizar") { nav.navigate("atualizar") }
+        if (v != null) Telegrama("Atualização", "", "Versão nova do Novely (build ${v.numero}). Toque para atualizar.", novo = true, alerta = false) { nav.navigate("atualizar") }
         linhas.reversed().forEach { l ->
-            val cap = l[0]; val titulo = l[1]; val quando = l.getOrNull(2)?.toLongOrNull() ?: 0L
-            ItemAvisoLinha("⚠ Texto diferente em “$titulo”", "Você mudou este capítulo em dois aparelhos. Ficou o daqui por enquanto; toque para ver as diferenças e escolher.") {
-                nav.navigate("conflito/$cap/$quando")
-            }
+            val cap = l[0]; val titulo = l[1]; val t = l.getOrNull(2)?.toLongOrNull() ?: 0L
+            Telegrama("Conflito", quando(t), "O capítulo “$titulo” mudou em dois aparelhos. Ficou o daqui por enquanto.", novo = true, alerta = true, botao = "Resolver") { nav.navigate("conflito/$cap/$t") }
         }
         val novidades by app.prefs.novidades.estado.collectAsState()
         val novas = novidades.split('\n').filter { it.isNotBlank() }.mapNotNull { l -> l.split('|').takeIf { it.size >= 3 } }
         novas.reversed().forEach { (id, titulo, n) ->
-            if (id.startsWith("pub:")) ItemAvisoLinha("✦ Obra nova — $titulo", "Toque para ver no catálogo") { nav.navigate("pub/${id.removePrefix("pub:")}") }
-            else ItemAvisoLinha("✦ $n capítulo(s) novo(s) em “$titulo”", "Já baixados — toque para abrir a obra") { nav.navigate("obra/$id") }
+            if (id.startsWith("pub:")) Telegrama("Obra nova", "", titulo, novo = true, alerta = false) { nav.navigate("pub/${id.removePrefix("pub:")}") }
+            else Telegrama("Novo capítulo", "", "$n capítulo(s) novo(s) em “$titulo”. Já baixados.", novo = true, alerta = false) { nav.navigate("obra/$id") }
         }
-        if (novas.isNotEmpty()) TextButton(onClick = { app.prefs.novidades.definir("") }, modifier = Modifier.padding(horizontal = 10.dp)) { Text("Marcar novidades como vistas", color = p.textoSuave) }
-        if (linhas.isNotEmpty()) TextButton(onClick = { app.prefs.conflitos.definir("") }, modifier = Modifier.padding(horizontal = 10.dp)) { Text("Limpar avisos", color = p.textoSuave) }
+        Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            if (novas.isNotEmpty()) Mono("Marcar como vistos", Modifier.clickable { app.prefs.novidades.definir("") }, tamanho = 10.sp)
+            if (linhas.isNotEmpty()) Mono("Limpar conflitos", Modifier.clickable { app.prefs.conflitos.definir("") }, tamanho = 10.sp)
+        }
         if (v == null && linhas.isEmpty() && novas.isEmpty()) Text("Nada novo por aqui. Quando as obras que você segue tiverem capítulos novos, eles aparecem aqui.",
-            color = p.textoSuave, modifier = Modifier.padding(18.dp))
+            color = Ed.suave, modifier = Modifier.padding(20.dp))
     }
 }
 

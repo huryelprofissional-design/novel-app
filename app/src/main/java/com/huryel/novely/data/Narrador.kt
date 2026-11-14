@@ -114,6 +114,8 @@ object Narrador {
     private var blocos: List<List<Elenco.Trecho>> = emptyList()
     private var vozes: Map<Long, VozPersonagem> = emptyMap()
     var nomesElenco: Map<Long, String> = emptyMap(); private set
+    /** Nome de quem fala no bloco [i] (o primeiro personagem do bloco) ou "Narrador". */
+    fun falante(i: Int): String = blocos.getOrNull(i)?.firstOrNull { it.quem != null }?.quem?.let { nomesElenco[it] } ?: "Narrador"
     var narrador: String = ""; private set
     var velocidade = 1f
     var vozesPersonagens = true

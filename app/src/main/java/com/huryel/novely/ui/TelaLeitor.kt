@@ -507,6 +507,16 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     fun blocoAtual(): Int = if (modoPaginas && paginas != null) {
         val pgs = paginas!!; (paginador.currentPage downTo 0).firstNotNullOfOrNull { pgs.getOrNull(it)?.primeiroBloco?.takeIf { x -> x >= 0 } } ?: 0
     } else (estado.firstVisibleItemIndex - 1).coerceAtLeast(0)
+    val parouAoAbrir = remember(c.id) { c.posicaoBloco }
+    val marcasMapa = remember(b) {
+        val tot = (b.size + 2).toFloat()
+        val m = b.mapIndexedNotNull { i, bl -> when {
+            bl is Bloco.Separador -> MarcaMapa((i + 1) / tot, 0, i)
+            bl is Bloco.Titulo && bl.impacto -> MarcaMapa((i + 1) / tot, 1, i)
+            bl is Bloco.Paragrafo && bl.tipo in setOf("fx", "sistema", "notificacao", "item", "pergaminho") -> MarcaMapa((i + 1) / tot, 1, i)
+            else -> null } }
+        if (parouAoAbrir > 1 && c.progresso < 0.98f) m + MarcaMapa(parouAoAbrir / tot, 2, (parouAoAbrir - 1).coerceIn(0, (b.size - 1).coerceAtLeast(0))) else m
+    }
     val progresso by remember {
         derivedStateOf {
             val pgs = paginas
@@ -777,7 +787,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = margem.dp, vertical = 20.dp)) {
                             FimCapitulo(b.isEmpty(), proximo, obra, idx + 1, lista.size, lista.count { it.progresso >= 0.98f || it.id == c.id }, ::irPara,
                                 voltarObra = { nav.popBackStack() },
-                                concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } }, social = social)
+                                concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } }, social = social, atualFim = c)
                         }
                     } else Column(
                         Modifier.fillMaxSize().padding(start = margem.dp, end = margem.dp, top = TOPO_LIVRO.dp, bottom = BASE_LIVRO.dp),
@@ -890,7 +900,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
             item(key = "fim") {
                 FimCapitulo(b.isEmpty(), proximo, obra, idx + 1, lista.size, lista.count { it.progresso >= 0.98f || it.id == c.id }, ::irPara,
                     voltarObra = { nav.popBackStack() },
-                    concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } }, social = social)
+                    concluir = obra?.takeIf { it.status == StatusObra.LENDO }?.let { o -> { app.escopo.launch { repo.dao.obraAgora(o.id)?.let { atual -> repo.salvarObra(atual.copy(status = StatusObra.CONCLUIDA)) } } } }, social = social, atualFim = c)
             }
         }
 
@@ -974,10 +984,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     if (obra?.minha == true) BotaoHud(IconesHud.editar, "Editar capítulo") { nav.navigate("editor/${c.id}") }
                 }
                 // progresso do capítulo: linha fina com a porcentagem
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f).height(2.dp).background(Color(0xFF1C1C1C))) {
-                        Box(Modifier.fillMaxWidth(progresso.coerceIn(0f, 1f)).fillMaxHeight().background(p.destaque))
-                    }
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    BarraComMapa(progresso, marcasMapa, p.destaque, Modifier.weight(1f)) { bi -> escopo.launch { irParaBloco(bi) } }
                     Text("${(progresso * 100).toInt()}%", fontFamily = com.huryel.novely.ui.theme.PlexMono, fontSize = 10.sp, color = Color.White.copy(alpha = .6f),
                         modifier = Modifier.padding(start = 10.dp))
                 }
@@ -1005,7 +1013,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                     { prefs.velocidadeVoz.definir(it) }, narrador, { prefs.narrador.definir(it) },
                     nar.timerFim, { min -> com.huryel.novely.data.Narrador.timer(min) },
                     vozesPersonagens, { prefs.vozesPersonagens.definir(it) }, c.obraId, { prepararVoz() },
-                    daTela = if (falando >= 0 && kotlin.math.abs(blocoAtual() - falando) > 2) ({ tocarDe(blocoAtual()) }) else null)
+                    daTela = if (falando >= 0 && kotlin.math.abs(blocoAtual() - falando) > 2) ({ tocarDe(blocoAtual()) }) else null,
+                    quem = com.huryel.novely.data.Narrador.falante(falando))
             }
             AnimatedVisibility(controles && painel == Painel.BUSCA, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 PainelBusca(consulta, { consulta = it; achadoAtual = 0 }, achados.size, achadoAtual,
@@ -1102,70 +1111,18 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
 /** Abertura do capítulo: banner sangrando, capa no centro, número, título, tempo, progresso da obra e resumos. */
 @Composable
 private fun CabecalhoCapitulo(c: Capitulo, obra: com.huryel.novely.data.Obra?, anterior: Capitulo?, numero: Int, posicao: Int, total: Int, margem: Float, p: Paleta, abrirSobre: () -> Unit) {
-    val especial = Texto.tipoEspecial(c.titulo)
     var verResumo by remember { mutableStateOf(true) }
     var verAnterior by remember { mutableStateOf(false) }
-    var verCapa by remember { mutableStateOf(false) }
-    if (verCapa && obra != null) VisorCapa(obra) { verCapa = false }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // banner sangrando até as bordas da tela, com a capa centralizada na frente
-        Box(
-            Modifier.layout { m, cs ->
-                val extra = (margem * 2).dp.roundToPx()
-                val w = cs.maxWidth + extra
-                val pl = m.measure(cs.copy(minWidth = w, maxWidth = w))
-                layout(cs.maxWidth, pl.height) { pl.place(-extra / 2, 0) }
-            }.height(330.dp),
-        ) {
-            Box(Modifier.fillMaxWidth().height(250.dp)) {
-                if (obra != null) {
-                    if (obra.banner != null) ImagemEnquadrada(obra.banner, obra.bannerX, obra.bannerY, obra.bannerZoom, obra.corBase, Modifier.fillMaxSize(), 1200)
-                    else Box(Modifier.fillMaxSize().background(Color(obra.corBase))) { ArteCapa(obra.titulo + "·leitor", obra.corBase) }
-                }
-                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to p.fundo.copy(alpha = 0.55f), 0.35f to p.fundo.copy(alpha = 0.25f), 1f to p.fundo)))
-            }
-            if (obra != null) Column(Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-                CapaObra(obra.titulo, obra.capa, obra.capaX, obra.capaY, obra.capaZoom, obra.corBase,
-                    Modifier.width(118.dp).height(174.dp).shadow(22.dp, RoundedCornerShape(12.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp)).clickable { verCapa = true }, 13.sp)
-                Text(obra.titulo.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, color = p.textoSuave,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 14.dp).padding(horizontal = 40.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = abrirSobre).padding(4.dp))
-            }
-        }
-        if (especial != null) {
-            Text("◆", color = p.destaque, fontSize = 20.sp)
-            Text(especial, color = p.destaque, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 6.sp)
-            val sub = c.titulo.substringAfter('—', c.titulo.substringAfter(':', "")).trim()
-            Text(sub.ifEmpty { especial.lowercase().replaceFirstChar { it.uppercase() } },
-                style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp, lineHeight = 40.sp, fontStyle = FontStyle.Italic), textAlign = TextAlign.Center)
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.width(28.dp).height(1.dp).background(p.destaque.copy(alpha = 0.6f)))
-                Text("  CAPÍTULO $numero  ", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp, color = p.destaque)
-                Box(Modifier.width(28.dp).height(1.dp).background(p.destaque.copy(alpha = 0.6f)))
-            }
-            Text(c.titulo.ifEmpty { "Sem título" }, style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp, lineHeight = 36.sp), textAlign = TextAlign.Center)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Etiqueta("${formatarPalavras(c.palavras.toLong())} palavras", p)
-            Etiqueta("◷ ${(c.palavras / 230).coerceAtLeast(1)} min", p)
-            if (c.progresso in 0.02f..0.97f) Etiqueta("${(c.progresso * 100).toInt()}% lido", p, destaque = true)
-            else if (c.progresso >= 0.98f) Etiqueta("✓ lido", p)
-        }
-        if (total > 1) Column(Modifier.fillMaxWidth(0.7f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(p.borda)) {
-                Box(Modifier.fillMaxWidth(posicao.toFloat() / total).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(p.destaque))
-            }
-            Text("$posicao de $total na obra", fontSize = 11.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // abertura V2: número romano, título em serifa, linha laranja (U9)
+        AberturaV2(c, obra, numero, posicao, total, abrirSobre)
         if (anterior != null && anterior.resumo.isNotBlank()) {
             CaixaResumo("ANTERIORMENTE", anterior.resumo, verAnterior, p) { verAnterior = !verAnterior }
         }
         if (c.resumo.isNotBlank()) {
             CaixaResumo("NESTE CAPÍTULO", c.resumo, verResumo, p) { verResumo = !verResumo }
         }
-        Text("◆   ◆   ◆", color = p.destaque.copy(alpha = 0.7f), fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp, bottom = 8.dp))
+        Spacer(Modifier.height(6.dp))
     }
 }
 
@@ -1178,7 +1135,7 @@ private fun capitular(t: AnnotatedString, p: Paleta, tamanho: Float): AnnotatedS
     while (fimPalavras < txt.length && palavras < 4) { if (txt[fimPalavras] == ' ') palavras++; fimPalavras++ }
     return buildAnnotatedString {
         append(t)
-        addStyle(SpanStyle(fontSize = (tamanho * 1.9f).sp, color = p.destaque, fontWeight = FontWeight.Bold), ini, ini + 1)
+        addStyle(SpanStyle(fontSize = (tamanho * 2.6f).sp, color = Ed.laranja, fontFamily = com.huryel.novely.ui.theme.InstrumentSerif, fontWeight = FontWeight.Normal), ini, ini + 1)
         if (fimPalavras > ini + 1) addStyle(SpanStyle(fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp, color = p.texto), ini + 1, fimPalavras.coerceAtMost(txt.length))
     }
 }
@@ -1322,61 +1279,9 @@ private fun destacarBusca(base: AnnotatedString, normal: String, q: String, p: P
 
 @Composable
 private fun FimCapitulo(vazio: Boolean, proximo: Capitulo?, obra: com.huryel.novely.data.Obra?, posicao: Int, total: Int, lidos: Int,
-                        ir: (Capitulo) -> Unit, voltarObra: () -> Unit, concluir: (() -> Unit)?, social: Pair<String, String>? = null) {
-    val p = LocalPaleta.current
-    Column(Modifier.fillMaxWidth().padding(top = 36.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (vazio) Text("Este capítulo ainda está vazio.", color = p.textoSuave)
-        social?.let { (pid, cid) -> SocialCapitulo(pid, cid) }
-        // fim de capítulo de cinema: confete, anel da obra enchendo, o que ganhou e reações
-        val prefsF = NovelyApp.instancia.prefs
-        val seqF by prefsF.sequencia.estado.collectAsState()
-        val deOutro = obra != null && !obra.minha
-        Box(Modifier.fillMaxWidth().height(250.dp), contentAlignment = Alignment.Center) {
-            Confete(posicao, Modifier.fillMaxWidth().height(250.dp), 45)
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (total > 0) AnelProgresso(lidos.toFloat() / total, 140.dp, p.destaque, 9.dp, 1600) { f ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${(f * 100).toInt()}%", fontWeight = FontWeight.Black, fontSize = 30.sp)
-                        Text("da obra", fontSize = 11.sp, color = p.textoSuave)
-                    }
-                }
-                Text(if (proximo == null) "FIM" else "FIM DO CAPÍTULO $posicao", style = MaterialTheme.typography.labelSmall, color = p.textoSuave, letterSpacing = 4.sp,
-                    modifier = Modifier.padding(top = 14.dp))
-                if (total > 0) Text("$lidos de $total capítulos lidos", fontSize = 12.sp, color = p.textoSuave, modifier = Modifier.padding(top = 4.dp))
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (deOutro && social != null) Text("🪙 +1", fontWeight = FontWeight.ExtraBold, color = OURO_FX, fontSize = 13.sp,
-                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(OURO_FX.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 7.dp))
-            if (deOutro) Text("⚡ +20 XP", fontWeight = FontWeight.ExtraBold, color = Color(0xFFD99BFF), fontSize = 13.sp,
-                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(ROXO_FX.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 7.dp))
-            if (seqF > 0) Text("🔥 $seqF ${if (seqF == 1L) "dia" else "dias"}", fontWeight = FontWeight.ExtraBold, color = LARANJA_FX, fontSize = 13.sp,
-                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(LARANJA_FX.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 7.dp))
-        }
-        social?.let { (pid, cid) -> if (deOutro || obra?.publicada == true) Reacoes(pid, cid) }
-        if (proximo != null) {
-            Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(22.dp)).clickable { ir(proximo) }
-                .border(1.dp, p.destaque.copy(alpha = 0.45f), RoundedCornerShape(22.dp))) {
-                if (obra != null) {
-                    if (obra.banner != null) ImagemEnquadrada(obra.banner, obra.bannerX, obra.bannerY, obra.bannerZoom, obra.corBase, Modifier.fillMaxSize(), 900)
-                    else Box(Modifier.fillMaxSize().background(Color(obra.corBase))) { ArteCapa(obra.titulo + "·prox", obra.corBase) }
-                }
-                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.fundo.copy(alpha = 0.95f), p.fundo.copy(alpha = 0.55f)))))
-                Column(Modifier.align(Alignment.CenterStart).padding(18.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("PRÓXIMO CAPÍTULO", style = MaterialTheme.typography.labelSmall, color = p.destaque)
-                    Text(proximo.titulo.ifEmpty { "Sem título" }, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 21.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("◷ ${(proximo.palavras / 230).coerceAtLeast(1)} min · ${formatarPalavras(proximo.palavras.toLong())} palavras", color = p.textoSuave, fontSize = 13.sp)
-                }
-            }
-            Button(onClick = { ir(proximo) }, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("Ler próximo  ›", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp) }
-        } else {
-            Text("Você chegou ao último capítulo.", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp), textAlign = TextAlign.Center)
-            if (concluir != null) Button(onClick = concluir, colors = ButtonDefaults.buttonColors(p.destaque, p.sobreDestaque), shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("✓  Marcar obra como lida", fontWeight = FontWeight.ExtraBold) }
-        }
-        TextButton(onClick = voltarObra) { Text("Voltar para a obra", color = p.textoSuave) }
-    }
+                        ir: (Capitulo) -> Unit, voltarObra: () -> Unit, concluir: (() -> Unit)?, social: Pair<String, String>? = null, atualFim: Capitulo? = null) {
+    val deOutro = obra != null && !obra.minha
+    FimV2(vazio, atualFim ?: return, posicao, proximo, if (proximo != null) posicao + 1 else 0, social, deOutro || obra?.publicada == true, ir, voltarObra, concluir)
 }
 
 @Composable
@@ -1410,7 +1315,7 @@ private fun BotaoHud(icone: androidx.compose.ui.graphics.vector.ImageVector, des
 private fun PainelVoz(pronta: Boolean, tocando: Boolean, velocidade: Float, alternar: () -> Unit, voltar: () -> Unit, avancar: () -> Unit, definirVel: (Float) -> Unit,
                       narrador: String, definirNarrador: (String) -> Unit, timerFim: Long, definirTimer: (Int) -> Unit,
                       vozesPersonagens: Boolean, definirVozesPersonagens: (Boolean) -> Unit, obraId: Long, preparar: suspend () -> Unit,
-                      daTela: (() -> Unit)? = null) {
+                      daTela: (() -> Unit)? = null, quem: String = "Narrador") {
     val p = LocalPaleta.current
     var escolhendo by remember { mutableStateOf(false) }
     var elenco by remember { mutableStateOf(false) }
@@ -1418,11 +1323,12 @@ private fun PainelVoz(pronta: Boolean, tocando: Boolean, velocidade: Float, alte
     var agora by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timerFim) { while (timerFim > 0) { agora = System.currentTimeMillis(); kotlinx.coroutines.delay(15_000) } }
     Column(
-        Modifier.padding(12.dp).fillMaxWidth().clip(forma(22.dp)).background(p.superficie)
-            .border(1.dp, p.destaque.copy(alpha = 0.35f), forma(22.dp)).padding(14.dp),
+        Modifier.padding(12.dp).fillMaxWidth().background(Color.Black)
+            .border(1.dp, Ed.linha).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(com.huryel.novely.data.Narrador.erro ?: if (tocando) "Lendo em voz alta · continua com a tela apagada" else "Ouvir a partir daqui", fontWeight = FontWeight.Bold, color = p.destaque, fontSize = 13.sp)
+        FalandoAgora(if (tocando) quem else "Ouvir", tocando)
+        Text(com.huryel.novely.data.Narrador.erro ?: if (tocando) "Continua com a tela apagada" else "Ouvir a partir daqui", fontFamily = com.huryel.novely.ui.theme.PlexMono, fontSize = 10.sp, letterSpacing = 1.2.sp, color = Ed.suave)
         // a voz está num lugar e a tela em outro: ouvir o que está na tela
         if (daTela != null) Text("▶  Ouvir a partir do que está na tela", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0B0B0E),
             modifier = Modifier.fillMaxWidth().clip(forma(14.dp)).background(Color.White).clickable(onClick = daTela).padding(horizontal = 14.dp, vertical = 10.dp))
@@ -1751,7 +1657,7 @@ private val REACOES = listOf("chorei" to "😭", "fogo" to "🔥", "choque" to "
 
 /** Reações rápidas do fim do capítulo (obra do catálogo): toque para reagir, toque de novo para tirar. */
 @Composable
-private fun Reacoes(pid: String, cid: String) {
+internal fun Reacoes(pid: String, cid: String) {
     val p = LocalPaleta.current
     val pub = NovelyApp.instancia.pub
     var contas by remember(cid) { mutableStateOf<Map<String, Long>>(emptyMap()) }

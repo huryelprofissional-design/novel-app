@@ -3,6 +3,8 @@ package com.huryel.novely.ui
 import com.huryel.novely.ui.theme.forma
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -54,19 +56,31 @@ fun TelaBusca(nav: NavHostController) {
         buscador.buscar(consulta, obraFiltro, soTitulos).collect { resultado = it }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Buscar", style = MaterialTheme.typography.displaySmall)
-            OutlinedTextField(
-                value = consulta, onValueChange = { consulta = it }, singleLine = true,
-                leadingIcon = { Icon(Icons.Filled.Search, null, tint = p.destaque) },
-                trailingIcon = { if (consulta.isNotEmpty()) IconButton(onClick = { consulta = "" }) { Icon(Icons.Filled.Close, "Limpar") } },
-                placeholder = { Text("Palavra, frase, nome de personagem…") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                shape = forma(18.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = p.destaque, unfocusedBorderColor = p.borda),
-                modifier = Modifier.fillMaxWidth(),
-            )
+    val todasFichas by produceState(emptyList<com.huryel.novely.data.Ficha>()) { value = try { app.repo.dao.sincFichas() } catch (_: Exception) { emptyList() } }
+    val lugares = remember { listOf(Triple("Ajustes", "ajustes", "conta, aparência, meta diária"), Triple("Lixeira", "lixeira", "capítulos, fichas e obras apagados"),
+        Triple("Backup e restauração", "backup", "cópia de segurança"), Triple("Importar TXT / EPUB", "importar", "trazer novels"), Triple("Relatório do mês", "estatisticas", "palavras e leitura"),
+        Triple("Avisos", "avisos", "capítulos novos e conflitos"), Triple("Gerador de nomes", "nomes", "nomes para personagens"), Triple("Colaborar", "colaborar", "entrar numa obra com código")) }
+    fun sem(t: String) = java.text.Normalizer.normalize(t, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase()
+    val q = consulta.trim(); val k = sem(q)
+    fun marcar(t: String) = buildAnnotatedString {
+        val i = sem(t).indexOf(k); if (i < 0 || k.isEmpty()) append(t) else { append(t.substring(0, i)); pushStyle(SpanStyle(color = Ed.laranja)); append(t.substring(i, (i + q.length).coerceAtMost(t.length))); pop(); append(t.substring((i + q.length).coerceAtMost(t.length))) }
+    }
+    val obrasAchadas = if (k.length < 2) emptyList() else obras.filter { sem(it.titulo).contains(k) }
+    val fichasAchadas = if (k.length < 2) emptyList() else todasFichas.filter { sem(it.nome + " " + it.apelidos).contains(k) }.take(12)
+    val lugaresAchados = if (k.length < 2) emptyList() else lugares.filter { sem(it.first + " " + it.third).contains(k) }
+
+    Column(Modifier.fillMaxSize().background(Ed.fundo)) {
+        Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().border(1.dp, Ed.creme).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("⌕", color = Ed.suave, fontSize = 18.sp)
+                Box(Modifier.weight(1f).padding(start = 10.dp)) {
+                    if (consulta.isEmpty()) Text("Obra, capítulo, personagem, trecho…", color = Ed.suave, fontFamily = com.huryel.novely.ui.theme.InstrumentSerif, fontSize = 20.sp)
+                    androidx.compose.foundation.text.BasicTextField(consulta, { consulta = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Ed.creme, fontFamily = com.huryel.novely.ui.theme.InstrumentSerif, fontSize = 20.sp),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Ed.laranja), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), modifier = Modifier.fillMaxWidth())
+                }
+                if (consulta.isNotEmpty()) Text("✕", color = Ed.suave, modifier = Modifier.clickable { consulta = "" }.padding(start = 8.dp))
+            }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip("Todas as obras", obraFiltro == null) { obraFiltro = null }
                 obras.take(12).forEach { o -> Chip(o.titulo.take(22), obraFiltro == o.id) { obraFiltro = o.id } }
@@ -75,57 +89,46 @@ fun TelaBusca(nav: NavHostController) {
                 Chip("No texto", !soTitulos) { soTitulos = false }
                 Chip("Só títulos", soTitulos) { soTitulos = true }
             }
-            val r = resultado
-            if (r != null) {
-                val obrasDistintas = r.achados.map { it.item.obraId }.distinct().size
-                Text(
-                    if (r.terminou) "${r.achados.size}${if (r.achados.size >= 400) "+" else ""} resultados em $obrasDistintas obra(s)"
-                    else "Procurando… ${r.lidos} de ${r.total} capítulos · ${r.achados.size} até agora",
-                    fontSize = 13.sp, color = p.textoSuave,
-                )
-                if (!r.terminou && r.total > 0) LinearProgressIndicator(progress = { r.lidos.toFloat() / r.total }, modifier = Modifier.fillMaxWidth(),
-                    color = p.destaque, trackColor = p.borda, drawStopIndicator = {})
-            }
         }
         val r = resultado
-        if (consulta.trim().length < 2) {
+        if (q.length < 2) {
             Text("Digite ao menos 2 letras. A busca ignora acentos e maiúsculas: “coracao” encontra “Coração”.",
-                color = p.textoSuave, fontSize = 14.sp, modifier = Modifier.padding(20.dp))
-        } else if (r != null && r.terminou && r.achados.isEmpty()) {
-            Text("Nada encontrado.", color = p.textoSuave, modifier = Modifier.padding(20.dp))
-        } else if (r != null) {
-            val agrupado = r.achados.groupBy { it.item.obraId }
-            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                agrupado.forEach { (_, lista) ->
-                    item(key = "o${lista.first().item.obraId}") {
-                        Row(Modifier.fillMaxWidth().padding(top = 10.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(lista.first().item.obraTitulo, fontFamily = Serifa, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${lista.size}", color = p.textoSuave, fontSize = 13.sp)
-                        }
-                    }
-                    items(lista, key = { "a${it.item.capId}-${it.ocorrencia}-${it.noTitulo}" }) { a ->
+                color = Ed.suave, fontSize = 14.sp, modifier = Modifier.padding(20.dp))
+        } else LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 40.dp)) {
+            if (obrasAchadas.isNotEmpty()) { item { GrupoBusca("Obras", obrasAchadas.size) }; items(obrasAchadas, key = { "ob${it.id}" }) { o -> ItemBusca(marcar(o.titulo), "sua biblioteca") { nav.navigate("obra/${o.id}") } } }
+            if (fichasAchadas.isNotEmpty()) { item { GrupoBusca("Personagens e lugares", fichasAchadas.size) }
+                items(fichasAchadas, key = { "fi${it.id}" }) { f -> ItemBusca(marcar(f.nome), (if (f.tipo == com.huryel.novely.data.TipoFicha.LUGAR) "lugar" else "personagem") + " · " + (obras.firstOrNull { it.id == f.obraId }?.titulo ?: "")) { nav.navigate("fichas/${f.obraId}") } } }
+            if (lugaresAchados.isNotEmpty()) { item { GrupoBusca("No app", lugaresAchados.size) }; items(lugaresAchados, key = { "lu${it.second}" }) { (n, rota, d) -> ItemBusca(marcar(n), d) { nav.navigate(rota) } } }
+            if (r != null) {
+                val titulos = r.achados.filter { it.noTitulo }; val trechos = r.achados.filter { !it.noTitulo }
+                item {
+                    Text(if (r.terminou) "${r.achados.size}${if (r.achados.size >= 400) "+" else ""} nos capítulos" else "Procurando… ${r.lidos} de ${r.total} capítulos",
+                        fontSize = 12.sp, color = Ed.suave, modifier = Modifier.padding(top = 16.dp))
+                    if (!r.terminou && r.total > 0) LinearProgressIndicator(progress = { r.lidos.toFloat() / r.total }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        color = Ed.laranja, trackColor = Ed.linha, drawStopIndicator = {})
+                }
+                if (titulos.isNotEmpty()) { item { GrupoBusca("Capítulos", titulos.size) }
+                    items(titulos, key = { "t${it.item.capId}-${it.ocorrencia}" }) { a -> ItemBusca(marcar(a.item.capTitulo), a.item.obraTitulo) { nav.navigate("leitor/${a.item.capId}") } } }
+                if (trechos.isNotEmpty()) { item { GrupoBusca("Trechos", trechos.size) }
+                    items(trechos, key = { "a${it.item.capId}-${it.ocorrencia}" }) { a ->
                         val trecho = buildAnnotatedString {
                             append(a.trecho)
-                            val ini = a.inicio.coerceIn(0, a.trecho.length)
-                            val fim = (a.inicio + a.tamanho).coerceIn(ini, a.trecho.length)
-                            addStyle(SpanStyle(background = p.destaque.copy(alpha = 0.4f), color = p.texto, fontWeight = FontWeight.Bold), ini, fim)
+                            val ini = a.inicio.coerceIn(0, a.trecho.length); val fim = (a.inicio + a.tamanho).coerceIn(ini, a.trecho.length)
+                            addStyle(SpanStyle(color = Ed.laranja), ini, fim)
                         }
-                        Column(
-                            Modifier.fillMaxWidth().clip(forma(16.dp)).background(p.superficie)
-                                .clickable {
-                                    if (a.noTitulo) nav.navigate("leitor/${a.item.capId}")
-                                    else nav.navigate("leitor/${a.item.capId}?q=${Uri.encode(consulta.trim())}&n=${a.ocorrencia}")
-                                }.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text(a.item.capTitulo + if (a.noTitulo) " · título" else "", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = p.destaque,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (!a.noTitulo) Text(trecho, fontFamily = Serifa, fontSize = 15.sp, lineHeight = 22.sp, color = p.textoSuave)
-                        }
-                    }
-                }
+                        ItemBusca(trecho, "${a.item.obraTitulo} · ${a.item.capTitulo}") { nav.navigate("leitor/${a.item.capId}?q=${Uri.encode(q)}&n=${a.ocorrencia}") }
+                    } }
+                if (r.terminou && r.achados.isEmpty() && obrasAchadas.isEmpty() && fichasAchadas.isEmpty() && lugaresAchados.isEmpty()) item { Text("Nada encontrado.", color = Ed.suave, modifier = Modifier.padding(top = 20.dp)) }
             }
         }
     }
+}
+
+@Composable
+private fun GrupoBusca(rot: String, n: Int) = Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp)) { Mono(rot, Modifier.weight(1f), tamanho = 10.sp); Mono("$n", tamanho = 10.sp) }
+
+@Composable
+private fun ItemBusca(t: androidx.compose.ui.text.AnnotatedString, sub: String, acao: () -> Unit) = Column(Modifier.fillMaxWidth().clickable(onClick = acao)
+    .drawBehind { drawLine(Ed.linha, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1f) }.padding(vertical = 10.dp)) {
+    Text(t, color = Ed.creme, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis); Mono(sub, Modifier.padding(top = 2.dp), tamanho = 9.sp)
 }

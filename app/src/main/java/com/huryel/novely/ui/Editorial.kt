@@ -291,6 +291,8 @@ fun TelaDescobrirEd(nav: NavHostController) {
     var aba by rememberSaveable { mutableStateOf("LINHAS") }
     var lista by remember(aba) { mutableStateOf<List<ObraPublica>?>(null) }
     var erro by remember(aba) { mutableStateOf(false) }
+    var capaSemana by remember { mutableStateOf<ObraPublica?>(null) }
+    LaunchedEffect(Unit) { capaSemana = try { CacheCatalogo.pegar("ALTA").firstOrNull() } catch (_: Exception) { null } }
     LaunchedEffect(aba) {
         lista = try {
             when (aba) {
@@ -316,8 +318,9 @@ fun TelaDescobrirEd(nav: NavHostController) {
                 Text(if (erro) "Não deu para abrir o catálogo agora." else "Quando houver obras publicadas, elas aparecem aqui.", color = Ed.suave, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
             }
             aba == "LINHAS" -> {
-                val pager = rememberPagerState { l.size }
-                VerticalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { k -> PaginaLinha(l[k], nav) }
+                val capaS = capaSemana; val desloc = if (capaS != null) 1 else 0
+                val pager = rememberPagerState { l.size + desloc }
+                VerticalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { k -> if (capaS != null && k == 0) PaginaCapaSemana(capaS, nav) else PaginaLinha(l[k - desloc], nav) }
                 // marcador de página à direita
                 Column(Modifier.align(Alignment.CenterEnd).padding(end = 26.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     val ini = (pager.currentPage - 1).coerceAtLeast(0)
@@ -327,7 +330,10 @@ fun TelaDescobrirEd(nav: NavHostController) {
                 }
             }
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 84.dp, bottom = 120.dp)) {
-                itemsIndexed(l, key = { _, o -> o.id }) { i, o -> LinhaRanking(i + 1, o, aba == "ALTA") { nav.navigate("pub/${o.id}") } }
+                itemsIndexed(l, key = { _, o -> o.id }) { i, o ->
+                    if (i == 0 && aba == "ALTA") PodioPrimeiro(o, o.autorUid == NovelyApp.instancia.pub.meuUid) { nav.navigate("pub/${o.id}") }
+                    else LinhaRanking(i + 1, o, aba == "ALTA") { nav.navigate("pub/${o.id}") }
+                }
                 item {
                     Serif("Gêneros", 34.sp, Modifier.padding(top = 34.dp, bottom = 14.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -692,9 +698,9 @@ fun TelaEu(nav: NavHostController) {
             }
         }
         Spacer(Modifier.height(20.dp))
-        RankingSemana()
-        CartaoMoedas()
-        SecaoConquistas()
+        PodioSemana()
+        ExtratoMoedasV2()
+        SelosConquistas()
         SecaoCitacoes()
     }
     if (editando) DialogoPerfil { editando = false }
