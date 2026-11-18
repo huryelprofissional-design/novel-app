@@ -25,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -625,10 +627,10 @@ fun TelaEu(nav: NavHostController) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
 
     Column(Modifier.fillMaxSize().background(Ed.fundo).verticalScroll(rememberScrollState()).padding(bottom = 120.dp)) {
-        Box(Modifier.fillMaxWidth().height(340.dp)) {
-            if (banner != null) Image(banner, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            else Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF3A1E14), Ed.fundo))))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Ed.fundo.copy(alpha = 0.4f), 0.3f to Color.Transparent, 0.65f to Color.Transparent, 1f to Ed.fundo)))
+        Box(Modifier.fillMaxWidth().height(320.dp)) {
+            if (banner != null) Image(banner, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.35f })
+            Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Ed.laranja.copy(alpha = 0.28f), Color.Transparent), radius = 520f)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Ed.fundo.copy(alpha = 0.4f), 0.3f to Color.Transparent, 0.7f to Color.Transparent, 1f to Ed.fundo)))
             Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 10.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Mono("Página do autor", Modifier.weight(1f), Ed.creme, 12.sp)
                 Box(Modifier.clickable {
@@ -637,15 +639,16 @@ fun TelaEu(nav: NavHostController) {
                 }.padding(10.dp)) { Icon(IconesEd.partilhar, "Compartilhar", tint = Ed.creme, modifier = Modifier.size(24.dp)) }
                 Box(Modifier.clickable { nav.navigate("ajustes") }.padding(10.dp)) { Icon(Icons.Filled.Settings, "Ajustes", tint = Ed.creme, modifier = Modifier.size(24.dp)) }
             }
-            Box(Modifier.align(Alignment.BottomStart).padding(start = 22.dp, bottom = 4.dp).size(120.dp).border(2.dp, Ed.laranja, CircleShape).padding(5.dp).clip(CircleShape)
+            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(150.dp).shadow(40.dp, CircleShape, spotColor = Ed.laranja, ambientColor = Ed.laranja)
+                .border(1.dp, Ed.laranja.copy(alpha = 0.8f), CircleShape).padding(6.dp).clip(CircleShape)
                 .background(Ed.superficie).clickable { editando = true }, contentAlignment = Alignment.Center) {
                 if (img != null) Image(img, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 else Serif(nome.trim().take(1).uppercase().ifEmpty { "?" }, 52.sp)
             }
         }
         Column(Modifier.padding(horizontal = 22.dp)) {
-            Serif(nome.ifBlank { "Seu nome" }, if (nome.length > 12) 54.sp else 72.sp, Modifier.padding(top = 10.dp), maxLinhas = 2)
-            Serif(if (minhas.isNotEmpty()) "autor de ${minhas.first().titulo}" else "leitor", 24.sp, cor = Ed.creme.copy(alpha = 0.8f), italico = true, maxLinhas = 1)
+            Serif(nome.ifBlank { "Seu nome" }, if (nome.length > 12) 48.sp else 62.sp, Modifier.fillMaxWidth().padding(top = 14.dp), maxLinhas = 2, centro = true)
+            Serif(if (minhas.isNotEmpty()) "autor de ${minhas.first().titulo}" else "leitor", 20.sp, Modifier.fillMaxWidth(), cor = Ed.suave, italico = true, maxLinhas = 1, centro = true)
             Fio(Modifier.padding(top = 22.dp))
             Row(Modifier.fillMaxWidth().clickable { editando = true }.padding(vertical = 18.dp)) {
                 Text("“", color = Ed.laranja, fontFamily = InstrumentSerif, fontSize = 40.sp, lineHeight = 34.sp, modifier = Modifier.padding(end = 12.dp))

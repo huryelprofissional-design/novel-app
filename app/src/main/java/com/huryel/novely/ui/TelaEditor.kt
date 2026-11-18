@@ -684,7 +684,7 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                                 aoMarcar = { c -> val n = c.copy(rascunho = !c.rascunho); cap = n; app.escopo.launch { repo.salvarCapitulo(n) } })
                         }
                     }
-                    LinhaStatus(palavras, cap, textoSelecionado, hoje, meta, sequencia, p, aoContagem = { dialogo = "contagem" }) { dialogo = "meta" }
+                    if (ferrAbertas) LinhaStatus(palavras, cap, textoSelecionado, hoje, meta, sequencia, p, aoContagem = { dialogo = "contagem" }) { dialogo = "meta" }
                     if (sessaoFim > 0) {
                         val resta = ((sessaoFim - relogio) / 1000).coerceAtLeast(0)
                         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -814,10 +814,15 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                 }
                 var somEd by remember { mutableStateOf(com.huryel.novely.data.Ambiente.atual) }
                 DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }
-                Fogueira(hoje, meta, somEd) { somEd = it; com.huryel.novely.data.Ambiente.tocar(it) }
-                BotaoRedondoPequeno(Icons.Filled.KeyboardArrowUp, "Ir ao início", p) { irPara(0, 0) }
-                BotaoRedondoPequeno(Icons.Filled.KeyboardArrowDown, "Ir ao fim", p) { irAoFimMaximo() }
+                // Luar · folha limpa: o resto das ferramentas só aparece com o lápis aberto
+                if (ferrAbertas) {
+                    Fogueira(hoje, meta, somEd) { somEd = it; com.huryel.novely.data.Ambiente.tocar(it) }
+                    BotaoRedondoPequeno(Icons.Filled.KeyboardArrowUp, "Ir ao início", p) { irPara(0, 0) }
+                    BotaoRedondoPequeno(Icons.Filled.KeyboardArrowDown, "Ir ao fim", p) { irAoFimMaximo() }
+                }
             }
+            if (!ferrAbertas && textoSelecionado.isEmpty())
+                Mono("$palavras palavras", Modifier.align(Alignment.BottomStart).padding(start = 20.dp, bottom = 18.dp), tamanho = 10.sp)
         }
         if (modoFoco) {
             Text("Sair do foco", fontSize = 12.sp, color = p.textoSuave, fontWeight = FontWeight.Bold,

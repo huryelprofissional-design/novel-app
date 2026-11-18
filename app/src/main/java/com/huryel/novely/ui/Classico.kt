@@ -349,64 +349,61 @@ fun CabecalhoObra(estilo: String, o: Obra, caps: List<Capitulo>, volumes: List<V
     var menuCapa by remember { mutableStateOf(false) }
     if (verCapa) VisorCapa(o) { verCapa = false }
     Column(Modifier.fillMaxWidth()) {
-        // estilo Pôster: a capa ocupa o topo inteiro, escurece embaixo e o título aparece grande, em maiúsculas
-        Box(Modifier.fillMaxWidth().height(540.dp).clipToBounds()) {
-            // fundo: a própria capa desfocada; no meio, a capa inteira como um livro
-            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase, Modifier.fillMaxSize().blur(28.dp), 30.sp, semCantos = true, mostrarTitulo = false)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x99000000), 0.45f to Color(0x66000000), 0.75f to Color(0xDD000000), 1f to p.fundo)))
-            CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
-                Modifier.align(Alignment.TopCenter).padding(top = 64.dp).width(160.dp).height(232.dp).shadow(26.dp, RoundedCornerShape(16.dp))
-                    .clip(RoundedCornerShape(16.dp)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp)).clickable { menuCapa = true }, 15.sp)
-            DropdownMenu(menuCapa, { menuCapa = false }) {
-                DropdownMenuItem(text = { Text("Ver capa") }, onClick = { menuCapa = false; verCapa = true })
-                if (!o.trancada) DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })
-                if (!o.trancada) DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuCapa = false; a.banner() })
-            }
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                BotaoVidro(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", a.voltar)
-                Spacer(Modifier.weight(1f))
-                BotaoVidro(Icons.Filled.MoreVert, "Opções da obra", a.menu)
-            }
-            Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SeloPoster(nomeStatus(o.status).uppercase(), p.destaque)
-                    val extra = if (o.trancada) "Publicada" else if (!o.minha) "Só leitura" else if (o.publicada) "No catálogo" else null
-                    if (extra != null) Text(extra, fontSize = 12.sp, color = Color(0xFFDDDDDD), modifier = Modifier.padding(start = 10.dp))
+        // Luar · ficha de livro: capa pequena ao lado do título, números embaixo, sinopse em serifa
+        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 4.dp)) {
+            IconButton(onClick = a.voltar) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = Ed.creme) }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = a.menu) { Icon(Icons.Filled.MoreVert, "Opções da obra", tint = Ed.creme) }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.Bottom) {
+            Box {
+                CapaObra(o.titulo, o.capa, o.capaX, o.capaY, o.capaZoom, o.corBase,
+                    Modifier.width(96.dp).height(140.dp).shadow(18.dp, RoundedCornerShape(6.dp), spotColor = Ed.laranja)
+                        .clip(RoundedCornerShape(6.dp)).clickable { menuCapa = true }, 11.sp)
+                DropdownMenu(menuCapa, { menuCapa = false }) {
+                    DropdownMenuItem(text = { Text("Ver capa") }, onClick = { menuCapa = false; verCapa = true })
+                    if (!o.trancada) DropdownMenuItem(text = { Text("Trocar ou ajustar capa") }, onClick = { menuCapa = false; a.capa() })
+                    if (!o.trancada) DropdownMenuItem(text = { Text("Trocar banner") }, onClick = { menuCapa = false; a.banner() })
                 }
-                Text(o.titulo.uppercase(), fontWeight = FontWeight.Black, fontSize = 36.sp, lineHeight = 36.sp, letterSpacing = (-0.5).sp,
-                    maxLines = 3, overflow = TextOverflow.Ellipsis, color = Color.White, modifier = Modifier.padding(top = 12.dp))
-                if (o.autor.isNotBlank()) Text("por ${o.autor}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 8.dp))
+            }
+            Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                val extra = if (o.trancada) "publicada" else if (!o.minha) "só leitura" else if (o.publicada) "no catálogo" else null
+                Mono(nomeStatus(o.status) + (extra?.let { " · $it" } ?: ""), cor = Ed.laranja, tamanho = 10.sp)
+                Serif(o.titulo, if (o.titulo.length > 24) 26.sp else 32.sp, Modifier.padding(top = 6.dp), maxLinhas = 3)
+                if (o.autor.isNotBlank()) Serif("por ${o.autor}", 16.sp, Modifier.padding(top = 4.dp), Ed.suave, italico = true, maxLinhas = 1)
             }
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Row(Modifier.padding(top = 4.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PilulaInfo("${caps.size} caps")
-                PilulaInfo("${formatarPalavras(palavras)} palavras")
-                if (caps.isNotEmpty() && !o.minha) PilulaInfo("${lidos * 100 / caps.size}% lido")
-                if (caps.isNotEmpty() && !o.minha) {
-                    val min = (caps.sumOf { (it.palavras * (1f - it.progresso.coerceIn(0f, 1f))).toDouble() } / 230).toInt()
-                    if (min > 0) PilulaInfo(if (min >= 60) "faltam ${min / 60} h ${min % 60} min" else "faltam $min min")
+                val numeros = buildList {
+                    add("${caps.size} caps"); add("${formatarPalavras(palavras)} palavras")
+                    if (caps.isNotEmpty() && !o.minha) add("${lidos * 100 / caps.size}% lido")
+                    if (caps.isNotEmpty() && !o.minha) {
+                        val min = (caps.sumOf { (it.palavras * (1f - it.progresso.coerceIn(0f, 1f))).toDouble() } / 230).toInt()
+                        if (min > 0) add(if (min >= 60) "faltam ${min / 60} h ${min % 60} min" else "faltam $min min")
+                    }
                 }
+                Mono(numeros.joinToString("  ✦  "), tamanho = 10.sp)
             }
-            if (o.descricao.isNotBlank()) Text(o.descricao, fontSize = 14.sp, lineHeight = 21.sp, color = Color(0xFFCCCCCC),
+            if (o.descricao.isNotBlank()) Text(o.descricao, fontSize = 16.sp, lineHeight = 25.sp, color = Ed.creme.copy(alpha = 0.85f), fontFamily = com.huryel.novely.ui.theme.Newsreader,
                 maxLines = if (sinopseAberta) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 16.dp).animateContentSize().clickable { sinopseAberta = !sinopseAberta })
             Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (a.novoCap != null) Box(Modifier.size(58.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).clickable(onClick = a.novoCap),
-                    contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, "Novo capítulo", tint = Color.White) }
-                BotaoBranco(
-                    "▶  " + when {
+                BotaoCreme(
+                    when {
                         alvo == null -> "Sem capítulos"
                         alvo.progresso in 0.01f..0.97f -> "Continuar"
                         caps.indexOf(alvo) > 0 -> "Ler cap. ${caps.indexOf(alvo) + 1}"
                         else -> "Ler agora"
-                    }, Modifier.weight(1f), enabled = a.ler != null,
+                    }, Modifier.weight(1f), seta = a.ler != null,
                 ) { a.ler?.invoke() }
+                if (a.novoCap != null) Box(Modifier.size(46.dp).clip(CircleShape).border(1.dp, Ed.laranja.copy(alpha = 0.6f), CircleShape).clickable(onClick = a.novoCap),
+                    contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, "Novo capítulo", tint = Ed.laranja) }
             }
             if (alvo != null && alvo.progresso in 0.01f..0.97f) Text("Parou em: ${alvo.titulo.ifEmpty { "sem título" }} · ${(alvo.progresso * 100).toInt()}%",
                 fontSize = 12.sp, color = p.textoSuave, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
             Row(Modifier.fillMaxWidth().padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Capítulos", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                Serif("Capítulos", 22.sp)
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = a.novoVol) { Text("+ Volume", color = p.textoSuave) }
             }
