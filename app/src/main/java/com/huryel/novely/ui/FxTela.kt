@@ -313,7 +313,7 @@ private fun FxDigitar(texto: String, base: TextStyle, vez: Int) {
     Text(texto.take(n) + if (t < 1f) "▍" else "", style = base)
 }
 
-private const val SIMBOLOS = "▓▒░#@%&$ΣΨΩ01ʘ¥"
+private const val SIMBOLOS = "▓▒░#@%&\$ΣΨΩ01ʘ¥"
 
 @Composable
 private fun FxDecifrar(texto: String, vez: Int) {
