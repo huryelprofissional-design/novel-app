@@ -18,7 +18,7 @@ object Limpeza {
 
     fun limparTrecho(s: String): String {
         // os efeitos novos (Fx.kt) ficam; só os símbolos antigos somem
-        var t = RX_INLINE.replace(s) { m -> if (Fx.conhecido(m.value.drop(1).substringBefore(':').trimStart('$'))) m.value else m.groupValues[1] }
+        var t = RX_INLINE.replace(s) { m -> m.value.drop(1).substringBefore(':').let { n -> if (!n.startsWith('$') && Fx.conhecido(n)) m.value else m.groupValues[1] } }
         PARES.forEach { rx -> t = rx.replace(t) { it.groupValues[1] } }
         t = TELEPATIA.replace(t) { m -> if (':' in m.groupValues[1] && Fx.conhecido(m.groupValues[1].substringBefore(':'))) m.value else m.groupValues[1] }
         return RANK.replace(t) { it.groupValues[1] }

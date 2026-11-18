@@ -26,6 +26,6 @@ APK: publicado a cada push em *Releases* como `build-N` / `novely.apk`.
 | Android | [[Android - Visão geral]] · [[Android - Arquivos]] · [[Leitor]] · [[Editor]] |
 | PC | [[PC - Visão geral]] · [[PC - Arquivos]] |
 | Nuvem | [[Firebase e Firestore]] · [[Regras do Firestore]] · [[Segurança]] |
-| Recursos | [[Vozes]] · [[Maestro - prompt de escrita]] |
+| Recursos | [[Vozes]] · [[Maestro - prompt de escrita]] · [[Efeitos]] |
 | Operação | [[Build e CI]] · [[Como testar]] · [[Assinatura do APK]] |
 | Histórico | [[Linha do tempo]] · [[Decisões]] · [[Pendências]] |

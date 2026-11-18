@@ -7,6 +7,7 @@ gerado: 2026-11-14
 Gerada do `git log` (mais novo primeiro). Para ver detalhes: `git log --stat`.
 
 ## 2026-11-18
+- 165 efeitos novos no celular (`Fx.kt`, `FxTela.kt`) e Maestro v5 com a Bíblia no formato do app
 - Efeitos de escrita removidos do celular e do PC; limpeza única dos símbolos nos capítulos
 
 ## 2026-11-14

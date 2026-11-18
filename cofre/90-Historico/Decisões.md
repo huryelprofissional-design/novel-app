@@ -7,6 +7,7 @@ Decisões aprovadas pelo autor (mais novas primeiro). As do começo do projeto e
 
 | Data | Decisão |
 |---|---|
+| 2026-11-18 | **Efeitos novos, do zero**: o autor escolheu 165 de 350 (página de seleção). Escrita única: `{nome: texto}`, `[nome &#124; campos]`, `::nome`. Só celular. Maestro v5 usa a Bíblia no formato fixo do app. Ver [[Efeitos]]. |
 | 2026-11-18 | **Efeitos de escrita removidos** do app inteiro (símbolos curtos, efeitos de cena, Mega Pack e Efeitos 2.0), como se nunca existissem. Os símbolos dos capítulos foram limpos uma vez (versão de antes no Histórico) e textos de outras pessoas são limpos na hora de ler (`data/Limpeza.kt`, `web/limpeza.js`). Negrito, itálico, troca de cena, subtítulo # e @/& continuam. |
 | 2026-11-18 | PC descontinuado por enquanto: não mexer em `web/` até o autor pedir. |
 | 2026-11-18 | Novo visual: **Luar ametista** sobre preto puro (ver [[Pendências]]). |
