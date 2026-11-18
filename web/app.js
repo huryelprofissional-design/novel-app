@@ -181,6 +181,7 @@ onAuthStateChanged(auth, async (u) => {
   try { E.perfil = (await getDoc(eu())).data() || {}; } catch (_) { E.perfil = {}; }
   if (!E.perfil.nome && u.displayName) E.perfil.nome = u.displayName;
   X.registrarAparelho(); clearInterval(window.__vidaAp); window.__vidaAp = setInterval(() => X.registrarAparelho(), 180000);
+  import("./limpeza.js").then((m) => m.limparObrasUmaVez()).catch(() => {});
   carteira(true).then(() => diarioMoedas()).then((n) => n && toast(`🪙 +${n} moedas de hoje`)).catch(() => {});
   let primeira = true;
   pararObras = onSnapshot(colObras(), (s) => {
