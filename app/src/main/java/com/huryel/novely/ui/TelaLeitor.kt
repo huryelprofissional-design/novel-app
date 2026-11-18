@@ -116,6 +116,8 @@ sealed interface Bloco {
 
     data class Paragrafo(val texto: AnnotatedString, val fala: Boolean) : Bloco { override val plano: String get() = texto.text }
     data object Separador : Bloco { override val plano = "" }
+    /** Efeito de escrita numa linha inteira (data/Fx.kt). */
+    data class Efeito(val uso: com.huryel.novely.data.FxUso) : Bloco { override val plano: String get() = com.huryel.novely.data.Fx.plano(uso) }
 }
 
 private val iniciosDeFala = listOf("—", "–", "―", "-", "“", "\"", "«")
@@ -132,9 +134,25 @@ fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
     while (i < linha.length) {
         if (linha.startsWith("**", i)) { negrito = !negrito; i += 2; continue }
         if (linha[i] == '*') { italico = !italico; i++; continue }
+        if (linha[i] == '{') {
+            val m = com.huryel.novely.data.Fx.RX_INLINE.find(linha, i)?.takeIf { it.range.first == i }
+            if (m != null && com.huryel.novely.data.Fx.conhecido(m.groupValues[1])) {
+                val cs = m.groupValues[2].split('|').map { it.trim() }
+                val def = com.huryel.novely.data.Fx.def(m.groupValues[1])!!
+                pushStyle(SpanStyle(fontWeight = if (negrito) FontWeight.Bold else null, fontStyle = if (italico) FontStyle.Italic else null))
+                if (def.tipo == com.huryel.novely.data.FxTipo.CORRIGE && cs.size > 1) {
+                    withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough, color = Color(0xFFE0445A))) { append(cs[0]) }
+                    append(" ")
+                }
+                withStyle(estiloFxInline(m.groupValues[1])) { append(cs.last()) }
+                pop()
+                i = m.range.last + 1
+                continue
+            }
+        }
         val ini = i
         i++
-        while (i < linha.length && linha[i] != '*') i++
+        while (i < linha.length && linha[i] != '*' && linha[i] != '{') i++
         pushStyle(SpanStyle(fontWeight = if (negrito) FontWeight.Bold else null, fontStyle = if (italico) FontStyle.Italic else null))
         append(linha, ini, i); pop()
     }
@@ -166,6 +184,7 @@ fun montarBlocos(texto: String, origens: MutableList<Int>? = null): List<Bloco> 
             linha.isEmpty() -> {}
             podeSerTitulo && Texto.ehTituloCapitulo(linha) && !linha.startsWith("#") -> saida.add(Bloco.Titulo(Texto.tituloLimpo(linha)))
             linha == "* * *" || linha == "***" || linha == "---" || linha == "◆" -> saida.add(Bloco.Separador)
+            com.huryel.novely.data.Fx.lerLinha(linha) != null -> saida.add(Bloco.Efeito(com.huryel.novely.data.Fx.lerLinha(linha)!!))
             linha.startsWith("#") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim()))
             linha.length > 2500 -> {
                 val fala = ehFala(linha)
@@ -185,6 +204,7 @@ fun BlocoPrevia(bloco: Bloco, estilo: TextStyle, p: Paleta, modifier: Modifier =
         is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, modifier)
         is Bloco.Separador -> Box(modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) { SeparadorCena("", p.destaque) }
         is Bloco.Paragrafo -> if (bloco.fala) Fala(bloco.texto, estilo, p, modifier) else Text(bloco.texto, style = estilo, modifier = modifier)
+        is Bloco.Efeito -> FxBloco(bloco.uso, estilo, modifier)
     }
 }
 
@@ -414,6 +434,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     }
     DisposableEffect(Unit) {
         onDispose {
+            com.huryel.novely.data.Ambiente.parar() // ::som do capítulo para ao sair
             val emLivro = modoPaginas && paginas != null
             val i = if (emLivro) blocoAtual() + 1 else estado.firstVisibleItemIndex
             val d = if (emLivro) 0 else estado.firstVisibleItemScrollOffset; val pr = progresso
@@ -633,6 +654,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                                     when (bl) {
                                         is Bloco.Titulo -> Box(Modifier.height(alturaDp).then(fundo)) { TituloNoTexto(bl.plano, p, Modifier) }
                                         is Bloco.Separador -> Box(Modifier.fillMaxWidth().height(alturaDp), contentAlignment = Alignment.Center) { SeparadorCena(enfeite, p.destaque) }
+                                        is Bloco.Efeito -> Box(Modifier.fillMaxWidth().height(alturaDp).then(fundo), contentAlignment = Alignment.Center) { FxBloco(bl.uso, estiloLivro) }
                                         is Bloco.Paragrafo -> {
                                             val inteiro = remember(item.bi, regraNomes, destacarNomes, tamanho) { decorado(item.bi) }
                                             val comBusca = if (q.length >= 2) destacarBusca(inteiro, normalizados.value[item.bi], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == item.bi }?.second) else inteiro
@@ -696,6 +718,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                 when (bloco) {
                     is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, fundoAtivo)
                     is Bloco.Separador -> Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) { SeparadorCena(enfeite, p.destaque) }
+                    is Bloco.Efeito -> FxBloco(bloco.uso, estiloBase, fundoAtivo)
                     is Bloco.Paragrafo -> {
                         val base = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
                         val texto = remember(base, regraNomes, destacarNomes, i == primeiroParagrafo, tamanho) {
@@ -1384,6 +1407,7 @@ private fun paginar(
                 inteiro(ItemPag.Trecho(i, 0, 0, lay.size.height + (if (especial) 110 else 44).dp.roundToPx()), lay.size.height + (if (especial) 110 else 44).dp.roundToPx())
             }
             is Bloco.Separador -> inteiro(ItemPag.Trecho(i, 0, 0, 40.dp.roundToPx()), 40.dp.roundToPx())
+            is Bloco.Efeito -> inteiro(ItemPag.Trecho(i, 0, 0, 176.dp.roundToPx()), 176.dp.roundToPx())
             is Bloco.Paragrafo -> {
                 val fala = bl.fala && falas
                 val w = if (fala) largura - 26.dp.roundToPx() else largura

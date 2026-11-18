@@ -17,15 +17,17 @@ object Limpeza {
     private val NOTA = Regex("^(N\\.\\s?A\\.|Nota do autor)\\s*:?\\s*", RegexOption.IGNORE_CASE)
 
     fun limparTrecho(s: String): String {
-        var t = RX_INLINE.replace(s) { it.groupValues[1] }
+        // os efeitos novos (Fx.kt) ficam; só os símbolos antigos somem
+        var t = RX_INLINE.replace(s) { m -> if (Fx.conhecido(m.value.drop(1).substringBefore(':').trimStart('$'))) m.value else m.groupValues[1] }
         PARES.forEach { rx -> t = rx.replace(t) { it.groupValues[1] } }
-        t = TELEPATIA.replace(t) { it.groupValues[1] }
+        t = TELEPATIA.replace(t) { m -> if (':' in m.groupValues[1] && Fx.conhecido(m.groupValues[1].substringBefore(':'))) m.value else m.groupValues[1] }
         return RANK.replace(t) { it.groupValues[1] }
     }
 
     /** Uma linha: o texto comum, ou null quando a linha só existia para o efeito. */
     fun limparLinha(l0: String): String? {
         val l = l0.trim(); if (l.isEmpty()) return l0
+        if (Fx.lerLinha(l) != null) return l0
         if (l.startsWith("~") && l.length in 2..23 && ' ' !in l) return null
         fun juntar(x: String) = campos(x).map { limparTrecho(it.replace(Regex("^\\[[xX✓ ]?]\\s*"), "")) }.filter { it.isNotEmpty() }.joinToString(". ").ifEmpty { null }
         return when {
