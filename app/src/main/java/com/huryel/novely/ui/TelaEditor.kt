@@ -156,8 +156,6 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         }
     }
     var mostrarMapa by remember { mutableStateOf(false) }
-    var mostrarEfeitos by remember { mutableStateOf(false) }
-    var mostrarPainelFx by remember { mutableStateOf(false) }
     var previa by rememberSaveable { mutableStateOf(false) } // Prévia (desenhado como o leitor) × Símbolos (texto cru)
     var menuPrevia by remember { mutableIntStateOf(-1) }
     var recuperar by remember { mutableStateOf<Pair<Long, String>?>(null) } // rascunho de emergência achado ao abrir
@@ -403,20 +401,6 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         versao++
     }
 
-    /** Troca a seleção pelo efeito do painel; efeito de parágrafo fica numa linha só dele. */
-    fun aplicarEfeito(sintaxe: String, bloco: Boolean) {
-        val i = focado.takeIf { it in pedacos.indices } ?: pedacos.lastIndex
-        val pd = pedacos[i]; val v = pd.valor; val sel = v.selection
-        var ins = sintaxe
-        if (bloco) {
-            if (sel.min > 0 && v.text[sel.min - 1] != '\n') ins = "\n" + ins
-            if (sel.max < v.text.length && v.text[sel.max] != '\n') ins += "\n"
-        }
-        passoNovo(pd)
-        pd.valor = TextFieldValue(v.text.substring(0, sel.min) + ins + v.text.substring(sel.max), TextRange(sel.min + ins.length))
-        versao++
-    }
-
     /** Linha n do texto inteiro → (pedaço, início, fim) dentro do pedaço. */
     fun localDaLinha(n: Int): Triple<Int, Int, Int>? {
         if (n < 0) return null
@@ -432,20 +416,6 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         }
         return null
     }
-
-    /** "Remover efeito": a linha perde os símbolos e o texto fica (dá para desfazer). */
-    fun removerEfeitoDaLinha(n: Int) {
-        val (pi, a, b) = localDaLinha(n) ?: return
-        val pd = pedacos[pi]; val v = pd.valor
-        val linha = v.text.substring(a, b)
-        val nova = Marcas.semEfeito(linha)
-        if (nova == linha.trim()) return
-        passoNovo(pd)
-        pd.valor = TextFieldValue(v.text.substring(0, a) + nova + v.text.substring(b), TextRange(a + nova.length))
-        versao++; contadorPilhas++
-        escopo.launch { if (snack.showSnackbar("Efeito removido", "Desfazer", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) aplicarPasso(desfazer, refazer) }
-    }
-
 
     /** Travessão de fala: começa um parágrafo novo com "— " se o cursor não estiver numa linha vazia. */
     fun novaFala() {
@@ -690,7 +660,6 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
             androidx.compose.ui.input.key.Key.Z -> { if (e.isShiftPressed) aplicarPasso(refazer, desfazer) else aplicarPasso(desfazer, refazer); true }
             androidx.compose.ui.input.key.Key.Y -> { aplicarPasso(refazer, desfazer); true }
             androidx.compose.ui.input.key.Key.F -> { painel = if (painel == PainelEd.BUSCA) PainelEd.NENHUM else PainelEd.BUSCA; true }
-            androidx.compose.ui.input.key.Key.E -> { mostrarPainelFx = true; true }
             androidx.compose.ui.input.key.Key.P -> { menuPrevia = -1; previa = !previa; true }
             androidx.compose.ui.input.key.Key.S -> { versao++; escopo.launch { snack.showSnackbar("Salvando…", duration = SnackbarDuration.Short) }; true }
             else -> false
@@ -749,25 +718,18 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                 val vidroEd = rememberVidro()
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (previa) {
-                    // Prévia: o capítulo desenhado pelo motor do leitor; tocar num efeito abre Remover / Ver os símbolos
+                    // Prévia: o capítulo desenhado pelo motor do leitor; tocar leva ao parágrafo
                     val textoTodo = remember(versao) { pedacos.joinToString("") { it.valor.text } }
                     val origens = remember(textoTodo) { ArrayList<Int>() }
                     val blocos = remember(textoTodo) { origens.clear(); montarBlocos(textoTodo, origens) }
                     val linhas = remember(textoTodo) { textoTodo.lines() }
                     LazyColumn(Modifier.fillMaxSize().background(p.fundo), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        item { Text("Prévia: assim o leitor vê. Toque num efeito para remover ou ver os símbolos.", fontSize = 12.sp, color = p.textoSuave) }
+                        item { Text("Prévia: assim o leitor vê. Toque num parágrafo para ir até ele no texto.", fontSize = 12.sp, color = p.textoSuave) }
                         itemsIndexed(blocos) { bi, bl ->
                             val ln = origens.getOrElse(bi) { -1 }
                             val src = linhas.getOrNull(ln).orEmpty()
-                            val temFx = src.isNotBlank() && Marcas.semEfeito(src) != src.trim()
-                            Box {
-                                BlocoPrevia(bl, estilo, p, Modifier.fillMaxWidth().clickable { if (temFx) menuPrevia = bi else verSimbolos(ln) })
-                                DropdownMenu(menuPrevia == bi, { menuPrevia = -1 }, containerColor = p.superficie) {
-                                    DropdownMenuItem(text = { Text("Remover efeito (o texto fica)", color = Color(0xFFFF9D9D)) }, onClick = { menuPrevia = -1; removerEfeitoDaLinha(ln) })
-                                    DropdownMenuItem(text = { Text("Ver os símbolos") }, onClick = { menuPrevia = -1; verSimbolos(ln) })
-                                }
-                            }
+                            BlocoPrevia(bl, estilo, p, Modifier.fillMaxWidth().clickable { verSimbolos(ln) })
                         }
                         item { Spacer(Modifier.height(140.dp)) }
                     }
@@ -835,7 +797,6 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
                             BotaoFerramenta("◆", p, cor = p.destaque) { inserir("\n\n* * *\n\n", false) }
                             BotaoFerramenta("H", p) { inserir("\n# ", false) }
                             BotaoFerramenta("☰", p) { mostrarMapa = true }
-                            BotaoFerramenta("✦", p, FontWeight.ExtraBold, cor = Color(0xFFFFC94A)) { mostrarPainelFx = true }
                         }
                     }
                 }
@@ -866,14 +827,6 @@ private fun TelaEditorCorpo(capId: Long, nav: NavHostController) {
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp))
     }
 
-    if (mostrarPainelFx) ModalBottomSheet(onDismissRequest = { mostrarPainelFx = false }, containerColor = Color(0xFF111216),
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        PainelEfeito(textoSelecionado, p, aoAplicar = { t, bl -> mostrarPainelFx = false; aplicarEfeito(t, bl) },
-            aoCancelar = { mostrarPainelFx = false }, verSimbolos = { mostrarPainelFx = false; mostrarEfeitos = true })
-    }
-    if (mostrarEfeitos) ModalBottomSheet(onDismissRequest = { mostrarEfeitos = false }, containerColor = p.superficie) {
-        FolhaEfeitosEscrita(p) { marca, envolver -> mostrarEfeitos = false; inserir(marca, envolver) }
-    }
     if (mostrarMapa) ModalBottomSheet(onDismissRequest = { mostrarMapa = false }, containerColor = p.superficie) {
         val m = remember { marcas() }
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -1195,64 +1148,6 @@ fun TelaComparar(capId: Long, quando: Long, nav: NavHostController) {
                 Text((if (d.tipo == -1) "− " else if (d.tipo == 1) "+ " else "") + d.texto, fontSize = 14.sp, lineHeight = 21.sp, color = if (d.tipo == 0) p.textoSuave else p.texto,
                     textDecoration = if (d.tipo == -1) TextDecoration.LineThrough else null,
                     modifier = Modifier.fillMaxWidth().clip(forma(10.dp)).background(fundo).border(if (d.tipo != 0) 1.dp else 0.dp, cor.copy(alpha = 0.4f), forma(10.dp)).padding(10.dp))
-            }
-        }
-    }
-}
-
-/** Cola dos efeitos de escrita: tocar insere no texto. */
-@Composable
-private fun FolhaEfeitosEscrita(p: Paleta, inserir: (String, Boolean) -> Unit) {
-    Column(Modifier.fillMaxWidth().fillMaxHeight(0.8f).then(Modifier.verticalScroll(rememberScrollState())).padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-        Text("Efeitos de escrita", fontWeight = FontWeight.Black, fontSize = 22.sp)
-        Text("Escreva os símbolos e o leitor faz o efeito sozinho. Toque para inserir.", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
-        Text("NO TEXTO (selecione um trecho e toque)", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave)
-        listOf(Triple("!!", "!!GRITO!!", "Fala gritada, grande e forte"), Triple("((", "((sussurro))", "Baixinho, menor e em itálico"),
-            Triple("^^", "^^brilho^^", "Palavra mágica dourada e brilhando"), Triple("||", "||segredo||", "Borrado até o leitor tocar"),
-            Triple("%%", "%%glitch%%", "Letras corrompidas trocando"), Triple("<<", "<<voz sombria>>", "Vermelho com sombra: vilão, demônio"),
-            Triple("{", "{telepatia}", "Voz mental azul ondulando"), Triple("~~", "~~riscado~~", "Palavra riscada"),
-            Triple("[S]", "[S]", "Selo de rank (F, E, D, C, B, A, S, SS, SSS)"),
-            Triple("**", "**negrito**", "Negrito"), Triple("*", "*itálico*", "Itálico")).forEach { (m, ex, d) ->
-            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { when (m) { "((" -> inserir("(())", false); "<<" -> inserir("<<>>", false); "{" -> inserir("{}", false); "[S]" -> inserir("[S]", false); else -> inserir(m, true) } }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
-                Text(d, fontSize = 13.sp, color = p.textoSuave)
-            }
-        }
-        Text("PARÁGRAFO INTEIRO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
-        listOf(Triple("\n[[Habilidade adquirida: Punho de Ferro]]\n", "[[texto]]", "Janela azul de Sistema"),
-            Triple("\n[[HP 30/100 | MP 80/100 | XP 45/100]]\n", "[[HP 30/100]]", "Barras de status (separe com |)"),
-            Triple("\n[!Você subiu de nível!]\n", "[!aviso!]", "Notificação que desliza do topo"),
-            Triple("\n== ", "== texto", "Carta escrita à mão (várias linhas ==)"),
-            Triple("\n## ", "## TÍTULO", "Título de impacto, letras gigantes"),
-            Triple("\n[[Missões | [x] Sobreviver à noite | [ ] Achar o mestre]]\n", "[[ [x] feito | [ ] falta ]]", "Lista de missões no Sistema"),
-            Triple("\n[+Espada do Vazio | lendário]\n", "[+item | raridade]", "Item obtido (comum, raro, épico, lendário, mítico)"),
-            Triple("\n{{DECRETO DA SEITA | texto do decreto}}\n", "{{TÍTULO | texto}}", "Pergaminho com selo"),
-            Triple("\n:: Seul, Gangnam | 03:14 da manhã\n", ":: local | hora", "Local e hora, abertura de cena"),
-            Triple("\n> Frase marcante — Autor\n", "> frase — autor", "Epígrafe no começo do capítulo"),
-            Triple("\n@@", "@@Nome", "Cartão do personagem (puxa a ficha)"),
-            Triple("\n>>Kang: ", ">>Nome: texto", "Mensagem de outra pessoa (com nome)"),
-            Triple("\n>>>Nome: comentário\n", ">>>Nome: texto", "Comentários ao vivo (várias linhas)"),
-            Triple("\nN.A.: ", "N.A.: texto", "Nota do autor (o Ouvir pula)"),
-            Triple("\n>> ", ">> texto", "Mensagem de celular"), Triple("\n~pausa\n", "~pausa", "Pausa dramática antes do próximo parágrafo")).forEach { (m, ex, d) ->
-            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir(m, false) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(ex, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
-                Text(d, fontSize = 13.sp, color = p.textoSuave)
-            }
-        }
-        Text("MEGA PACK · {efeito: texto} num trecho, [#efeito campo | campo] no parágrafo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
-        Text("Cor por texto: {fogo:azul: …} ou [#sistema:vermelho …]. Cores: roxo, vermelho, azul, verde, dourado, rosa, branco, sombrio.", fontSize = 12.sp, color = p.textoSuave)
-        MEGA_PACK.forEach { (nome, cod, cat) ->
-            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir(if (cat == "inline") cod.replace("texto", "").replace("tradução", "") else "\n$cod\n", false) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(cod, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.weight(1.3f), maxLines = 2)
-                Text(nome, fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.weight(1f).padding(start = 10.dp))
-            }
-        }
-        Text("EFEITO DE CENA (vale daqui até ~fim)", fontSize = 11.sp, fontWeight = FontWeight.Black, color = p.textoSuave, modifier = Modifier.padding(top = 14.dp))
-        Text("Numa linha sozinha. Trocar para outro efeito (~neve) já desliga o anterior.", fontSize = 12.sp, color = p.textoSuave)
-        (EFEITOS_CENA.entries.map { it.key to it.value } + listOf("fim" to "⏹ Desligar o efeito")).forEach { (k, nome) ->
-            Row(Modifier.fillMaxWidth().clip(forma(12.dp)).clickable { inserir("\n~$k\n", false) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("~$k", fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = p.destaque, modifier = Modifier.width(140.dp))
-                Text(nome, fontSize = 13.sp, color = p.textoSuave)
             }
         }
     }

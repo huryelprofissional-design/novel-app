@@ -137,6 +137,9 @@ private val INK_BORDA = Color(0xFF2A2C33)
 private val INK_ATIVO = Color(0xFF090A0C)
 private val INK_INATIVO = Color(0xFF80838E)
 
+/** "Reduzir animações" ligado (o app inteiro fornece o valor). */
+val LocalSemMovimento = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 /** "Reduzir animações": a opção do app ou a do sistema (escala de animação 0). */
 @Composable
 fun reduzirAnimacoes(): Boolean {

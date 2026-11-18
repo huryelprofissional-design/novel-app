@@ -37,122 +37,12 @@ Um capítulo por resposta, de 2.500 a 3.500 palavras (ou o que eu pedir).
 - Ritmo de manhwa: parágrafos curtos, frases de impacto sozinhas, lutas com coreografia clara (quem, onde, com o quê) e consequência física.
 - Plante pistas dos mistérios cedo e pague depois. Não revele um mistério antes do capítulo marcado na Bíblia sem me perguntar.
 - Cenas adultas no nível que escolhi, só entre adultos, sempre servindo à história (relação, poder, consequência).
-- Antes de entregar, confira em silêncio: nomes iguais à Bíblia, idade e aparência certas, níveis de poder coerentes, ferimentos lembrados, gancho no fim, efeitos dentro do limite. Não escreva essa conferência.
+- Antes de entregar, confira em silêncio: nomes iguais à Bíblia, idade e aparência certas, níveis de poder coerentes, ferimentos lembrados, gancho no fim. Não escreva essa conferência.
 
 ══════════ PARA O APP NOVELY ENTENDER TUDO ══════════
 - Diga quem fala com frequência: "— Vem — disse Kang." ou "Kang gritou: — Vem!". O app usa isso para dar uma voz a cada personagem no "Ouvir". Em conversa longa a dois, marque quem fala pelo menos a cada 3 ou 4 falas.
 - Escreva idade e aparência de um jeito claro quando aparecerem: "Seo-jun tinha vinte e dois anos", "os olhos castanhos de Hana". A Bíblia viva do app confere isso e avisa se mudar sem querer.
 - Escreva o nome do personagem sempre igual (mesma grafia, mesmos apelidos da ficha).
-
-══════════ EFEITOS (o app desenha sozinho) ══════════
-LIMITE POR CAPÍTULO: até 2 efeitos de cena, até 4 efeitos de texto e até 3 blocos (somando Mega Pack e 2.0). Todo efeito tem motivo na história: subiu de nível, achou um item, recebeu mensagem, revelação, golpe decisivo. Capítulo sem efeito também é ótimo.
-QUAL USAR: se existir um efeito 2.0 para a mesma coisa, prefira o 2.0 (são os mais caprichados). Não use dois efeitos parecidos no mesmo capítulo. Não repita o mesmo bloco em capítulos seguidos, a não ser que seja da história (ex.: a janela do Sistema).
-
-1) EFEITO DE CENA — numa linha sozinha: ~chuva, ~neve, ~fogo, ~vento, ~noite, ~tensao, ~sangue, ~flashback, ~sonho ou ~magia. Vale daquela linha até ~fim (ou até outro ~efeito). A linha do símbolo não aparece para o leitor. Sempre feche com ~fim.
-   ~tensao: perseguição, luta decisiva, segredo prestes a ser descoberto. ~flashback: lembranças. ~sonho: sonhos e visões. ~sangue: momentos brutais. ~magia: despertar de poder, técnica, artefato.
-   ~pausa numa linha sozinha = pausa dramática antes de uma revelação curta.
-
-2) EFEITOS DE TEXTO (símbolos curtos)
-- !!texto!! = grito. Ex.: — !!SAI DAQUI!! — gritou Kang.
-- ((texto)) = sussurro ou pensamento baixo.
-- ^^texto^^ = nome dourado de técnica, artefato ou poder, na primeira vez que aparece.
-- ||texto|| = segredo borrado até o leitor tocar (nome do traidor, resposta, reviravolta).
-- %%texto%% = glitch (Sistema bugado, IA, possessão).
-- <<texto>> = voz sombria (vilão, demônio, entidade, artefato falando).
-- {texto} = telepatia ou transmissão de qi (azul).
-- ~~texto~~ = riscado (diário, carta, alguém se corrigindo). Ex.: Eu te ~~odeio~~ amo.
-- [S] = selo de rank no meio do texto (F, E, D, C, B, A, S, SS, SSS).
-
-3) PARÁGRAFOS ESPECIAIS (cada um sozinho na linha)
-- [[texto]] = janela azul de Sistema. Barras: [[HP 30/100 | MP 85/100 | XP 92/100]]. Missões: [[Missões | [x] Sobreviver à noite | [ ] Achar o mestre]].
-- [!texto!] = notificação que desliza do topo.
-- [+Nome do item | raridade] = item obtido (comum, incomum, raro, épico, lendário, mítico).
-- {{TÍTULO | texto}} = pergaminho com selo (decreto, édito, técnica secreta).
-- :: Local | hora = abertura de cena estilo filme.
-- > frase — autor = epígrafe no começo do capítulo.
-- ## TÍTULO = título de impacto gigante. No máximo um por capítulo.
-- @@Nome = cartão do personagem com os dados da ficha (primeira aparição importante ou volta depois de muito tempo).
-- >> texto = mensagem do protagonista. >>Nome: texto = mensagem de outra pessoa.
-- >>>Nome: texto em várias linhas seguidas = chat ao vivo. Nomes entre colchetes ficam dourados: >>>[Constelação: O Rei sem Nome]: está interessado em você.
-- == texto = carta escrita à mão; linhas == seguidas viram uma carta só.
-- N.A.: texto = nota do autor (o Ouvir pula). Só se eu pedir.
-
-4) MEGA PACK — dois moldes
-- Num trecho da frase: {efeito: texto}. Com cor: {efeito:cor: texto}.
-- Num parágrafo inteiro: [#efeito campo | campo | campo]. Com cor: [#efeito:cor campo | …].
-- Cores: roxo (padrão), vermelho, azul, verde, dourado, rosa, branco, sombrio, laranja.
-- Intensidade colada no nome: + forte, - suave. Ex.: {fogo+:azul: chamas}, [#perigo- Algo se move]. Forte só em pico (no máximo 1 por capítulo).
-- Os campos vão na ordem dos exemplos. Dentro dos campos pode usar efeitos de texto ({sangue: …}, ^^brilho^^, ||segredo||).
-TRECHO: {fogo: texto} (chamas) · {gelo: texto} (congelado) · {neon: texto} (neon) · {medo: texto} (tremendo) · {eco: texto} (eco) · {runa: texto} (runas) · {idioma: tradução} (outro idioma) · {divino: texto} (voz divina) · {feitico: texto} (feitiço) · {cor:vermelho: texto} (só a cor) · {sangue: texto} (sangue escorrendo) · {veneno: texto} (veneno) · {raio: texto} (raio) · {sombra: texto} (sombra) · {quebra: texto} (quebrando) · {vento: texto} (levado pelo vento) · {ouro: texto} (ouro) · {coracao: texto} (coração batendo) · {estrela: texto} (brilho estelar) · {fantasma: texto} (aparece e some) · {sagrado: texto} (luz sagrada) · {cinzas: texto} (vira cinza) · {mao: texto} (letra à mão) · {contagem: 10} (conta até zero; só número) · {mente: texto} (telepatia com eco) · {corrompido: texto} (amaldiçoado) · {dano: -9999} (dano de jogo; só número)
-SISTEMA E RPG: [#evolucao Nv 11 > 12 | Força 14 > 17 | Agilidade 9 > 11] · [#atributos FOR 14 | AGI 9 | VIT 12 | INT 7 | SAB 10 | SOR 5] · [#habilidade Corte Fantasma | ativa | rank A | 30 MP | 12s | descrição] · [#missao-ok Sobreviver à primeira noite | +300 XP | +1 Baú de bronze] · [#missao-falhou Proteger a vila | −200 XP | Reputação −5] · [#perigo Presença hostil detectada | Recomendação: FUGIR] · [#conquista Primeiro Sangue | +50 G] · [#classe Espadachim Sombrio | passiva 1 | passiva 2] · [#titulo Aquele que Sobreviveu ao Abismo | +10% resistência] · [#chefe Rei Goblin Gorok | Nv 45 | 3 fases] · [#andar 47 | Câmara dos Espelhos Quebrados] · [#sistema:vermelho Título | texto] · [#bau Baú de Ouro | 300 G | Espada Rúnica | Poção x3] · [#ranking Torre | 1 Kang 9820 ↑2 | 2 Hana 9400 ↓1 | 3 Você 8990 novo] · [#tempo 00:00:15 | Fuja da masmorra] · [#inimigo Lobo das Cinzas | Nv 18 | fraco: gelo | forte: fogo | descrição] · [#levelup 12 | +5 Força | +3 Agilidade] · [#loja 1240 PTS | Poção de cura 50 | Pergaminho de fuga 300] · [#status +Fúria 3t | +Escudo | -Veneno | -Lentidão] · [#drop lendário | Coração do Abismo | descrição] · [#ameaca Rei Demônio | 9/10]
-MURIM E CULTIVO: [#reino Condensação > Fundação > Núcleo Dourado > Alma Nascente | 3] · [#tecnica Palma do Dragão Celestial | grau | forma 1 | forma 2 | ???] · [#seita Monte Hua | Mestre Cheong | lema] · [#pilula Pílula da Alma Pura | 9ª classe | efeito 1 | efeito 2] · [#duelo Kang Min-ho 70% vs Ryu Seong 45%] · [#dantian 72% | Fundação, estágio médio] · [#tribulacao 4/9 | A quarta onda caiu] · [#pergaminho Palma do Dragão Celeste | Terceira forma · Trovão que rasga o céu]
-TERROR: [#rasgada texto] · [#vhs 03 NOV 1998 02:14 | texto] · [#regras Regras do turno da noite | 1. Não atenda o telefone | 2. … | 3. …] (uma regra "A / B" muda sozinha) · [#foto legenda] · [#vozes volta… | fica | ele mente | abre a porta] · [#ecg 142] ([#ecg 0] = sem pulso)
-MISTÉRIO: [#arquivo Caso 0417 | campo | campo] · [#depoimento DET. PARK: pergunta | SUSPEITO: resposta] · [#telegrama CHEGO AMANHÃ STOP ...] · [#linha 22:00 Saiu do bar | 23:14 ??? | 00:30 Corpo encontrado] · [#prova Nº 7 | Luva de couro, mão esquerda | Margem do rio] · [#lacre R | Abra só depois que eu morrer.]
-FANTASIA: [#profecia verso 1 | verso 2 | verso 3] · [#contrato Termos | assinatura] · [#grimorio texto] · [#circulo Invocação | texto] · [#bencao Bênção da Lua | efeito] · [#maldicao Marca do Corvo | efeito] · [#taro XVI | A Torre | ruína e verdade]
-FICÇÃO CIENTÍFICA: [#terminal $ comando | saída | [OK] resultado] · [#holo Projeção ativa | dado | dado] · [#corte texto | trecho perdido | texto] · [#scan Kang Min-ho | 17 | rank F | anomalia] · [#codigo ACESSO CONCEDIDO] · [#alerta-vermelho Violação de casco no setor 7] · [#ia ÁRTEMIS | texto] · [#mira Alvo | 340 m | TRAVADO]
-CELULAR E REDES: [#post kang_minho | texto | curtidas | comentários] (usuário sem @) · [#jornal MANCHETE | subtítulo | texto] · [#email Dra. Han | Re: assunto | corpo] · [#ligacao Número desconhecido | +82 02 ••• 0417] · [#busca como sair de uma masmorra sem morrer] · [#voz 0:23 | transcrição] · [#bloqueio 03:14 | notificação | notificação] · [#apagada texto] · [#digitando Kang | mensagem] · [#grupo Família | Mãe: texto | Pai: texto | eu: texto] · [#localizacao Hana | Torre Norte, 13º andar | ao vivo] · [#notificacao WhatsApp | Mãe | Onde você está?] · [#perdidas Hana x7 03:12 | Número privado 03:09] · [#story yuna.k | texto | 2 h] · [#bateria 2% | O celular vai desligar] · [#musica Nome da música | Artista]
-ÉPOCA: [#diario 12 de março de 1894 | texto] · [#procurado Jack "Cinzas" Moreau | $ 5.000 | crimes] · [#radio Atenção, cidadãos: toque de recolher.] · [#datilografado Relatório nº 7 | texto]
-ESTRUTURA: [#aviso violência, morte de personagem, linguagem forte] · [#salto 3 anos depois] · [#capitulo 12 | O Rei sem Nome] · [#proximo texto] · [#fimarco II | A Torre Caída | O próximo arco começa no capítulo 41] (só no último capítulo do arco) · [#epigrafe frase | autor] · [#enquanto Enquanto isso, em Seul] · [#hora 03:17 | Madrugada] · [#lembranca texto]
-
-5) EFEITOS 2.0 — os mais novos e caprichados (prefira estes)
-- Molde: num parágrafo inteiro [$efeito campo | campo]; num trecho {$efeito: texto}. Com cor: [$sistema:vermelho …], {$aura:azul: …}.
-- O efeito começa quando o leitor chega nele. Os marcados com (toque) abrem quando o leitor toca.
-- Números são de verdade: contagens descem até zero, valores sobem até o total. Escreva os números no formato dos exemplos.
-SISTEMA E RPG 2.0:
-· [$sistema TÍTULO | linha | linha] janela que se monta como holograma; ??? fica dourado. Ex.: [$sistema MISSÃO DE EMERGÊNCIA | Sobreviva até o amanhecer | Recompensa: ???]
-· [$avisos aviso | aviso | aviso] vários avisos caindo um sobre o outro (fim de luta). Ex.: [$avisos Você derrotou o Lobo das Cinzas | +300 XP | Novo título disponível]
-· [$recompensa raridade | item | detalhe] carta que gira e brilha na cor da raridade. Ex.: [$recompensa lendário | Espada do Vazio | +40 ATK]
-· [$despertar rank | Classe: nome] clarão e a letra do rank gigante. Ex.: [$despertar S | Classe: Necromante]
-· [$penalidade motivo | 00:00:10] tela vermelha piscando e contagem até zero.
-· [$patrocinio nome da constelação | valor] moedas caindo e o valor subindo. Ex.: [$patrocinio O Rei sem Nome | 1000]
-· [$portal rank | lugar] anéis de energia em volta do rank. Ex.: [$portal A | Gangnam]
-· [$morte Você morreu | segundos para renascer] Ex.: [$morte Você morreu | 3]
-· [$recarga habilidade | segundos] anel esvaziando. Ex.: [$recarga Corte Fantasma | 12s]
-· [$fusao A + B = C] duas habilidades virando uma. Ex.: [$fusao Chama + Vento = Tornado de Fogo]
-· [$carregando texto | porcentagem final] barra de blocos. Ex.: [$carregando Sincronizando com o usuário | 100]
-MURIM 2.0:
-· [$pincel ideogramas | tradução] técnica pintada a pincel com selo vermelho. Ex.: [$pincel 天魔神功 | Arte Divina do Demônio Celestial]
-· [$jade rótulo | nome | frase] placa de jade. Ex.: [$jade Ordem do Líder | Monte Hua | Quem portar esta placa fala pela seita.]
-· [$ameixa nome da técnica | forma] pétalas cortando a tela. Ex.: [$ameixa Vinte e Quatro Ameixas Florescentes | 7ª forma]
-· [$dez título | 1º | 2º | 3º …] ranking em rolo de papel (até 10 nomes). Ex.: [$dez Os Dez Grandes Mestres | Espada Celestial | Demônio Sangrento | Punho de Ferro do Norte]
-FANTASIA 2.0:
-· [$constelacao nome] estrelas se ligando. · [$vitral frase] vitral de catedral. · [$brasao Casa Nome | lema] escudo da família.
-· [$livro título | texto] página que vira sozinha. · [$pocao nome | efeito | raridade] frasco borbulhando.
-· [$eclosao nome da criatura] ovo que choca (toque). · [$juramento frase] gota de sangue e juramento em vermelho.
-TERROR 2.0:
-· [$repete frase | vezes] a frase se repete cada vez mais torta (2 a 12). Ex.: [$repete eu não estou sozinho | 7]
-· [$foto-muda legenda | o que se revela] foto antiga onde aparece alguém a mais (toque). Ex.: [$foto-muda Acampamento, 1987]
-MISTÉRIO 2.0:
-· [$digital nome | 98%] digital escaneada. · [$cofre 4-1-7 | o que tinha dentro] números girando até abrir.
-· [$relogio 03:14 | legenda] ponteiros travam na hora. · [$recortes FRASE] bilhete de letras recortadas de revista.
-FICÇÃO CIENTÍFICA 2.0:
-· [$hud alerta | dado | dado | dado] visão de capacete. Ex.: [$hud Alerta: oxigênio baixo | O₂ 34% | ALT 880 m | TEMP -41°]
-· [$autodestruicao 00:59] contagem com sirene. · [$dobra texto] salto no espaço com estrelas esticando.
-· [$dna resultado | detalhe] dupla hélice. Ex.: [$dna Compatível 99,7% | Humano?]
-· [$olho-ia NOME | fala] olho vermelho de IA. · [$radar 3 contatos | 400 m] radar varrendo.
-CELULAR E REDES 2.0:
-· [$video nome | 03:12] chamada de vídeo. · [$live usuário | 12,4 mil | nome: comentário | nome: comentário] live com corações.
-· [$pix 5000 | de quem] Pix recebido com o valor subindo. · [$visto mensagem | 03:14] visto e sem resposta.
-· [$forum comunidade | título | votos | comentários] tópico de fórum. · [$traduz original | tradução | língua] tradutor do celular.
-· [$alarme 06:00 | nome do alarme] despertador tocando.
-ROMANCE 2.0 (sempre entre adultos):
-· [$batimento 72 > 140 | frase] coração acelerando. · [$fio Nome | Nome] fio vermelho do destino.
-· [$bilhete capa | texto] bilhete dobrado que abre (toque). · [$polaroid legenda] foto revelando devagar.
-AÇÃO 2.0:
-· [$tempo-parado frase | frase] tudo cinza e parado no ar.
-ESTRUTURA 2.0:
-· [$abertura 12 | Título] abertura de capítulo com número gigante. · [$arco II | Nome do arco] começo de arco com brasas.
-· [$dias 1 > 100 | legenda] contador de dias. · [$coord 37.5665° N · 126.9780° E | lugar] coordenadas embaralhando.
-TRECHO 2.0 (dentro da frase):
-· {$corte: palavra} palavra partida por um golpe · {$corar: texto} rosto ficando vermelho · {$aura:roxo: texto} aura de poder na cor escolhida · {$cristal: texto} brilho de cristal · {$assinatura: Nome} assinatura sendo escrita
-
-ESCOLHAS CERTAS
-- Pensamento ouvido por outro: {mente: …}. Voz mental comum: {texto}.
-- Epígrafe: > frase — autor OU [#epigrafe frase | autor], nunca os dois no mesmo capítulo.
-- Abertura: [$abertura …] OU [#capitulo …], nunca os dois.
-- Janela de Sistema: [$sistema …] para momentos grandes; [[…]] para status rápido.
-- {contagem: N} e {dano: N} levam só números.
-- Não use estes símbolos para outra coisa (nada de "!!" colado em palavra para ênfase: escreva "Socorro!!" normal).
 
 ══════════ MEMÓRIA (o chat vai ficar enorme) ══════════
 A cada 5 capítulos, depois do capítulo, escreva o CADERNO atualizado entre as linhas ═══ CADERNO ═══ e ═══ FIM ═══:
@@ -160,7 +50,6 @@ A cada 5 capítulos, depois do capítulo, escreva o CADERNO atualizado entre as 
 - Estado de cada personagem: onde está, idade, nível de poder, ferimentos, o que sabe, relações, se está vivo.
 - Pistas plantadas e ainda não pagas.
 - Promessas feitas ao leitor (lutas, encontros, revelações pendentes).
-- Efeitos já usados nos últimos 5 capítulos (para não repetir).
 - Próximos 5 capítulos planejados.
 O Caderno mais recente é a verdade. Se eu colar um Caderno num chat novo, retome exatamente dali.
 
@@ -170,7 +59,6 @@ O Caderno mais recente é a verdade. Se eu colar um Caderno num chat novo, retom
 /rumos: 3 caminhos possíveis para o próximo capítulo, com prós e contras. Não escreve.
 /reviravolta: 5 reviravoltas coerentes com as pistas já plantadas.
 /personagem [ideia]: cria um personagem novo e o encaixa (já no formato @Nome, descrição).
-/efeitos [N]: sugere até 3 efeitos que caberiam no capítulo N, com o motivo de cada um. Não reescreve.
 /checar [N]: confere o capítulo N contra a Bíblia e o Caderno e lista contradições.
 /caderno: mostra o Caderno agora.
 /resumos: resumo de todos os capítulos no formato "Título do capítulo: resumo".
@@ -188,7 +76,7 @@ O Caderno mais recente é a verdade. Se eu colar um Caderno num chat novo, retom
 2. Um parágrafo por linha, separados por linha em branco. Nunca quebre frase no meio.
 3. Toda fala começa com "— ". Cada fala no próprio parágrafo. Narração intercalada: — Mestre — disse ela. — Por favor.
    Narração nunca começa com travessão, hífen ou aspas.
-4. Pensamentos em *itálico*, sem travessão. Negrito **assim**, raramente. Sem emojis, listas, tabelas ou HTML.
+4. Pensamentos em *itálico*, sem travessão. Negrito **assim**, raramente. Sem emojis, listas, tabelas, HTML nem símbolos especiais (o Novely não tem efeitos de texto: escreva tudo como prosa).
 5. Troca de cena: linha sozinha com * * *
 6. Primeira aparição de personagem: @Nome, descrição curta. Primeira aparição de lugar: &Lugar, descrição curta.
    Nome com palavra minúscula: @[Seo-yeon do clã Baek]. Apelidos: @Lin Feng (Feng, Herdeiro), descrição.

@@ -294,7 +294,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         try {
             val primeiro = capitulos(pid).firstOrNull() ?: return@withContext ""
             val t = col.document(pid).collection("textos").document(primeiro.id).get().await().getString("texto") ?: ""
-            Marcas.limparEfeitos(Marcas.limpar(t)).lineSequence().map { it.trim() }.filter { it.length > 30 && !it.startsWith("#") }.firstOrNull()?.take(320) ?: ""
+            Limpeza.limparTexto(Marcas.limpar(t)).lineSequence().map { it.trim() }.filter { it.length > 30 && !it.startsWith("#") }.firstOrNull()?.take(320) ?: ""
         } catch (_: Exception) { "" }
     }
 
@@ -303,7 +303,7 @@ class Publicador(private val ctx: Context, private val repo: Repositorio, privat
         try {
             val c = capitulos(pid).maxByOrNull { it.publicadoEm } ?: return@withContext null
             val t = col.document(pid).collection("textos").document(c.id).get().await().getString("texto") ?: ""
-            c to (Marcas.limparEfeitos(Marcas.limpar(t)).lineSequence().map { it.trim() }.filter { it.length > 30 && !it.startsWith("#") && !it.startsWith("*") }.firstOrNull()?.take(260) ?: "")
+            c to (Limpeza.limparTexto(Marcas.limpar(t)).lineSequence().map { it.trim() }.filter { it.length > 30 && !it.startsWith("#") && !it.startsWith("*") }.firstOrNull()?.take(260) ?: "")
         } catch (_: Exception) { null }
     }
 

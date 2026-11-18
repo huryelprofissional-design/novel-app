@@ -7,6 +7,7 @@ import {
   collection, db, textoRevisao, notas, anotar, apagarNota, nomeAutor, salvarFicha, perguntar, enfeiteHTML, corDaImagem, corDaBase, usarCorDaObra, carteira, liberado, ganharMoedas,
 } from "./nucleo.js";
 import { verFicha } from "./obra.js";
+import { limparTexto } from "./limpeza.js";
 import * as NV from "./vozneural.js";
 import * as X from "./extras.js";
 
@@ -121,7 +122,7 @@ const CORES_GRIFO = { AMBAR: "#E9A65A", VERDE: "#6FC2B4", AZUL: "#7FA7E6", ROSA:
 export function htmlTexto(t, nomes = new Map(), grifos = new Map(), op = {}) {
   let capitularFeita = !pref().capitular;
   const linhas = [], origens = [];
-  const brutas = limparMarcas(t).split("\n");
+  const brutas = limparMarcas(limparTexto(t)).split("\n");
   for (let k = 0; k < brutas.length; k++) { const l = brutas[k].trim(); if (!l) continue; linhas.push(l); origens.push(k); }
   if (op.origens) op.origens.push(...origens); // linha do texto de cada bloco (a prévia do editor usa)
   // palavra solta (parte do nome) não vale colada a outro nome: em "Gwon Jang-ho" o "Gwon" é de outra pessoa

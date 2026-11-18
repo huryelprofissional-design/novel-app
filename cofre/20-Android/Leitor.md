@@ -6,9 +6,9 @@ tags: [android, pc, leitor]
 ## Como desenha
 - Texto dividido em **blocos por parágrafo** (parágrafos gigantes partidos em ~1.500 caracteres) dentro de `LazyColumn`: só o visível é desenhado. Processamento fora da thread principal.
 - Falas (linhas com `—`) ganham barra lateral e caixa (estilo de fala configurável).
-- Efeitos: `lerBlocoFx` / `BlocoFx` (parágrafo) e `lerInlineFx` / `animarInlineFx` (trecho). Animação por quadro de 110 ms só nos blocos com efeito animado (`INLINE_ANIMADOS`). Ver [[Efeitos de texto]].
+- Sem efeitos de escrita desde 2026-11-18: `montarBlocos` passa o texto por `Limpeza.limparTexto` e só entende parágrafo, fala, subtítulo #, troca de cena e **negrito**/*itálico*.
 - **Fundo preto puro `#000`** no leitor e no editor (OLED). Feito em `CoresDeLeitura` (`ui/Poster.kt`). Caixas `#0D0D0D`, bordas `#1F1F1F`.
-- "Reduzir animações" (`LocalSemMovimento`) congela os efeitos.
+- "Reduzir animações" (`LocalSemMovimento`, em `Classico.kt`) vale para o app inteiro.
 
 ## HUD (barras)
 - Cima: barra preta sólida, voltar, título em Instrument Serif, `CAP. X DE Y · FALTAM ~N MIN` em Plex Mono, ícones (tradução, sobre, editar se for minha) e linha de progresso na cor da obra com %.

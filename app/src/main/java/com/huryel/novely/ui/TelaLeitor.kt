@@ -110,11 +110,9 @@ import androidx.compose.ui.unit.isSpecified
 
 sealed interface Bloco {
     val plano: String
-    /** impacto: "## TÍTULO" (letras gigantes que se juntam). */
-    data class Titulo(override val plano: String, val impacto: Boolean = false) : Bloco
-    /** tipo: "" normal · "sistema" ([[janela]]) · "mensagem" (>> celular) · "carta" (== papel) · "notificacao" ([!aviso!]).
-     *  clima: efeito de cena ligado por ~chuva … ~fim. pausa: veio depois de ~pausa (aparece devagar). */
-    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean, val tipo: String = "", val clima: String? = null, val pausa: Boolean = false, val extra: String = "") : Bloco { override val plano: String get() = texto.text }
+    data class Titulo(override val plano: String) : Bloco
+
+    data class Paragrafo(val texto: AnnotatedString, val fala: Boolean) : Bloco { override val plano: String get() = texto.text }
     data object Separador : Bloco { override val plano = "" }
 }
 
@@ -125,132 +123,19 @@ fun ehFala(linha: String): Boolean {
     return iniciosDeFala.any { l.startsWith(it) } && l.length > 1 && !l.startsWith("---")
 }
 
-/** Cores-marca dos efeitos (o leitor acha os trechos por elas). */
-val COR_SEGREDO = Color(0xFF3A3A46)
-val COR_GLITCH = Color(0xFFBB99FF)
-
-/** **negrito**, *itálico* e os efeitos de escrita: !!grito!!, ((sussurro)), ^^brilho^^, ||segredo||, %%glitch%%, <<voz sombria>> */
+/** **negrito** e *itálico*. */
 fun estilizar(linha: String): AnnotatedString = buildAnnotatedString {
     var i = 0
-    var negrito = false; var italico = false; var grito = false; var sussurro = false; var brilho = false
-    var segredo = false; var glitch = false; var sombria = false; var tele = false; var riscado = false
-    val marcas = "*!(^)|%<>[{}~"
-    // !! e ^^ só abrem no começo de palavra ("Socorro!! Alguém!!" continua normal)
-    fun abre(k: Int, m: String) = (k == 0 || linha[k - 1].isWhitespace() || linha[k - 1] in "—–“\"«(") && k + 2 < linha.length && !linha[k + 2].isWhitespace() && linha.indexOf(m, k + 3) > 0
-    fun par(k: Int, a: String, f: String) = linha.startsWith(a, k) && linha.indexOf(f, k + 2) > k + 2
+    var negrito = false; var italico = false
     while (i < linha.length) {
         if (linha.startsWith("**", i)) { negrito = !negrito; i += 2; continue }
-        if (linha.startsWith("!!", i) && (grito || abre(i, "!!"))) { grito = !grito; i += 2; continue }
-        if (linha.startsWith("((", i) && !sussurro && linha.indexOf("))", i + 2) > 0) { sussurro = true; i += 2; continue }
-        if (linha.startsWith("))", i) && sussurro) { sussurro = false; i += 2; continue }
-        if (linha.startsWith("^^", i) && (brilho || abre(i, "^^"))) { brilho = !brilho; i += 2; continue }
-        if (linha.startsWith("||", i) && (segredo || par(i, "||", "||"))) { segredo = !segredo; i += 2; continue }
-        if (linha.startsWith("%%", i) && (glitch || par(i, "%%", "%%"))) { glitch = !glitch; i += 2; continue }
-        if (!sombria && par(i, "<<", ">>")) { sombria = true; i += 2; continue }
-        if (sombria && linha.startsWith(">>", i)) { sombria = false; i += 2; continue }
-        if (linha.startsWith("~~", i) && (riscado || par(i, "~~", "~~"))) { riscado = !riscado; i += 2; continue }
-        if (linha[i] == '{') {
-            val achado = lerInlineFx(linha, i)
-            if (achado != null) {
-                val fim = achado.fim
-                val nome = achado.nome; val cor = achado.cor; val conteudo = achado.texto
-                val mostrado = when (nome) { "runa" -> runar(conteudo); "corrompido" -> corromper(conteudo); "idioma" -> conteudo.map { if (it == ' ') ' ' else (0x1401 + Random(it.code).nextInt(0xBF)).toChar() }.joinToString(""); else -> conteudo }
-                val a = length
-                append(estilizar(mostrado))
-                addStyle(estiloInlineFx(nome, cor, achado.forca), a, length)
-                addStringAnnotation("fx", nome, a, length)
-                if (nome == "runa" || nome == "idioma") addStringAnnotation("decifra", conteudo, a, length)
-                i = fim; continue
-            }
-        }
-        if (!tele && linha[i] == '{' && !linha.startsWith("{{", i) && linha.indexOf('}', i + 2) > 0) { tele = true; i++; continue }
-        if (tele && linha[i] == '}') { tele = false; i++; continue }
-        if (linha[i] == '[') {
-            val r = RANK.find(linha, i)?.takeIf { it.range.first == i }
-            if (r != null) {
-                val rk = r.groupValues[1]
-                val (fundo, cor) = corRank(rk)
-                withStyle(SpanStyle(background = fundo, color = cor, fontWeight = FontWeight.Black, fontFamily = androidx.compose.ui.text.font.FontFamily.SansSerif, fontSize = 0.82.em, letterSpacing = 0.04.em)) { append("\u2009$rk\u2009") }
-                i = r.range.last + 1; continue
-            }
-        }
         if (linha[i] == '*') { italico = !italico; i++; continue }
         val ini = i
         i++
-        while (i < linha.length && linha[i] !in marcas) i++
-        val st = SpanStyle(
-            fontWeight = if (negrito || brilho || glitch) FontWeight.Bold else if (grito) FontWeight.Black else if (sombria) FontWeight.SemiBold else null,
-            fontStyle = if (italico || sussurro || sombria || tele) FontStyle.Italic else null,
-            textDecoration = if (riscado) TextDecoration.LineThrough else null,
-            fontFamily = if (glitch) androidx.compose.ui.text.font.FontFamily.Monospace else null,
-            fontSize = if (grito) 1.3.em else if (sussurro) 0.86.em else androidx.compose.ui.unit.TextUnit.Unspecified,
-            letterSpacing = if (sussurro || sombria) 0.04.em else if (grito) 0.02.em else androidx.compose.ui.unit.TextUnit.Unspecified,
-            color = when { segredo -> Color.Transparent; glitch -> COR_GLITCH; tele -> Color(0xFF8FE3FF); riscado -> Color(0xFF9A8F95); sombria -> Color(0xFFFF4458); brilho -> Color(0xFFFFC94A); sussurro -> Color(0xFF9A9AA8); else -> Color.Unspecified },
-            background = if (segredo) COR_SEGREDO else Color.Unspecified,
-            shadow = when { brilho -> androidx.compose.ui.graphics.Shadow(Color(0xCCFFB020), blurRadius = 14f); sombria -> androidx.compose.ui.graphics.Shadow(Color(0xDDE0283C), blurRadius = 16f); tele -> androidx.compose.ui.graphics.Shadow(Color(0xB35CC8FF), blurRadius = 14f)
-                glitch -> androidx.compose.ui.graphics.Shadow(Color(0xFFFF00AA), androidx.compose.ui.geometry.Offset(3f, 0f), 0f); else -> null },
-        )
-        val a = length
-        pushStyle(st); append(linha, ini, i); pop()
-        if (segredo) addStringAnnotation("segredo", "", a, length)
-        if (glitch) addStringAnnotation("glitch", "", a, length)
+        while (i < linha.length && linha[i] != '*') i++
+        pushStyle(SpanStyle(fontWeight = if (negrito) FontWeight.Bold else null, fontStyle = if (italico) FontStyle.Italic else null))
+        append(linha, ini, i); pop()
     }
-}
-
-private val RANK = Regex("\\[(SSS|SS|S|A|B|C|D|E|F)\\+?\\]")
-/** Cor do selo de rank: S pra cima dourado, A roxo, B azul, C verde, D/E/F cinza. */
-fun corRank(r: String): Pair<Color, Color> = when (r) {
-    "SSS", "SS", "S" -> Color(0xFFFFB020) to Color(0xFF1A0A00)
-    "A" -> Color(0xFF8E5CFF) to Color.White
-    "B" -> Color(0xFF3A7BFF) to Color.White
-    "C" -> Color(0xFF2FBF71) to Color(0xFF04140A)
-    else -> Color(0xFF4A4A55) to Color(0xFFDDDDDD)
-}
-
-/** Tira o borrão dos ||segredos|| (depois que o leitor tocou). */
-fun revelarSegredos(t: AnnotatedString): AnnotatedString {
-    if (t.getStringAnnotations("segredo", 0, t.length).isEmpty()) return t
-    return buildAnnotatedString {
-        append(t)
-        t.getStringAnnotations("segredo", 0, t.length).forEach { addStyle(SpanStyle(color = Color(0xFFFFE6A8), background = Color(0x33FFC94A)), it.start, it.end) }
-    }
-}
-
-/** Letras do %%glitch%% trocadas por lixo (chamado a cada quadro do efeito). */
-fun embaralharGlitch(t: AnnotatedString, r: kotlin.random.Random): AnnotatedString {
-    val gs = t.getStringAnnotations("glitch", 0, t.length)
-    if (gs.isEmpty()) return t
-    val lixo = "▓▒░#@%&$*!?"
-    return buildAnnotatedString {
-        var k = 0
-        gs.forEach { g ->
-            append(t.subSequence(k, g.start))
-            val pedaco = t.subSequence(g.start, g.end)
-            val troca = pedaco.text.map { c -> if (c != ' ' && r.nextFloat() < 0.12f) lixo[r.nextInt(lixo.length)] else c }.joinToString("")
-            append(AnnotatedString(troca, pedaco.spanStyles))
-            k = g.end
-        }
-        append(t.subSequence(k, t.length))
-    }
-}
-
-private val CONVERSA = Regex("^([^:\\s][^:]{0,24}):\\s")
-private val NOTA_AUTOR = Regex("^(N\\.\\s?A\\.|Nota do autor)\\s*:?\\s*", RegexOption.IGNORE_CASE)
-
-/** Efeitos de cena que dá para ligar escrevendo ~nome numa linha (até ~fim). */
-val EFEITOS_CENA = linkedMapOf(
-    "chuva" to "🌧 Chuva", "neve" to "❄ Neve", "fogo" to "🔥 Fogo e brasas", "vento" to "🌬 Vento", "noite" to "🌙 Noite e vaga-lumes",
-    "tensao" to "💓 Tensão (batida de coração)", "sangue" to "🩸 Sangue", "flashback" to "🎞 Lembrança (sépia)", "sonho" to "☁ Sonho", "magia" to "✨ Magia",
-)
-private val SINONIMOS_CENA = mapOf("tensão" to "tensao", "lembranca" to "flashback", "lembrança" to "flashback", "memoria" to "flashback", "memória" to "flashback", "chamas" to "fogo", "estrelas" to "noite")
-/** "~chuva" → "chuva"; "~fim" → ""; linha comum → null. */
-fun marcaCena(linha: String): String? {
-    val l = linha.trim()
-    if (!l.startsWith("~") || l.length > 24 || l.contains(' ')) return null
-    val k = l.drop(1).trimEnd('~').lowercase()
-    if (k == "fim" || k == "pare" || k == "parar" || k == "/") return ""
-    val n = SINONIMOS_CENA[k] ?: k
-    return if (n in EFEITOS_CENA) n else null
 }
 
 /** Texto do capítulo → blocos (um por parágrafo; parágrafos gigantes viram vários blocos). Fora da thread principal. */
@@ -269,63 +154,24 @@ fun montarBlocos(texto: String, origens: MutableList<Int>? = null): List<Bloco> 
     val saida = ArrayList<Bloco>(texto.length / 300 + 4)
     var nLinha = -1
     var anteriorVazia = true
-    var clima: String? = null
-    var pausa = false
-    val carta = StringBuilder()
-    fun fecharCarta() { if (carta.isNotEmpty()) { saida.add(Bloco.Paragrafo(estilizar(carta.toString()), false, "carta", clima)); carta.clear() } }
-    val chat = StringBuilder()
-    fun fecharChat() { if (chat.isNotEmpty()) { saida.add(Bloco.Paragrafo(AnnotatedString(chat.toString()), false, "aovivo", clima)); chat.clear() } }
-    texto.lineSequence().forEach { bruta ->
+    com.huryel.novely.data.Limpeza.limparTexto(texto).lineSequence().forEach { bruta ->
         if (origens != null) while (origens.size < saida.size) origens.add(nLinha)
         nLinha++
-        val crua = bruta.trim()
-        // [#efeito:cor campo | campo]: blocos do Mega Pack (antes de limpar as marcas, que mexem no @)
-        lerBlocoFx(crua)?.let { (nome, cor, resto) ->
-            fecharCarta(); fecharChat()
-            val falado = camposFx(resto).joinToString(". ") { Marcas.limparEfeitos(it) }
-            saida.add(Bloco.Paragrafo(AnnotatedString(falado), false, "fx", clima, extra = "$nome\u0000${cor.orEmpty()}\u0000$resto\u0000${forcaBlocoFx(crua)}")); return@forEach
-        }
-        // @@Nome: cartão do personagem (antes de limpar as marcas, que mexem no @)
-        if (crua.startsWith("@@") && crua.length > 3) { fecharCarta(); fecharChat(); saida.add(Bloco.Paragrafo(AnnotatedString(crua.drop(2).trim().trimEnd('.', ',')), false, "ficha", clima)); return@forEach }
         val linha = Marcas.limpar(bruta).trim()
-        // linhas "== …" seguidas viram uma carta só; ">>>Nome: …" seguidas viram um chat ao vivo
-        if (linha.startsWith("==") && linha.length > 2) { fecharChat(); if (carta.isNotEmpty()) carta.append('\n'); carta.append(linha.drop(2).trim()); return@forEach }
-        if (linha.startsWith(">>>") && linha.length > 3) { fecharCarta(); if (chat.isNotEmpty()) chat.append('\n'); chat.append(linha.drop(3).trim()); return@forEach }
-        if (linha.isNotEmpty()) { fecharCarta(); fecharChat() }
-        if (linha.equals("~pausa", true)) { pausa = true; return@forEach }
-        val cena = marcaCena(linha)
-        if (cena != null) { clima = cena.ifEmpty { null }; return@forEach } // a linha do símbolo não aparece
         val podeSerTitulo = anteriorVazia
         anteriorVazia = linha.isEmpty()
         when {
             linha.isEmpty() -> {}
-            linha.startsWith("[!") && linha.endsWith("!]") && linha.length > 4 ->
-                saida.add(Bloco.Paragrafo(estilizar(linha.substring(2, linha.length - 2).trim()), false, "notificacao", clima))
-            linha.startsWith("[[") && linha.endsWith("]]") && linha.length > 4 ->
-                saida.add(Bloco.Paragrafo(estilizar(linha.substring(2, linha.length - 2).trim()), false, "sistema", clima))
-            linha.startsWith(">>") && linha.length > 2 -> {
-                val corpo = linha.drop(2).trim()
-                val quem = CONVERSA.find(corpo)
-                saida.add(Bloco.Paragrafo(estilizar(corpo), false, if (quem != null) "conversa" else "mensagem", clima))
-            }
-            linha.startsWith("{{") && linha.endsWith("}}") && linha.length > 4 -> saida.add(Bloco.Paragrafo(estilizar(linha.substring(2, linha.length - 2).trim()), false, "pergaminho", clima))
-            linha.startsWith("[+") && linha.endsWith("]") && linha.length > 3 -> saida.add(Bloco.Paragrafo(AnnotatedString(linha.substring(2, linha.length - 1).trim()), false, "item", clima))
-            linha.startsWith("::") && linha.length > 2 -> saida.add(Bloco.Paragrafo(AnnotatedString(linha.drop(2).trim()), false, "local", clima))
-            linha.startsWith("> ") && linha.length > 2 -> saida.add(Bloco.Paragrafo(estilizar(linha.drop(2).trim()), false, "epigrafe", clima))
-            NOTA_AUTOR.containsMatchIn(linha) -> saida.add(Bloco.Paragrafo(estilizar(linha.replace(NOTA_AUTOR, "").trim()), false, "nota", clima))
-            linha.startsWith("##") && !linha.startsWith("###") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim(), impacto = true))
             podeSerTitulo && Texto.ehTituloCapitulo(linha) && !linha.startsWith("#") -> saida.add(Bloco.Titulo(Texto.tituloLimpo(linha)))
             linha == "* * *" || linha == "***" || linha == "---" || linha == "◆" -> saida.add(Bloco.Separador)
             linha.startsWith("#") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim()))
             linha.length > 2500 -> {
                 val fala = ehFala(linha)
-                Texto.dividirEmPedacos(linha, 1500).forEach { saida.add(Bloco.Paragrafo(estilizar(it.trim()), fala, clima = clima)) }
+                Texto.dividirEmPedacos(linha, 1500).forEach { saida.add(Bloco.Paragrafo(estilizar(it.trim()), fala)) }
             }
-            else -> { saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha), clima = clima, pausa = pausa)); pausa = false }
+            else -> saida.add(Bloco.Paragrafo(estilizar(linha), ehFala(linha)))
         }
     }
-    if (origens != null) while (origens.size < saida.size) origens.add(nLinha)
-    fecharCarta(); fecharChat()
     if (origens != null) while (origens.size < saida.size) origens.add(nLinha)
     return saida
 }
@@ -333,29 +179,10 @@ fun montarBlocos(texto: String, origens: MutableList<Int>? = null): List<Bloco> 
 /** Um bloco desenhado do jeito do leitor, sem nomes, comentários nem voz (prévia do editor). */
 @Composable
 fun BlocoPrevia(bloco: Bloco, estilo: TextStyle, p: Paleta, modifier: Modifier = Modifier) {
-    var revelado by remember(bloco) { mutableStateOf(false) }
     when (bloco) {
-        is Bloco.Titulo -> if (bloco.impacto) TituloImpacto(bloco.plano, p, modifier) else TituloNoTexto(bloco.plano, p, modifier)
+        is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, modifier)
         is Bloco.Separador -> Box(modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) { SeparadorCena("", p.destaque) }
-        is Bloco.Paragrafo -> {
-            val t = textoComEfeitos(bloco.texto, revelado) { revelado = true }
-            when (bloco.tipo) {
-                "sistema" -> JanelaSistema(t, estilo, modifier)
-                "mensagem" -> BalaoMensagem(t, estilo, p, modifier)
-                "carta" -> CartaPapel(t, estilo, modifier)
-                "notificacao" -> AvisoNoTexto(t, modifier)
-                "fx" -> bloco.extra.split('\u0000').let { (nm, cr, rs, fz) -> BlocoFx(nm, cr.ifEmpty { null }, rs, estilo, modifier, fz.toIntOrNull() ?: 0) }
-                "conversa" -> BalaoConversa(t, estilo, p, modifier)
-                "pergaminho" -> Pergaminho(t, estilo, modifier)
-                "item" -> ItemObtido(bloco.plano, modifier)
-                "local" -> LocalHora(bloco.plano, p, modifier)
-                "epigrafe" -> Epigrafe(t, estilo, p, modifier)
-                "nota" -> NotaDoAutor(t, "", p, modifier)
-                "aovivo" -> ChatAoVivo(bloco.plano, modifier)
-                "ficha" -> Text("@@ " + bloco.plano, style = estilo.copy(color = p.destaque2), modifier = modifier)
-                else -> if (bloco.fala) Fala(t, estilo, p, modifier) else Text(t, style = estilo, modifier = modifier)
-            }
-        }
+        is Bloco.Paragrafo -> if (bloco.fala) Fala(bloco.texto, estilo, p, modifier) else Text(bloco.texto, style = estilo, modifier = modifier)
     }
 }
 
@@ -512,8 +339,6 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         val tot = (b.size + 2).toFloat()
         val m = b.mapIndexedNotNull { i, bl -> when {
             bl is Bloco.Separador -> MarcaMapa((i + 1) / tot, 0, i)
-            bl is Bloco.Titulo && bl.impacto -> MarcaMapa((i + 1) / tot, 1, i)
-            bl is Bloco.Paragrafo && bl.tipo in setOf("fx", "sistema", "notificacao", "item", "pergaminho") -> MarcaMapa((i + 1) / tot, 1, i)
             else -> null } }
         if (parouAoAbrir > 1 && c.progresso < 0.98f) m + MarcaMapa(parouAoAbrir / tot, 2, (parouAoAbrir - 1).coerceIn(0, (b.size - 1).coerceAtLeast(0))) else m
     }
@@ -540,9 +365,9 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
     LaunchedEffect(ancoradas) { ancoradas.filter { (m, bi) -> bi != m.bloco }.forEach { (m, bi) -> repo.salvarMarcador(m.copy(bloco = bi)) } }
     val fichas by remember(c.obraId) { repo.fichas(c.obraId) }.collectAsState(initial = emptyList())
     LaunchedEffect(c.obraId) { repo.repararNomes(c.obraId) }
-    val revelados = remember(capId) { mutableStateListOf<Int>() } // ||segredos|| que o leitor já abriu
     var blocoSel by remember { mutableStateOf(-1) }
     var fichaVer by remember { mutableStateOf<com.huryel.novely.data.Ficha?>(null) }
+    var aviso by remember { mutableStateOf<String?>(null) }
     var termoVer by remember { mutableStateOf("") } // palavra tocada no texto que abriu a ficha
 
     // ── Rolagem automática ──
@@ -615,7 +440,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         }
     }
     suspend fun prepararVoz() = com.huryel.novely.data.Narrador.carregar(chaveVoz, listOfNotNull(obra?.titulo, c.titulo).joinToString(" · "),
-        b.map { if ((it as? Bloco.Paragrafo)?.tipo == "nota") "" else it.plano }, b.map { it is Bloco.Paragrafo && it.fala }, c.obraId)
+        b.map { it.plano }, b.map { it is Bloco.Paragrafo && it.fala }, c.obraId)
     fun tocar() {
         val ini = if (falando >= 0) falando else falaveis.firstOrNull { it >= blocoAtual() } ?: return
         escopo.launch { prepararVoz(); com.huryel.novely.data.Narrador.tocar(ini) }
@@ -810,9 +635,9 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                                             val inteiro = remember(item.bi, regraNomes, destacarNomes, tamanho) { decorado(item.bi) }
                                             val comBusca = if (q.length >= 2) destacarBusca(inteiro, normalizados.value[item.bi], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == item.bi }?.second) else inteiro
                                             val trecho0 = comBusca.subSequence(item.ini.coerceAtMost(comBusca.length), item.fim.coerceAtMost(comBusca.length))
-                                            val trecho = textoComEfeitos(trecho0, item.bi in revelados) { revelados.add(item.bi) }
+                                            val trecho = trecho0
                                             if (bl.fala && destacarFalas) Fala(trecho, estiloLivro, p, fundo)
-                                            else Text(trecho, style = estiloLivro.copy(color = when (bl.tipo) { "sistema" -> Color(0xFF8FD3FF); "mensagem", "notificacao" -> p.destaque; else -> corNarracao }),
+                                            else Text(trecho, style = estiloLivro.copy(color = corNarracao),
                                                 modifier = fundo.then(if (item.bi == primeiroParagrafo && item.ini == 0) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
                                         }
                                     }
@@ -862,7 +687,7 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                         drawRect(coresGrifo[mk.cor] ?: p.destaque, topLeft = androidx.compose.ui.geometry.Offset(x, 2f), size = androidx.compose.ui.geometry.Size(4.dp.toPx(), 18.dp.toPx()))
                     } else Modifier)
                 when (bloco) {
-                    is Bloco.Titulo -> if (bloco.impacto) TituloImpacto(bloco.plano, p, fundoAtivo) else TituloNoTexto(bloco.plano, p, fundoAtivo)
+                    is Bloco.Titulo -> TituloNoTexto(bloco.plano, p, fundoAtivo)
                     is Bloco.Separador -> Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) { SeparadorCena(enfeite, p.destaque) }
                     is Bloco.Paragrafo -> {
                         val base = if (q.length >= 2) destacarBusca(bloco.texto, normalizados.value[i], q, p, achados.getOrNull(achadoAtual)?.takeIf { it.first == i }?.second) else bloco.texto
@@ -870,23 +695,10 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                             val t = comNomes(base)
                             if (i == primeiroParagrafo) capitular(t, p, tamanho) else t
                         }
-                        val comEfeitos = textoComEfeitos(texto, i in revelados) { revelados.add(i) }
-                        PausaDramatica(bloco.pausa) {
+                        val comEfeitos = texto
+                        run {
                         Column {
-                            if (bloco.tipo == "sistema") JanelaSistema(comEfeitos, estiloBase, fundoAtivo)
-                            else if (bloco.tipo == "mensagem") BalaoMensagem(comEfeitos, estiloBase, p, fundoAtivo)
-                            else if (bloco.tipo == "carta") CartaPapel(comEfeitos, estiloBase, fundoAtivo)
-                            else if (bloco.tipo == "notificacao") AvisoNoTexto(comEfeitos, fundoAtivo)
-                            else if (bloco.tipo == "fx") bloco.extra.split('\u0000').let { (nm, cr, rs, fz) -> BlocoFx(nm, cr.ifEmpty { null }, rs, estiloBase, fundoAtivo, fz.toIntOrNull() ?: 0) }
-                            else if (bloco.tipo == "conversa") BalaoConversa(comEfeitos, estiloBase, p, fundoAtivo)
-                            else if (bloco.tipo == "pergaminho") Pergaminho(comEfeitos, estiloBase, fundoAtivo)
-                            else if (bloco.tipo == "item") ItemObtido(bloco.plano, fundoAtivo)
-                            else if (bloco.tipo == "local") LocalHora(bloco.plano, p, fundoAtivo)
-                            else if (bloco.tipo == "epigrafe") Epigrafe(comEfeitos, estiloBase, p, fundoAtivo)
-                            else if (bloco.tipo == "nota") NotaDoAutor(comEfeitos, obra?.autor?.ifBlank { null } ?: app.prefs.autorNome.valor, p, fundoAtivo)
-                            else if (bloco.tipo == "aovivo") ChatAoVivo(bloco.plano, fundoAtivo)
-                            else if (bloco.tipo == "ficha") CartaoPersonagem(bloco.plano, fichas, p, fundoAtivo) { fichaVer = it }
-                            else if (bloco.fala && destacarFalas) Fala(comEfeitos, estiloBase, p, fundoAtivo)
+                            if (bloco.fala && destacarFalas) Fala(comEfeitos, estiloBase, p, fundoAtivo)
                             else Text(comEfeitos, style = estiloBase.copy(color = corNarracao), modifier = fundoAtivo.then(if (i == primeiroParagrafo) Modifier.padding(top = (tamanho * 0.5f).dp) else Modifier))
                             val n = comsPorBloco[i] ?: 0
                             if (n > 0) Text("💬 $n", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = p.sobreDestaque,
@@ -910,35 +722,9 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         if (escurecer > 0.01f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = escurecer)))
         if (luzQuente > 0.01f) Box(Modifier.fillMaxSize().background(Color(0xFFFF8A2A).copy(alpha = luzQuente * 0.28f)))
 
-        // clima da cena: partículas conforme o trecho na tela (chuva, neve, fogo, vento, noite) e som opcional
-        val climaLigado by prefs.climaCena.estado.collectAsState()
-        val somCena by prefs.somCena.estado.collectAsState()
-        // efeito de cena: só onde o autor escreveu ~chuva … ~fim
-        val climaBloco by remember(b) { derivedStateOf { if (!climaLigado) null else (blocoAtual() downTo 0).firstNotNullOfOrNull { k -> (b.getOrNull(k) as? Bloco.Paragrafo) }?.clima } }
-        val clima = climaBloco
-        DisposableEffect(Unit) { onDispose { com.huryel.novely.data.Ambiente.parar() } }
-        LaunchedEffect(clima, somCena) { com.huryel.novely.data.Ambiente.tocar(if (somCena) clima?.let { SOM_CLIMA[it] } else null) }
-        ClimaCena(clima)
-        // [!aviso!]: desliza do topo quando o leitor chega nele (uma vez por capítulo)
-        var aviso by remember { mutableStateOf<String?>(null) }
-        val avisados = remember(capId) { mutableSetOf<Int>() }
-        LaunchedEffect(b) {
-            snapshotFlow { blocoAtual() }.collectLatest { bi ->
-                val k = (bi..bi + 3).firstOrNull { (b.getOrNull(it) as? Bloco.Paragrafo)?.tipo == "notificacao" && it !in avisados } ?: return@collectLatest
-                avisados.add(k); aviso = b[k].plano
-            }
-        }
-        // some sozinho depois de 3,5 s (separado da rolagem, que cancelava o tempo e deixava o aviso preso na tela)
+        // avisos rápidos (ex.: nome que não abre mais a ficha)
         LaunchedEffect(aviso) { if (aviso != null) { kotlinx.coroutines.delay(3500); aviso = null } }
         AvisoDeslizante(aviso, Modifier.align(Alignment.TopCenter)) { aviso = null }
-        androidx.compose.animation.AnimatedVisibility(clima != null, Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = if (controles) 64.dp else 10.dp, end = 12.dp),
-            enter = fadeIn() + slideInVertically { -it }, exit = fadeOut()) {
-            var ultimoClima by remember { mutableStateOf("") }
-            clima?.let { ultimoClima = it }
-            Text(ROTULO_CLIMA[ultimoClima].orEmpty() + if (somCena) "  🔊" else "  🔈", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White,
-                modifier = Modifier.clip(forma(14.dp)).background(Color.Black.copy(alpha = 0.45f)).clickable { prefs.somCena.definir(!somCena) }.padding(horizontal = 10.dp, vertical = 6.dp))
-        }
-
         // barra de progresso fininha no topo
         // lido só na hora de desenhar: rolar o texto não recompõe a tela do leitor
         Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(3.dp).drawBehind {
@@ -1522,10 +1308,6 @@ fun AjustesLeitura() {
         LinhaInterruptor("Cores da capa da obra", corObra) { prefs.corDaObra.definir(it) }
         LinhaInterruptor("Primeira letra grande (capitular)", capit) { prefs.capitular.definir(it) }
         LinhaInterruptor("Maratona: próximo capítulo começa sozinho", marat) { prefs.maratona.definir(it) }
-        val clm by prefs.climaCena.estado.collectAsState()
-        val som by prefs.somCena.estado.collectAsState()
-        LinhaInterruptor("Efeitos de cena (~chuva, ~tensao…)", clm) { prefs.climaCena.definir(it) }
-        if (clm) LinhaInterruptor("Som dos efeitos de cena", som) { prefs.somCena.definir(it) }
         val esc by prefs.escurecer.estado.collectAsState()
         val quente by prefs.luzQuente.estado.collectAsState()
         val vel by prefs.velocidadeRolagem.estado.collectAsState()
@@ -1690,147 +1472,6 @@ internal fun Reacoes(pid: String, cid: String) {
 private val MISSAO = Regex("^\\[([xX✓ ]?)\\]")
 private val BARRA_STATUS = Regex("^([\\p{L}][\\p{L} ]{0,14}?)\\s*:?\\s*(\\d+)\\s*/\\s*(\\d+)$")
 
-/** [[texto]] → janela de sistema. "HP 30/100 | MP 80/100" vira barras que enchem. */
-@Composable
-private fun JanelaSistema(texto: AnnotatedString, estilo: TextStyle, extra: Modifier) {
-    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "sistema")
-    val luz by t.animateFloat(0.35f, 0.8f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1600), androidx.compose.animation.core.RepeatMode.Reverse), label = "luz")
-    val partes = remember(texto.text) { texto.text.split('|').map { it.trim() } }
-    val barras = partes.map { BARRA_STATUS.find(it) }
-    val checks = partes.map { MISSAO.find(it) }
-    val estiloMono = estilo.copy(color = Color(0xFFDDF3FF), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = escalar(estilo.fontSize, 0.88f), lineHeight = escalar(estilo.lineHeight, 0.92f))
-    Column(extra.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(6.dp))
-        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF0101E33), Color(0xF00A1424))))
-        .border(1.5.dp, Color(0xFF5CC8FF).copy(alpha = luz), RoundedCornerShape(6.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(if (checks.any { it != null }) "◈ MISSÕES" else if (barras.any { it != null }) "◈ STATUS" else "◈ SISTEMA", fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Color(0xFF5CC8FF))
-        if (barras.all { it == null } && checks.all { it == null }) Text(texto, style = estiloMono)
-        else partes.forEachIndexed { k, parte ->
-            val m = barras[k]; val ck = checks[k]
-            if (ck != null) {
-                val feito = ck.groupValues[1].isNotBlank()
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(if (feito) Color(0xFF5CC8FF) else Color.Transparent)
-                        .border(1.5.dp, Color(0xFF5CC8FF), RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                        if (feito) Text("✓", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFF0A1424))
-                    }
-                    Text(parte.substring(ck.range.last + 1).trim(), style = estiloMono.copy(color = if (feito) Color(0xFF7D93A8) else Color(0xFFDDF3FF),
-                        textDecoration = if (feito) TextDecoration.LineThrough else null), modifier = Modifier.padding(start = 10.dp))
-                }
-            }
-            else if (m == null) Text(parte, style = estiloMono)
-            else BarraStatus(m.groupValues[1].trim(), m.groupValues[2].toInt(), m.groupValues[3].toInt().coerceAtLeast(1))
-        }
-    }
-}
-
-@Composable
-private fun BarraStatus(nome: String, valor: Int, max: Int) {
-    val n = nome.uppercase()
-    val cores = when {
-        n in setOf("HP", "VIDA", "SAÚDE", "SAUDE") -> listOf(Color(0xFFE0283C), Color(0xFFFF6A6A))
-        n in setOf("MP", "MANA", "QI", "CHI", "KI", "ENERGIA") -> listOf(Color(0xFF3A7BFF), Color(0xFF5CC8FF))
-        n in setOf("XP", "EXP", "EXPERIÊNCIA", "EXPERIENCIA") -> listOf(Color(0xFFFFB020), Color(0xFFFFC94A))
-        n in setOf("SP", "STAMINA", "VIGOR") -> listOf(Color(0xFF2FBF71), Color(0xFF6FCF97))
-        else -> listOf(Color(0xFF8E5CFF), Color(0xFFC59BFF))
-    }
-    val f = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(valor, max) { f.animateTo((valor.toFloat() / max).coerceIn(0f, 1f), androidx.compose.animation.core.tween(1400, 200, androidx.compose.animation.core.FastOutSlowInEasing)) }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(nome, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDDF3FF), modifier = Modifier.width(64.dp), maxLines = 1)
-        Box(Modifier.weight(1f).height(9.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xFF1B2A40))) {
-            Box(Modifier.fillMaxWidth(f.value).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(androidx.compose.ui.graphics.Brush.horizontalGradient(cores)))
-        }
-        Text("${(f.value * max).toInt()} / $max", fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp, color = Color(0xFFDDF3FF),
-            textAlign = TextAlign.End, modifier = Modifier.width(86.dp))
-    }
-}
-
-/** >> texto → mensagem de celular. */
-@Composable
-private fun BalaoMensagem(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Modifier) {
-    Row(extra.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.End) {
-        Column(Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)).background(p.destaque.copy(alpha = 0.9f)).padding(horizontal = 14.dp, vertical = 10.dp)) {
-            Text(texto, style = estilo.copy(color = p.sobreDestaque, fontSize = escalar(estilo.fontSize, 0.9f), lineHeight = escalar(estilo.lineHeight, 0.9f), fontFamily = p.fonteUi))
-            Text("✓✓", fontSize = 10.sp, color = p.sobreDestaque.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.End))
-        }
-    }
-}
-
-private fun escalar(u: androidx.compose.ui.unit.TextUnit, f: Float) = if (u.isSpecified) u * f else u
-
-/** Segredo clicável (borrão até tocar) e glitch com letras trocando. */
-@Composable
-private fun textoComEfeitos(t: AnnotatedString, revelado: Boolean, revelar: () -> Unit): AnnotatedString {
-    val temSegredo = remember(t) { t.getStringAnnotations("segredo", 0, t.length).isNotEmpty() || t.getStringAnnotations("decifra", 0, t.length).isNotEmpty() }
-    val temFx = remember(t) { t.getStringAnnotations("fx", 0, t.length).any { it.item in INLINE_ANIMADOS } }
-    val temGlitch = remember(t) { t.getStringAnnotations("glitch", 0, t.length).isNotEmpty() }
-    val base = remember(t, revelado) {
-        if (!temSegredo) t else if (revelado) decifrar(revelarSegredos(t)) else buildAnnotatedString {
-            append(t)
-            t.getStringAnnotations("segredo", 0, t.length).forEach { addLink(LinkAnnotation.Clickable("seg${it.start}") { revelar() }, it.start, it.end) }
-            t.getStringAnnotations("decifra", 0, t.length).forEach { addLink(LinkAnnotation.Clickable("dec${it.start}") { revelar() }, it.start, it.end) }
-        }
-    }
-    if (LocalSemMovimento.current) return remember(base) { if (temGlitch) embaralharGlitch(base, kotlin.random.Random(7)) else base }
-    if (temFx) {
-        var q by remember { mutableIntStateOf(0) }
-        LaunchedEffect(t) { while (true) { kotlinx.coroutines.delay(110); q++ } }
-        return remember(base, q) { animarInlineFx(if (temGlitch) embaralharGlitch(base, kotlin.random.Random(q)) else base, q) }
-    }
-    if (!temGlitch) return base
-    var quadro by remember { mutableIntStateOf(0) }
-    LaunchedEffect(t) { while (true) { kotlinx.coroutines.delay(120); quadro++ } }
-    return remember(base, quadro) { embaralharGlitch(base, kotlin.random.Random(quadro)) }
-}
-
-/** ~pausa: três pontinhos e o parágrafo aparece bem devagar. */
-@Composable
-private fun PausaDramatica(ligada: Boolean, conteudo: @Composable () -> Unit) {
-    if (!ligada) { conteudo(); return }
-    val a = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { kotlinx.coroutines.delay(1200); a.animateTo(1f, androidx.compose.animation.core.tween(2600)) }
-    Column(Modifier.fillMaxWidth()) {
-        Text("·  ·  ·", color = LocalPaleta.current.textoSuave, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp))
-        Box(Modifier.graphicsLayer { alpha = a.value }) { conteudo() }
-    }
-}
-
-/** ## TÍTULO: letras gigantes que se juntam no centro. */
-@Composable
-private fun TituloImpacto(t: String, p: Paleta, extra: Modifier) {
-    val a = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { a.animateTo(1f, androidx.compose.animation.core.tween(1600, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
-    Text(t.uppercase(), textAlign = TextAlign.Center, fontWeight = FontWeight.Black, fontSize = 32.sp, lineHeight = 36.sp, color = p.texto, fontFamily = p.fonteUi,
-        letterSpacing = (0.08f + (1 - a.value) * 0.7f).em,
-        modifier = extra.fillMaxWidth().padding(vertical = 26.dp).graphicsLayer { alpha = (a.value * 1.6f).coerceAtMost(1f) }
-            .then(if (a.value < 0.6f) Modifier.then(Modifier.blur(((0.6f - a.value) * 14).dp)) else Modifier))
-}
-
-/** == carta: papel antigo, letra cursiva, torto. */
-@Composable
-private fun CartaPapel(texto: AnnotatedString, estilo: TextStyle, extra: Modifier) {
-    Box(extra.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp).graphicsLayer { rotationZ = -1.2f }
-        .shadow(10.dp, RoundedCornerShape(4.dp)).clip(RoundedCornerShape(4.dp))
-        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFFF3E7CF), Color(0xFFE8D8B8))))
-        .drawBehind {
-            val passo = 30.dp.toPx(); var y = passo + 12.dp.toPx()
-            while (y < size.height) { drawLine(Color(0x2E785A32), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), 1f); y += passo }
-        }.padding(horizontal = 20.dp, vertical = 16.dp)) {
-        Text(texto, style = estilo.copy(color = Color(0xFF2B2118), fontFamily = androidx.compose.ui.text.font.FontFamily.Cursive, fontSize = escalar(estilo.fontSize, 1.2f), lineHeight = 30.sp))
-    }
-}
-
-/** [!aviso!] no meio do texto: uma linha discreta (o aviso grande desliza do topo). */
-@Composable
-private fun AvisoNoTexto(texto: AnnotatedString, extra: Modifier) {
-    Row(extra.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        Text(buildAnnotatedString { append("🔔 "); append(texto) }, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDDF3FF),
-            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFF12233A)).border(1.dp, Color(0xFF5CC8FF).copy(alpha = 0.6f), RoundedCornerShape(12.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp))
-    }
-}
-
 @Composable
 private fun AvisoDeslizante(texto: String?, modifier: Modifier, fechar: () -> Unit) {
     var ultimo by remember { mutableStateOf("") }
@@ -1844,194 +1485,3 @@ private fun AvisoDeslizante(texto: String?, modifier: Modifier, fechar: () -> Un
     }
 }
 
-/** >>Nome: texto — mensagem de outra pessoa (à esquerda, com nome). */
-@Composable
-private fun BalaoConversa(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Modifier) {
-    val dois = texto.text.indexOf(':').coerceAtLeast(0)
-    val nome = texto.text.substring(0, dois).trim()
-    val corpo = texto.subSequence((dois + 1).coerceAtMost(texto.length), texto.length).let { if (it.text.startsWith(" ")) it.subSequence(1, it.length) else it }
-    Row(extra.fillMaxWidth().padding(vertical = 4.dp)) {
-        Column(Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)).background(Color(0xFF23232B)).padding(horizontal = 14.dp, vertical = 9.dp)) {
-            Text(nome, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = corDoNome(nome))
-            Text(corpo, style = estilo.copy(color = Color(0xFFECE8E1), fontSize = escalar(estilo.fontSize, 0.9f), lineHeight = escalar(estilo.lineHeight, 0.9f), fontFamily = p.fonteUi))
-        }
-    }
-}
-
-private val CORES_NOMES = listOf(Color(0xFF6FCF97), Color(0xFF5CC8FF), Color(0xFFC59BFF), Color(0xFFFF8A65), Color(0xFFF07AAE), Color(0xFFFFC94A))
-private fun corDoNome(n: String) = if (n.startsWith("[")) Color(0xFFFFC94A) else CORES_NOMES[(n.hashCode() and 0x7fffffff) % CORES_NOMES.size]
-
-/** {{TÍTULO | texto}} — pergaminho com selo. */
-@Composable
-private fun Pergaminho(texto: AnnotatedString, estilo: TextStyle, extra: Modifier) {
-    val bar = texto.text.indexOf('|')
-    val titulo = if (bar > 0) texto.text.substring(0, bar).trim() else ""
-    val corpo = if (bar > 0) texto.subSequence(bar + 1, texto.length) else texto
-    val tinta = Color(0xFF3A2410)
-    Box(extra.fillMaxWidth().padding(vertical = 10.dp)) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 7.dp).shadow(10.dp, RoundedCornerShape(6.dp)).clip(RoundedCornerShape(6.dp))
-            .background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFF1DFB4), Color(0xFFD9BC82)), radius = 900f))
-            .padding(horizontal = 18.dp, vertical = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (titulo.isNotEmpty()) Text(titulo.uppercase(), fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, fontWeight = FontWeight.Black, letterSpacing = 2.sp, fontSize = 15.sp, color = tinta, textAlign = TextAlign.Center)
-            Text(AnnotatedString(corpo.text.trim(), corpo.spanStyles.filter { it.end <= corpo.text.trim().length }), style = estilo.copy(color = tinta, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, textAlign = TextAlign.Center),
-                modifier = Modifier.padding(top = if (titulo.isNotEmpty()) 8.dp else 0.dp))
-            Box(Modifier.padding(top = 10.dp).size(34.dp).clip(CircleShape).background(Color(0xFF9A1C1C)), contentAlignment = Alignment.Center) {
-                Text("印", color = Color(0xFFF1DFB4), fontWeight = FontWeight.Bold)
-            }
-        }
-        listOf(Alignment.TopCenter, Alignment.BottomCenter).forEach { al ->
-            Box(Modifier.align(al).fillMaxWidth().padding(horizontal = 0.dp).height(14.dp).clip(RoundedCornerShape(7.dp))
-                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF8A5A2B), Color(0xFF5A3412)))))
-        }
-    }
-}
-
-private val RARIDADES = mapOf(
-    "comum" to Color(0xFFB0B0B8), "incomum" to Color(0xFF6FCF97), "raro" to Color(0xFF5CC8FF), "épico" to Color(0xFFC59BFF), "epico" to Color(0xFFC59BFF),
-    "lendário" to Color(0xFFFFC94A), "lendario" to Color(0xFFFFC94A), "mítico" to Color(0xFFFF4458), "mitico" to Color(0xFFFF4458),
-)
-
-/** [+Espada do Vazio | lendário] — cartão de item obtido. */
-@Composable
-private fun ItemObtido(t: String, extra: Modifier) {
-    val partes = t.split('|').map { it.trim() }
-    val nome = partes[0]
-    val rar = partes.getOrNull(1)?.lowercase().orEmpty()
-    val cor = RARIDADES[rar] ?: Color(0xFFFFC94A)
-    Row(extra.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(14.dp))
-        .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(cor.copy(alpha = 0.18f), cor.copy(alpha = 0.05f))))
-        .border(1.dp, cor.copy(alpha = 0.7f), RoundedCornerShape(14.dp)).brilho(3000).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(46.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF15120C)).border(1.dp, cor.copy(alpha = 0.6f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-            Text(iconeItem(nome), fontSize = 22.sp)
-        }
-        Column(Modifier.padding(start = 14.dp)) {
-            Text(("ITEM " + (if (rar.isNotEmpty()) rar.uppercase() + " " else "") + "OBTIDO"), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, color = cor)
-            Text(nome, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFFECE8E1))
-        }
-    }
-}
-
-private fun iconeItem(n: String): String {
-    val l = n.lowercase()
-    return when {
-        listOf("espada", "lâmina", "lamina", "faca", "adaga", "katana", "sabre").any { it in l } -> "🗡"
-        listOf("poção", "pocao", "elixir", "pílula", "pilula") .any { it in l } -> "🧪"
-        listOf("anel", "colar", "joia", "amuleto").any { it in l } -> "💍"
-        listOf("livro", "manual", "técnica", "tecnica", "pergaminho").any { it in l } -> "📜"
-        listOf("escudo", "armadura", "elmo").any { it in l } -> "🛡"
-        listOf("arco", "flecha").any { it in l } -> "🏹"
-        listOf("moeda", "ouro", "gema", "cristal", "pedra").any { it in l } -> "💎"
-        listOf("chave").any { it in l } -> "🗝"
-        else -> "✦"
-    }
-}
-
-/** :: Seul, Gangnam | 03:14 da manhã — abertura de cena estilo filme. */
-@Composable
-private fun LocalHora(t: String, p: Paleta, extra: Modifier) {
-    val partes = t.split('|').map { it.trim() }
-    Row(extra.fillMaxWidth().padding(vertical = 8.dp).height(IntrinsicSize.Min)) {
-        Box(Modifier.width(2.dp).fillMaxHeight().background(p.destaque))
-        Column(Modifier.padding(start = 12.dp)) {
-            Text(partes[0].uppercase(), fontFamily = p.fonteUi, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 2.sp, color = p.texto)
-            partes.drop(1).forEach { Text(it.uppercase(), fontFamily = p.fonteUi, fontSize = 12.sp, letterSpacing = 2.5.sp, color = p.textoSuave) }
-        }
-    }
-}
-
-/** > texto — autor: epígrafe à direita. */
-@Composable
-private fun Epigrafe(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Modifier) {
-    val corte = maxOf(texto.text.lastIndexOf(" — "), texto.text.lastIndexOf(" - "))
-    val frase = if (corte > 0) texto.subSequence(0, corte) else texto
-    val autor = if (corte > 0) texto.text.substring(corte + 3).trim() else ""
-    Column(extra.fillMaxWidth().padding(start = 48.dp, top = 6.dp, bottom = 10.dp), horizontalAlignment = Alignment.End) {
-        Text(frase, style = estilo.copy(color = p.textoSuave, fontStyle = FontStyle.Italic, textAlign = TextAlign.End, fontSize = escalar(estilo.fontSize, 0.92f)))
-        if (autor.isNotEmpty()) Text("— " + autor.uppercase(), fontFamily = p.fonteUi, fontSize = 11.sp, letterSpacing = 1.5.sp, color = p.textoSuave, modifier = Modifier.padding(top = 6.dp))
-    }
-}
-
-/** N.A.: texto — nota do autor, separada da história (o Ouvir pula). */
-@Composable
-private fun NotaDoAutor(texto: AnnotatedString, autor: String, p: Paleta, extra: Modifier) {
-    Row(extra.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(14.dp)).background(p.destaque.copy(alpha = 0.08f))
-        .border(1.dp, p.destaque.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(12.dp)) {
-        Box(Modifier.size(34.dp).clip(CircleShape).background(p.destaque), contentAlignment = Alignment.Center) {
-            Text(autor.trim().take(1).uppercase().ifEmpty { "A" }, fontWeight = FontWeight.Black, color = p.sobreDestaque)
-        }
-        Column(Modifier.padding(start = 12.dp)) {
-            Text("NOTA DO AUTOR", fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, color = p.destaque)
-            Text(texto, fontFamily = p.fonteUi, fontSize = 14.sp, lineHeight = 20.sp, color = p.texto)
-        }
-    }
-}
-
-/** >>>Nome: texto (várias linhas) — chat de transmissão / constelações comentando. */
-@Composable
-private fun ChatAoVivo(t: String, extra: Modifier) {
-    val linhas = remember(t) { t.lines().filter { it.isNotBlank() } }
-    var vistas by remember(t) { mutableIntStateOf(0) }
-    LaunchedEffect(t) { while (vistas < linhas.size) { kotlinx.coroutines.delay(if (vistas == 0) 300 else 900); vistas++ } }
-    Column(extra.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF0A0A0D))
-        .border(1.dp, Color(0xFF24242C), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("AO VIVO", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(Color(0xFFE0283C)).padding(horizontal = 6.dp, vertical = 2.dp))
-            Text("  ${linhas.size} comentários", fontSize = 11.sp, color = Color(0xFF8E8A93))
-        }
-        linhas.take(vistas).forEach { l ->
-            val fecha = if (l.startsWith("[")) l.indexOf(']') else -1
-            val d = if (fecha > 0) l.indexOf(':', fecha).takeIf { it > 0 } ?: (fecha + 1) else l.indexOf(':')
-            val nome = if (d > 0) l.substring(0, d).trim() else ""
-            val msg = if (d > 0) l.substring(d + 1).trim() else l
-            Text(buildAnnotatedString {
-                if (nome.isNotEmpty()) withStyle(SpanStyle(color = corDoNome(nome), fontWeight = FontWeight.Bold)) { append(nome); append("  ") }
-                withStyle(SpanStyle(color = if (nome.startsWith("[")) Color(0xFFFFE6A8) else Color(0xFFDDDDDD))) { append(msg) }
-            }, fontSize = 13.5.sp, lineHeight = 18.sp)
-        }
-    }
-}
-
-/** @@Nome — cartão do personagem (puxa a ficha). */
-@Composable
-private fun CartaoPersonagem(nome: String, fichas: List<com.huryel.novely.data.Ficha>, p: Paleta, extra: Modifier, abrir: (com.huryel.novely.data.Ficha) -> Unit) {
-    val f = remember(nome, fichas) {
-        val n = nome.lowercase()
-        fichas.firstOrNull { it.nome.lowercase() == n } ?: fichas.firstOrNull { x -> x.apelidos.split(',').any { it.trim().lowercase() == n } }
-            ?: fichas.firstOrNull { it.nome.lowercase().startsWith(n) }
-    }
-    val img = rememberImagem(f?.imagem, 300)
-    Row(extra.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(16.dp)).background(p.superficie).border(1.dp, p.borda, RoundedCornerShape(16.dp))
-        .then(if (f != null) Modifier.clickable { abrir(f) } else Modifier).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(56.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFFF6A2B), Color(0xFF7A3B8F)))), contentAlignment = Alignment.Center) {
-            if (img != null) androidx.compose.foundation.Image(img, null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            else Text((f?.nome ?: nome).take(1).uppercase(), fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color.White)
-        }
-        Column(Modifier.padding(start = 14.dp).weight(1f)) {
-            Text(f?.nome ?: nome, fontFamily = p.fonteUi, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = p.texto)
-            val sub = listOfNotNull(f?.idade?.takeIf { it.isNotBlank() }?.let { if (it.any(Char::isDigit) && !it.contains("ano")) "$it anos" else it }, f?.faccao?.takeIf { it.isNotBlank() }).joinToString(" · ")
-            if (sub.isNotEmpty()) Text(sub, fontFamily = p.fonteUi, fontSize = 12.sp, color = p.textoSuave)
-            val tags = listOfNotNull(f?.aparencia, f?.poder).flatMap { it.split(',') }.map { it.trim() }.filter { it.isNotEmpty() && it.length <= 24 }.take(4)
-            if (tags.isNotEmpty()) Row(Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                tags.forEach { Text(it, fontSize = 11.sp, color = p.texto, modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(p.borda).padding(horizontal = 8.dp, vertical = 2.dp)) }
-            }
-            if (f == null) Text("Sem ficha com esse nome ainda", fontSize = 11.sp, color = p.textoSuave)
-        }
-        if (f != null) Text("›", fontSize = 22.sp, color = p.textoSuave)
-    }
-}
-
-/** Runas e idioma estranho viram o texto de verdade depois do toque. */
-private fun decifrar(t: AnnotatedString): AnnotatedString {
-    val ds = t.getStringAnnotations("decifra", 0, t.length)
-    if (ds.isEmpty()) return t
-    return buildAnnotatedString {
-        var k = 0
-        ds.sortedBy { it.start }.forEach { d ->
-            append(t.subSequence(k, d.start))
-            val real = d.item.take(d.end - d.start).padEnd(d.end - d.start)
-            withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = Color(0xFFFFF0C8))) { append(real.trimEnd()) }
-            k = d.end
-        }
-        append(t.subSequence(k, t.length))
-    }
-}

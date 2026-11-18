@@ -34,12 +34,11 @@ class MacacoTest {
             val t = lixo(r, 1 + r.nextInt(40)).let { if (i % 7 == 0) it.replace(" ", "\n") else it }
             try {
                 montarBlocos(t, ArrayList())
-                t.lines().forEach { estilizar(it); Marcas.semEfeito(it); lerBlocoFx(it.trim()); forcaBlocoFx(it.trim()); lerInlineFx(it, 0) }
-                Marcas.semEfeitoNoTrecho(t); Marcas.limparEfeitos(t); Marcas.limpar(t); Marcas.encontrar(t, listOf("Seu Cristóvão", "Cris"))
+                t.lines().forEach { estilizar(it); com.huryel.novely.data.Limpeza.limparLinha(it) }
+                com.huryel.novely.data.Limpeza.limparTexto(t); Marcas.limpar(t); Marcas.encontrar(t, listOf("Seu Cristóvão", "Cris"))
                 Marcas.confianca(t, r.nextInt(t.length + 1), "Cristóvão", r.nextBoolean(), r.nextBoolean())
                 Marcas.inicioDeFrase(t, r.nextInt(t.length + 1))
                 Marcas.partesUnicas(mapOf(t to 1L, "Seu Cristóvão" to 2L))
-                Marcas.escreverEfeito("fogo", if (r.nextBoolean()) null else "azul", r.nextInt(3) - 1, t, r.nextBoolean())
                 CamposFicha.extras(t); CamposFicha.porCapitulo(t); CamposFicha.condicaoEm(t, r.nextInt(50)); CamposFicha.segredosAte(t, r.nextInt(50))
                 Ancora.ancorar(t.lines(), r.nextInt(5) - 1, t)
                 Texto.contarPalavras(t); Texto.normalizar(t); Texto.dividirEmPedacos(t, 1 + r.nextInt(50)).joinToString("").let { assertEquals("dividir não perde texto", t, it) }

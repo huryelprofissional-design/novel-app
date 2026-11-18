@@ -7,8 +7,6 @@ tags: [projeto]
 - **Rascunho**: capítulo não publicado.
 - **Ficha**: personagem ou lugar. Nasce de `@Nome, descrição` / `&Lugar, descrição` no texto. Tem extras, condições e segredos.
 - **Bíblia viva**: confere o texto contra as fichas e avisa contradições.
-- **Efeito**: símbolo no texto que o leitor transforma em visual. Ver [[Efeitos de texto]].
-- **Mega Pack**: os efeitos `{efeito: texto}` e `[#efeito campo | campo]`.
 - **Ouvir**: leitura em voz alta, com voz por personagem (elenco). Ver [[Vozes]].
 - **Vozes do Novely**: vozes neurais próprias (Piper e Kokoro), baixadas uma vez.
 - **HUD**: barras do leitor (cima e baixo).

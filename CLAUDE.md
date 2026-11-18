@@ -9,9 +9,9 @@ Todo o conhecimento do projeto está no cofre do Obsidian em **`cofre/`**. Comec
 
 ## Regras rápidas
 - Responder ao autor em **português, curto**. Mostrar mockup antes de mudança visual grande. **Nunca dizer que funciona sem testar**; dizer o que foi testado.
-- Mudança de recurso vai para **celular e PC** com os mesmos nomes (ex.: efeitos: `ui/EfeitosNovos.kt` + `web/fx.js`). Receita: `cofre/50-Recursos/Como criar um efeito novo.md`.
+- Mudança de recurso vai para **celular e PC** com os mesmos nomes.
 - Não há Android SDK local: compilar = `git push` e esperar o CI (`bash cofre/60-Operacao/scripts/ci-apk.sh`; site: `ci-site.sh`). Ver `cofre/60-Operacao/Build e CI.md`.
 - PC: subir `CACHE` em `web/sw.js` a cada mudança em `web/`.
 - Nunca commitar nem repetir segredos (`KEYSTORE_B64`, `KEYSTORE_SENHA`). O e-mail do autor só existe em `firestore.rules`.
-- Ao mudar efeitos ou formato do texto, atualizar `cofre/50-Recursos/Maestro-prompt.txt` (e a nota) e regenerar `Catálogo de efeitos.md`.
+- Ao mudar o formato do texto, atualizar `cofre/50-Recursos/Maestro-prompt.txt` (e a nota). Efeitos de escrita foram removidos em 2026-11-18; não recriar sem o autor pedir.
 - **Mantenha o cofre em dia**: ao terminar uma tarefa, atualize `Pendências.md`, `Decisões.md` e a nota da área.

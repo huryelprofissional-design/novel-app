@@ -6,7 +6,6 @@ atualizado: 2026-11-14
 
 ## Esperando resposta do autor
 - [ ] **Telas novas no aparelho** (2026-11-14): as 13 escolhidas foram feitas no PC (visual conferido no Chromium com HTML de exemplo; sem login) e no celular (só compilou no CI). Pedir print, principalmente leitor (abertura, barra com mapa, fim, Ouvir), editor com ✎ e modo foco, e busca.
-- [ ] **Efeitos 2.0 no aparelho** (2026-11-14): os 55 foram feitos no PC (testados no Chromium) e no celular (só compilou no CI; ninguém viu a tela). Pedir print/retorno, principalmente de vibração, ovo/bilhete/foto (toque) e do HUD. No celular os títulos usam Instrument Serif no lugar da Cinzel e a fonte de pincel do sistema (Ma Shan Zheng ficaria pesada no APK).
 - [ ] **Vozes no PC lentas**: qual voz usa, se o problema é demorar a começar ou pausas, quantos núcleos o PC tem. Ver [[Vozes]].
 - [ ] **Vozes no celular**: retorno de uso real (pausas entre parágrafos, erro ao baixar).
 - [ ] **Regras etapa 2**: contadores em lote + ID de semana igual em todos os aparelhos — quer?
@@ -15,11 +14,11 @@ atualizado: 2026-11-14
 - [ ] Prints do **V2 no celular**, do **leitor novo (#000)** e dos **35 efeitos** no aparelho (só o PC foi visto em print; o celular só compilou).
 
 ## Trabalho começado
+- [ ] **Visual Luar ametista** (escolhido em 2026-11-18): base A5 Ametista, B3 Italiana + Spectral, C4 botão central, D4 capa limpa, E3 fala em itálico, F4 texto e seta, G4 brilho no título; telas H1 capa grande, I4 estante do mês, J3 ficha de livro, K3 lua do capítulo, L1 preto puro, M1 folha limpa, N1 retrato, O3 ícones celestes, P1 lua nascendo, Q1 esmaecer, R3 marcador de fita, R6 estrelas das avaliações. Páginas: https://claude.ai/artifact/UvY13FkPkxKsLY169HMkq8 e https://claude.ai/artifact/Nq2mhF7kwx6g613VvPudxA
 - [ ] Auditoria fase **mestre** (código limpo): `ui/TelaEditor.kt` feito em 2026-11-14 (falta o autor conferir no celular). Próximo: `TelaLeitor.kt`, depois `TelaObra.kt`.
 - [ ] Telas internas ainda no visual antigo: página da obra, painel e fichas (as outras ganharam as telas novas em 2026-11-14).
 - [ ] Código antigo sem rota (`TelaInicioNova`, `TelaEscreverAba`, `TelaPerfilAba`, `TelaDescobrirCatalogo` como aba): avaliar remover.
 
 ## Ideias guardadas
 - Vozes PC: modelos Piper *x_low*, onnxruntime-web + WebGPU, voz do sistema enquanto a neural aquece.
-- 33 efeitos recusados (ver [[Decisões]]) — não oferecer de novo sem o autor pedir.
 - XP/missões do PC sincronizarem com o celular.

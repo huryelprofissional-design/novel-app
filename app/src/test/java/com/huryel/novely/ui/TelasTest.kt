@@ -71,16 +71,4 @@ class TelasTest {
         foto("leitores") { ConteudoEstatisticas(n, abertoInicial = 2) }
     }
 
-    @Test fun megaPack() {
-        val ex = listOf(
-            "evolucao" to "Nv 11 > 12 | Força 14 > 17 | Agilidade 9 > 11", "missao-ok" to "Sobreviver à primeira noite | +300 XP | +1 Baú",
-            "reino" to "Condensação > Fundação > Núcleo Dourado > Alma Nascente | 3", "arquivo" to "Caso 0417 | Nome: ||Han Seo-jun|| | Status: ||VIVO||",
-            "grupo" to "Família | Mãe: alguém viu o Ji-woo? | eu: tava comigo", "capitulo" to "12 | O Rei sem Nome",
-        )
-        foto("megapack") {
-            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                ex.forEach { (n, r) -> BlocoFx(n, if (n == "evolucao") "dourado" else null, r, androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.TextUnit(17f, androidx.compose.ui.unit.TextUnitType.Sp))) }
-            }
-        }
-    }
 }

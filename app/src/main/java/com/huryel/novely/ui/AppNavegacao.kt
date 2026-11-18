@@ -93,6 +93,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
     LaunchedEffect(usuario?.uid) {
         com.huryel.novely.data.Moedas.carregarDaNuvem()
         try { com.huryel.novely.data.Progresso.conferirConquistas(calcularConquistas().filter { it.ganhou }.map { Triple(it.id, it.icone, it.titulo to (it.cor.value.toLong() ushr 32)) }) } catch (_: Exception) {}
+        com.huryel.novely.NovelyApp.instancia.escopo.launch { com.huryel.novely.data.Limpeza.limparObrasUmaVez() }
         val g = com.huryel.novely.data.Moedas.diario()
         if (g > 0) android.widget.Toast.makeText(ctxMoedas, "🪙 +$g moedas de hoje" + if (g > 3) " (7 dias seguidos!)" else "", android.widget.Toast.LENGTH_SHORT).show()
     }
