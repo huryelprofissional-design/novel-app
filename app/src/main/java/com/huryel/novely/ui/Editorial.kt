@@ -65,13 +65,14 @@ import java.util.Locale
  * As quatro abas principais (Ler, Descobrir, Escrever, Eu) moram aqui.
  */
 object Ed {
-    val fundo = Color(0xFF12100E)
-    val superficie = Color(0xFF1A1714)
-    val linha = Color(0xFF2E2924)
-    val creme = Color(0xFFEDE6DA)
-    val suave = Color(0xFF968D81)
-    val apagado = Color(0xFF5E574F)
-    val laranja = Color(0xFFE5553B)
+    val fundo = Color(0xFF000000)
+    val superficie = Color(0xFF120C22)
+    val linha = Color(0xFF1C1530)
+    val creme = Color(0xFFEFE8FF)
+    val suave = Color(0xFF7F7499)
+    val apagado = Color(0xFF4A3F63)
+    /** acento do Luar (ametista); o nome ficou do visual anterior */
+    val laranja = Color(0xFF9D7BFF)
     val verde = Color(0xFF8DBB83)
 }
 
@@ -100,21 +101,24 @@ fun Mono(t: String, modifier: Modifier = Modifier, cor: Color = Ed.suave, tamanh
 @Composable
 fun Serif(t: String, tamanho: TextUnit, modifier: Modifier = Modifier, cor: Color = Ed.creme, italico: Boolean = false, maxLinhas: Int = Int.MAX_VALUE, centro: Boolean = false) =
     Text(t, modifier, color = cor, fontFamily = InstrumentSerif, fontSize = tamanho, lineHeight = tamanho * 1.05f,
+        style = if (tamanho.value >= 24f) androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Ed.laranja.copy(alpha = 0.55f), blurRadius = tamanho.value * 0.9f)) else androidx.compose.ui.text.TextStyle.Default,
         fontStyle = if (italico) FontStyle.Italic else FontStyle.Normal, maxLines = maxLinhas, overflow = TextOverflow.Ellipsis,
         textAlign = if (centro) TextAlign.Center else null)
 
 @Composable
 fun BotaoCreme(t: String, modifier: Modifier = Modifier, seta: Boolean = true, aoTocar: () -> Unit) {
-    Row(modifier.height(54.dp).background(Ed.creme).clickable(onClick = aoTocar).padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (seta) Arrangement.SpaceBetween else Arrangement.Center) {
-        Text(t, color = Ed.fundo, fontFamily = Inter, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = if (seta) Modifier.weight(1f) else Modifier)
-        if (seta) Text("→", color = Ed.fundo, fontSize = 20.sp)
+    Row(modifier.height(54.dp).clickable(onClick = aoTocar).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(t, color = Ed.laranja, fontFamily = InstrumentSerif, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Ed.laranja.copy(alpha = 0.5f), blurRadius = 18f)))
+        if (seta) Text("⟶", color = Ed.laranja, fontSize = 20.sp)
     }
 }
 
 @Composable
 fun BotaoLinha(t: String, modifier: Modifier = Modifier, aoTocar: () -> Unit) {
-    Box(modifier.height(54.dp).border(1.dp, Ed.creme.copy(alpha = 0.75f)).clickable(onClick = aoTocar).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.height(54.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(27.dp)).border(1.dp, Ed.laranja.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(27.dp))
+        .clickable(onClick = aoTocar).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
         Text(t, color = Ed.creme, fontFamily = Inter, fontSize = 15.sp, maxLines = 1)
     }
 }
@@ -125,8 +129,7 @@ private fun Fio(modifier: Modifier = Modifier, cor: Color = Ed.linha) = Box(modi
 /** Capa com a faixa vermelha deslocada atrás (direita e embaixo). */
 @Composable
 fun CapaFaixa(titulo: String, capa: String?, x: Float, y: Float, zoom: Float, corBase: Long, largura: Dp, altura: Dp, desloc: Dp = 6.dp) {
-    Box(Modifier.size(largura + desloc, altura + desloc)) {
-        Box(Modifier.offset(desloc, desloc).size(largura, altura).background(Ed.laranja))
+    Box(Modifier.size(largura, altura).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) {
         CapaObra(titulo, capa, x, y, zoom, corBase, Modifier.size(largura, altura), (largura.value / 9).sp, semCantos = true)
     }
 }
@@ -160,18 +163,22 @@ private fun dois(n: Int) = n.toString().padStart(2, '0')
 
 @Composable
 fun BarraEditorial(abas: List<Pair<String, String>>, atual: String?, ir: (String) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Ed.fundo)) {
-        Fio(cor = Ed.creme.copy(alpha = 0.35f))
-        Row(Modifier.fillMaxWidth().height(72.dp), verticalAlignment = Alignment.CenterVertically) {
+    val glifo = mapOf("inicio" to "☾", "descobrir" to "✧", "biblioteca" to "◌", "perfil" to "✦")
+    Box(Modifier.fillMaxWidth().height(84.dp)) {
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(68.dp).background(Ed.fundo), verticalAlignment = Alignment.CenterVertically) {
             abas.forEach { (rota, rotulo) ->
                 val on = rota == atual
-                Column(Modifier.weight(1f).fillMaxHeight().clickable { ir(rota) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(if (on) Ed.laranja else Color.Transparent))
-                    Spacer(Modifier.height(8.dp))
-                    Text(rotulo.uppercase(), fontFamily = PlexMono, fontSize = 12.sp, letterSpacing = 2.sp, color = if (on) Ed.creme else Ed.suave,
-                        fontWeight = if (on) FontWeight.Medium else FontWeight.Normal, maxLines = 1)
+                if (rota == "escrever") Spacer(Modifier.weight(1f))
+                else Column(Modifier.weight(1f).fillMaxHeight().clickable { ir(rota) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Text(glifo[rota] ?: "·", fontSize = 20.sp, color = if (on) Ed.laranja else Ed.suave,
+                        style = androidx.compose.ui.text.TextStyle(shadow = if (on) androidx.compose.ui.graphics.Shadow(Ed.laranja, blurRadius = 16f) else null))
+                    Text(rotulo, fontFamily = Inter, fontSize = 11.sp, color = if (on) Ed.creme else Ed.suave, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
                 }
             }
+        }
+        // Escrever: círculo ametista no meio, saindo da barra
+        Box(Modifier.align(Alignment.TopCenter).size(58.dp).clip(CircleShape).background(Ed.laranja).clickable { ir("escrever") }, contentAlignment = Alignment.Center) {
+            Text("✎", fontSize = 24.sp, color = Color.Black)
         }
     }
 }
@@ -331,8 +338,8 @@ fun TelaDescobrirEd(nav: NavHostController) {
             }
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 84.dp, bottom = 120.dp)) {
                 itemsIndexed(l, key = { _, o -> o.id }) { i, o ->
-                    if (i == 0 && aba == "ALTA") PodioPrimeiro(o, o.autorUid == NovelyApp.instancia.pub.meuUid) { nav.navigate("pub/${o.id}") }
-                    else LinhaRanking(i + 1, o, aba == "ALTA") { nav.navigate("pub/${o.id}") }
+                    if (i == 0 && aba == "ALTA") Serif(SimpleDateFormat("MMMM", Locale("pt", "BR")).format(java.util.Date()).replaceFirstChar { it.uppercase() }, 40.sp, Modifier.padding(bottom = 6.dp))
+                    if (aba != "ALTA" || i < 10) LinhaRanking(i + 1, o, aba == "ALTA") { nav.navigate("pub/${o.id}") }
                 }
                 item {
                     Serif("Gêneros", 34.sp, Modifier.padding(top = 34.dp, bottom = 14.dp))
@@ -350,7 +357,7 @@ fun TelaDescobrirEd(nav: NavHostController) {
         Row(Modifier.fillMaxWidth().background(if (aba == "LINHAS") Color.Transparent else Ed.fundo).padding(start = 22.dp, end = 10.dp, top = 18.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                listOf("LINHAS" to "Linhas", "ALTA" to "Em alta", "NOVAS" to "Novas", "COMPLETAS" to "Completas").forEach { (k, n) ->
+                listOf("LINHAS" to "Linhas", "ALTA" to "Do mês", "NOVAS" to "Novas", "COMPLETAS" to "Completas").forEach { (k, n) ->
                     val on = aba == k
                     Column(Modifier.clickable { aba = k }) {
                         Mono(n, cor = if (on) Ed.creme else Ed.suave, tamanho = 13.sp)

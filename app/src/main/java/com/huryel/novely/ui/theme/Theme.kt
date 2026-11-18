@@ -23,23 +23,25 @@ import androidx.compose.ui.unit.sp
 import com.huryel.novely.R
 
 // ───────── Fontes embutidas (funcionam offline) ─────────
+/** Leitura (Luar): Spectral. */
 val Newsreader = FontFamily(
-    Font(R.font.newsreader_regular, FontWeight.Normal),
-    Font(R.font.newsreader_italic, FontWeight.Normal, FontStyle.Italic),
-    Font(R.font.newsreader_semibold, FontWeight.SemiBold),
-    Font(R.font.newsreader_semibold, FontWeight.Bold),
-    Font(R.font.newsreader_semibold, FontWeight.Black),
+    Font(R.font.spectral_regular, FontWeight.Normal),
+    Font(R.font.spectral_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.spectral_semibold, FontWeight.SemiBold),
+    Font(R.font.spectral_semibold, FontWeight.Bold),
+    Font(R.font.spectral_semibold, FontWeight.Black),
+    Font(R.font.spectral_italic, FontWeight.SemiBold, FontStyle.Italic),
 )
 val Inter = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal), Font(R.font.inter_semibold, FontWeight.SemiBold),
     Font(R.font.inter_bold, FontWeight.Bold), Font(R.font.inter_bold, FontWeight.ExtraBold), Font(R.font.inter_bold, FontWeight.Black),
 )
-/** Serifa editorial (títulos grandes). Só tem um peso: os pesos fortes usam o mesmo arquivo, sem negrito falso. */
+/** Títulos (Luar): Italiana. Só tem um peso; todos os pesos usam o mesmo arquivo. */
 val InstrumentSerif = FontFamily(
-    Font(R.font.instrument_serif, FontWeight.Normal), Font(R.font.instrument_serif_italic, FontWeight.Normal, FontStyle.Italic),
-    Font(R.font.instrument_serif, FontWeight.Medium), Font(R.font.instrument_serif, FontWeight.SemiBold), Font(R.font.instrument_serif, FontWeight.Bold),
-    Font(R.font.instrument_serif, FontWeight.ExtraBold), Font(R.font.instrument_serif, FontWeight.Black),
-    Font(R.font.instrument_serif_italic, FontWeight.Bold, FontStyle.Italic), Font(R.font.instrument_serif_italic, FontWeight.SemiBold, FontStyle.Italic),
+    Font(R.font.italiana, FontWeight.Normal), Font(R.font.italiana, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.italiana, FontWeight.Medium), Font(R.font.italiana, FontWeight.SemiBold), Font(R.font.italiana, FontWeight.Bold),
+    Font(R.font.italiana, FontWeight.ExtraBold), Font(R.font.italiana, FontWeight.Black),
+    Font(R.font.italiana, FontWeight.Bold, FontStyle.Italic), Font(R.font.italiana, FontWeight.SemiBold, FontStyle.Italic),
 )
 /** Mono dos rótulos (CONTINUAR · CAPÍTULO 05). */
 val PlexMono = FontFamily(
@@ -47,7 +49,7 @@ val PlexMono = FontFamily(
     Font(R.font.plex_mono_medio, FontWeight.SemiBold), Font(R.font.plex_mono_medio, FontWeight.Bold), Font(R.font.plex_mono_medio, FontWeight.Black),
 )
 /** Como as falas aparecem no leitor. */
-enum class EstiloFala { BARRA, FIO, BALAO, ETIQUETA }
+enum class EstiloFala { BARRA, FIO, BALAO, ETIQUETA, ITALICO }
 
 /** Identidade visual completa de um tema. */
 @Immutable
@@ -81,10 +83,10 @@ data class Paleta(
 
 enum class TemaLeitura(val paleta: Paleta) {
     OLED(Paleta(
-        "Editorial", "Papel escuro, creme e vermelho-laranja",
-        Color(0xFF12100E), Color(0xFF1A1714), Color(0xFF2E2924), Color(0xFFEDE6DA), Color(0xFF968D81),
-        Color(0xFFE5553B), Color(0xFF12100E), Color(0xFFC9A46A), Color(0xFF8DBB83), true,
-        InstrumentSerif, Inter, Newsreader, 0.35f, false, false, false, EstiloFala.BARRA, "—   ✦   —",
+        "Luar", "Preto puro e ametista",
+        Color(0xFF000000), Color(0xFF120C22), Color(0xFF1C1530), Color(0xFFEFE8FF), Color(0xFF7F7499),
+        Color(0xFF9D7BFF), Color(0xFF000000), Color(0xFFCBBCFF), Color(0xFF8DBB83), true,
+        InstrumentSerif, Inter, Newsreader, 1f, false, false, false, EstiloFala.ITALICO, "☾",
     )),
 }
 

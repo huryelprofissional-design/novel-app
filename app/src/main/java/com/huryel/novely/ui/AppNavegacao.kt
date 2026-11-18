@@ -76,6 +76,7 @@ private val abas = listOf(
     Aba("inicio", "Ler", Icones.inicio),
     Aba("descobrir", "Descobrir", Icones.descobrir),
     Aba("escrever", "Escrever", Icones.escrever),
+    Aba("biblioteca", "Estante", Icones.inicio),
     Aba("perfil", "Eu", Icones.perfil),
 )
 
@@ -146,7 +147,7 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
         val vidroApp = rememberVidro()
         Box(Modifier.fillMaxSize().padding(margem).consumeWindowInsets(margem).nestedScroll(rolagem)) {
         NavHost(nav, startDestination = "inicio", modifier = Modifier.fillMaxSize().background(p.fundo).fonteVidro(vidroApp),
-            enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 10 } },
+            enterTransition = { fadeIn(tween(260)) },
             exitTransition = { fadeOut(tween(160)) },
             popEnterTransition = { fadeIn(tween(220)) },
             popExitTransition = { fadeOut(tween(160)) }) {
@@ -223,6 +224,22 @@ fun AppNavegacao(temaAtual: TemaLeitura, aoMudarTema: (TemaLeitura) -> Unit) {
             BarraEditorial(abas.map { it.rota to it.rotulo }, rota) { r -> irAba(nav, r) }
         }
         AvisosGlobais(nav, rota)
+        // abertura do app: a lua nasce e o nome aparece (P1)
+        var abrindo by remember { mutableStateOf(true) }
+        LaunchedEffect(Unit) { kotlinx.coroutines.delay(1300); abrindo = false }
+        androidx.compose.animation.AnimatedVisibility(abrindo, Modifier.fillMaxSize(), enter = fadeIn(tween(0)), exit = fadeOut(tween(500))) {
+            val sobe = remember { androidx.compose.animation.core.Animatable(0f) }
+            LaunchedEffect(Unit) { sobe.animateTo(1f, tween(1000)) }
+            Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.graphicsLayer { translationY = (1 - sobe.value) * 80f; alpha = sobe.value }.size(76.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(Color(0xFFEFE8FF)))
+                    Text("Novely", fontFamily = com.huryel.novely.ui.theme.InstrumentSerif, fontSize = 42.sp, color = Color(0xFFEFE8FF),
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color(0xFF9D7BFF), blurRadius = 40f)),
+                        modifier = Modifier.padding(top = 18.dp).graphicsLayer { alpha = ((sobe.value - 0.4f) / 0.6f).coerceIn(0f, 1f) })
+                }
+            }
+        }
         Celebracoes()
         // notificação tocada → avisos; e pedir permissão de notificação uma vez (Android 13+)
         val abrirTela by app.abrirTela.collectAsState()

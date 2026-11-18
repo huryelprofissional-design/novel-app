@@ -1,5 +1,7 @@
 package com.huryel.novely.ui
 
+import androidx.compose.ui.graphics.drawscope.clipRect
+
 import com.huryel.novely.ui.theme.forma
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -682,6 +684,11 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
                 val mk = marcasPorBloco[i]
                 val fundoAtivo = (if (ativo) Modifier.clip(forma(10.dp)).background(p.destaque.copy(alpha = 0.14f)) else Modifier)
                     .then(if (mk != null && mk.cor.isNotEmpty()) Modifier.clip(forma(6.dp)).background((coresGrifo[mk.cor] ?: p.destaque).copy(alpha = 0.22f)) else Modifier)
+                    .then(if (i == parouAoAbrir - 1 && c.progresso < 0.98f && parouAoAbrir > 1) Modifier.drawBehind {
+                        // fita ametista onde você parou (R3)
+                        val x = size.width + 10.dp.toPx(); val w = 10.dp.toPx(); val h = 34.dp.toPx()
+                        drawPath(androidx.compose.ui.graphics.Path().apply { moveTo(x, -6.dp.toPx()); lineTo(x + w, -6.dp.toPx()); lineTo(x + w, h); lineTo(x + w / 2, h - 7.dp.toPx()); lineTo(x, h); close() }, Color(0xFF9D7BFF))
+                    } else Modifier)
                     .then(if (mk != null) Modifier.drawBehind {
                         val x = size.width + 6.dp.toPx()
                         drawRect(coresGrifo[mk.cor] ?: p.destaque, topLeft = androidx.compose.ui.geometry.Offset(x, 2f), size = androidx.compose.ui.geometry.Size(4.dp.toPx(), 18.dp.toPx()))
@@ -725,12 +732,13 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
         // avisos rápidos (ex.: nome que não abre mais a ficha)
         LaunchedEffect(aviso) { if (aviso != null) { kotlinx.coroutines.delay(3500); aviso = null } }
         AvisoDeslizante(aviso, Modifier.align(Alignment.TopCenter)) { aviso = null }
-        // barra de progresso fininha no topo
-        // lido só na hora de desenhar: rolar o texto não recompõe a tela do leitor
-        Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(3.dp).drawBehind {
-            val w = size.width * progresso
-            if (w > 0f) drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(p.destaque.copy(alpha = 0.35f), p.destaque), endX = w), size = androidx.compose.ui.geometry.Size(w, size.height))
-        })
+        // lua do capítulo: enche conforme a leitura (K3)
+        androidx.compose.foundation.Canvas(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 14.dp).size(18.dp)) {
+            val r = size.minDimension / 2
+            drawCircle(Color(0xFF1C1530), r)
+            clipRect(right = size.width * progresso.coerceIn(0f, 1f)) { drawCircle(Color(0xFFEFE8FF), r) }
+            drawCircle(Color(0x669D7BFF), r + 3f, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        }
 
         traduzindo?.let { msg ->
             Row(Modifier.align(Alignment.Center).clip(forma(18.dp)).background(p.superficie).padding(horizontal = 18.dp, vertical = 14.dp),
@@ -1040,6 +1048,7 @@ private fun Fala(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Mo
             Spacer(Modifier.width(10.dp))
             Text(colorido, style = estilo.copy(color = p.texto))
         }
+        com.huryel.novely.ui.theme.EstiloFala.ITALICO -> Text(texto, style = estilo.copy(color = p.texto, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic), modifier = extra)
         else -> Row(
             extra.height(IntrinsicSize.Min).clip(forma(topEnd = 12.dp, bottomEnd = 12.dp)).background(p.destaque.copy(alpha = 0.07f)),
         ) {

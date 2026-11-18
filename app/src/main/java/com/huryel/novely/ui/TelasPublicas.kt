@@ -359,7 +359,7 @@ fun TelaObraPublica(pid: String, nav: NavHostController) {
                     if (!souAutor) Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Sua nota", fontSize = 13.sp, color = p.textoSuave, modifier = Modifier.padding(end = 8.dp))
                         (1..5).forEach { n ->
-                            Text(if (n <= minhaNota) "★" else "☆", fontSize = 26.sp, color = if (n <= minhaNota) Color(0xFFFFD54A) else p.textoSuave,
+                            Text(if (n <= minhaNota) "✦" else "✧", fontSize = 26.sp, style = androidx.compose.ui.text.TextStyle(shadow = if (n <= minhaNota) androidx.compose.ui.graphics.Shadow(Ed.laranja, blurRadius = 18f) else null), color = if (n <= minhaNota) Ed.creme else p.textoSuave,
                                 modifier = Modifier.clickable { escopo.launch { try { pub.avaliar(pid, n); minhaNota = n; obra = pub.obra(pid) } catch (_: Exception) {} } }.padding(horizontal = 3.dp))
                         }
                     }
