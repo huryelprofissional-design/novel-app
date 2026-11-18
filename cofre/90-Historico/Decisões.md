@@ -8,6 +8,7 @@ Decisões aprovadas pelo autor (mais novas primeiro). As do começo do projeto e
 | Data | Decisão |
 |---|---|
 | 2026-11-18 | **Efeitos de escrita removidos** do app inteiro (símbolos curtos, efeitos de cena, Mega Pack e Efeitos 2.0), como se nunca existissem. Os símbolos dos capítulos foram limpos uma vez (versão de antes no Histórico) e textos de outras pessoas são limpos na hora de ler (`data/Limpeza.kt`, `web/limpeza.js`). Negrito, itálico, troca de cena, subtítulo # e @/& continuam. |
+| 2026-11-18 | PC descontinuado por enquanto: não mexer em `web/` até o autor pedir. |
 | 2026-11-18 | Novo visual: **Luar ametista** sobre preto puro (ver [[Pendências]]). |
 | 2026-11-14 | Telas novas escolhidas: U3 editor de mesa limpa, U5 ajustes como sumário, U6 relatório do mês, U7 selos e extrato, U8 pódio, U9 abertura com capitular, U10 barra com mapa, U11 fim de capítulo, U12 Ouvir com quem fala, U14 capa da semana, U15 busca como comando, U17 foco de um parágrafo, U18 avisos como telegramas. Recusadas: U1, U2, U4, U13, U16. Ver [[Design V2 editorial]]. |
 | 2026-11-14 | Efeitos 2.0 usam `$` (`[$nome …]`, `{$nome: …}`), arquivos próprios (`web/fx2.js` + `web/fx2.css`, `ui/EfeitosV2.kt`). Cada um começa quando aparece na tela e tocar repete; ovo, bilhete e foto-muda abrem com o toque. Vibração (M3) em despertar, penalidade, morte, autodestruição, batimento, recompensa, juramento e cofre; desligada com "Reduzir animações". |

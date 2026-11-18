@@ -8,6 +8,7 @@ Todo o conhecimento do projeto está no cofre do Obsidian em **`cofre/`**. Comec
 @cofre/90-Historico/Pendências.md
 
 ## Regras rápidas
+- **PC pausado (2026-11-18): não mexer em `web/` até o autor pedir.**
 - Responder ao autor em **português, curto**. Mostrar mockup antes de mudança visual grande. **Nunca dizer que funciona sem testar**; dizer o que foi testado.
 - Mudança de recurso vai para **celular e PC** com os mesmos nomes.
 - Não há Android SDK local: compilar = `git push` e esperar o CI (`bash cofre/60-Operacao/scripts/ci-apk.sh`; site: `ci-site.sh`). Ver `cofre/60-Operacao/Build e CI.md`.
