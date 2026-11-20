@@ -14,6 +14,8 @@ Os efeitos antigos foram removidos em 2026-11-18 (ver [[Decisões]]). No mesmo d
 - `::nome resto` — linha sozinha: som, vibração, partículas, pausa.
 - O nome aceita acento ou não. A tabela completa com todos os nomes está no [[Maestro - prompt de escrita]].
 
+- Desde 2026-11-20 o leitor também acha `[nome | …]` no meio da linha (texto antes/depois vira parágrafo; num contador, texto curto depois vira rótulo) e separa o chat por " / ".
+
 ## Código
 - `data/Fx.kt`: catálogo (`Fx.CATALOGO`: nome → tipo + modo + rótulo), leitura da linha (`Fx.lerLinha`), texto para o Ouvir e buscas (`Fx.plano`), texto sem efeitos para resumos (`Fx.textoSimples`).
 - `ui/FxTela.kt`: `FxBloco` desenha cada tipo (37 tipos: letras, frase, janela, ficha, contador, barra, chat, carimbo, partículas…). Toque no efeito repete. Com "reduzir animações" aparece já pronto.
