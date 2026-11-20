@@ -111,6 +111,31 @@ object Fx {
 
     private fun campos(s: String) = s.split('|').map { it.trim() }
 
+    private val RX_BLOCO_MEIO = Regex("\\[([^\\[\\]|\\n]{1,30})(?:\\|([^\\[\\]\\n]*))?\\]")
+    private val SEPARA_BARRA = setOf(FxTipo.CHAT, FxTipo.QUADROS, FxTipo.MULTIDAO, FxTipo.CREDITOS, FxTipo.TERMINAL, FxTipo.FICHA)
+
+    /** Efeitos [nome | …] e ::nome também no meio da linha (texto antes e depois vira parágrafo; num contador, o texto curto depois vira rótulo). */
+    fun dividirLinha(linha: String): List<Any> {
+        lerLinha(linha)?.let { return listOf(it) }
+        val saida = ArrayList<Any>()
+        var resto = linha
+        // "::nome" depois de texto
+        while (true) {
+            val m = RX_BLOCO_MEIO.findAll(resto).firstOrNull { def(it.groupValues[1]) != null } ?: break
+            val antes = resto.substring(0, m.range.first).trim()
+            var depois = resto.substring(m.range.last + 1).trim()
+            if (antes.isNotEmpty()) saida.add(antes)
+            var u = lerLinha(m.value) ?: break
+            if (u.def.tipo == FxTipo.CONTAR && depois.isNotEmpty() && depois.length <= 40 && u.campos.size == 1) {
+                u = u.copy(campos = u.campos + depois.trimEnd('.')); depois = ""
+            }
+            saida.add(u)
+            resto = depois
+        }
+        if (resto.isNotBlank()) saida.add(resto.trim())
+        return if (saida.any { it is FxUso }) saida else listOf(linha)
+    }
+
     /** O efeito de uma linha inteira, ou null se a linha é texto comum. */
     fun lerLinha(linha0: String): FxUso? {
         val l = linha0.trim()
@@ -118,7 +143,8 @@ object Fx {
         if (l.startsWith("[") && l.endsWith("]") && !l.startsWith("[[")) {
             val ps = campos(l.substring(1, l.length - 1))
             val d = def(ps[0]) ?: return null
-            return FxUso(chave(ps[0]), d, ps.drop(1).filter { it.isNotEmpty() })
+            val cs = ps.drop(1).filter { it.isNotEmpty() }
+            return FxUso(chave(ps[0]), d, if (d.tipo in SEPARA_BARRA) cs.flatMap { it.split(" / ").map(String::trim) }.filter { it.isNotEmpty() } else cs)
         }
         if (l.startsWith("::")) {
             val r = l.drop(2).trim()
@@ -153,7 +179,8 @@ object Fx {
 
     /** Texto sem nenhum efeito (resumos, trechos de divulgação): efeitos viram o texto que eles mostram. */
     fun textoSimples(t: String): String = t.lines().joinToString("\n") { linha ->
-        val u = lerLinha(linha)
-        if (u != null) plano(u) else RX_INLINE.replace(linha) { m -> if (conhecido(m.groupValues[1])) campos(m.groupValues[2]).last() else m.value }
+        dividirLinha(linha).joinToString(" ") { p ->
+            if (p is FxUso) plano(p) else RX_INLINE.replace(p as String) { m -> if (conhecido(m.groupValues[1])) campos(m.groupValues[2]).last() else m.value }
+        }
     }
 }

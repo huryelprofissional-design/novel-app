@@ -108,6 +108,9 @@ Regras de uso:
 - [chat]: cada campo é "Nome: mensagem"; as mensagens do celular de quem narra usam "eu:".
 - Cena forte: antes de sexo explícito ou gore pesado, coloque [alerta | +18 · cena adulta] ou [alerta | Violência forte].
 - O efeito não substitui a prosa: a cena continua escrita normalmente em volta dele.
+- Efeito de linha fica SOZINHO na linha: nada antes nem depois do [ ] ou do ::. Campos sempre separados por | (nunca por / ou vírgula).
+  Errado: [live | 327401] visualizações simultâneas   Certo: [live | 327401 | visualizações simultâneas]
+  Errado: [chat | fãs: A / B] ele pegou o celular.   Certo: [chat | fãs: A | fãs: B] e, na linha seguinte, o resto da prosa.
 
 Voz e fala
   {sussurro: texto}      fala pequena e apagada            {treme: texto}         letras tremendo (medo, frio, choro)
@@ -189,7 +192,7 @@ Cena, tempo e mistério
 Telas e celular
   [chat | Nome: msg | eu: msg]                             [ligação | Nome]       (ou [chamada | …])
   [notícia | manchete]   [rede | texto]   [banco | texto]   [e-mail | assunto]     notificações
-  [live | 12400]         pessoas assistindo                [apagada | Nome: msg]  mensagem que some
+  [live | 12400 | rótulo] pessoas assistindo                [apagada | Nome: msg]  mensagem que some
   [visto | msg | msg]    lida e sem resposta               [digitando | Nome | msg] alguém digita
   [bateria | 20 | 2]     bateria acabando
 Som e celular

@@ -475,11 +475,13 @@ private fun FxChat(c: List<String>, modo: String, vez: Int) {
     val msgs = when (modo) {
         "visto" -> c.map { Msg(true, "", it) }
         "digitando" -> listOf(Msg(false, c.firstOrNull().orEmpty(), c.getOrNull(1).orEmpty()))
-        else -> c.map { linha ->
-            val quem = linha.substringBefore(':', "").trim()
-            val txt = if (':' in linha) linha.substringAfter(':').trim() else linha
-            Msg(Fx2.ehEu(quem), quem, txt)
-        }
+        else -> { var ultimo = ""; c.map { linha ->
+            // "Nome: msg"; sem nome = mesma pessoa da mensagem anterior
+            val temNome = ':' in linha && linha.substringBefore(':').trim().length in 1..24
+            val quem = if (temNome) linha.substringBefore(':').trim() else ultimo
+            ultimo = quem
+            Msg(Fx2.ehEu(quem), quem, if (temNome) linha.substringAfter(':').trim() else linha.trim())
+        } }
     }
     val passo = if (modo == "digitando") 2600 else 1200
     val total = msgs.size * passo + if (modo == "apagada") 1600 else 400

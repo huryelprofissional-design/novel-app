@@ -184,7 +184,10 @@ fun montarBlocos(texto: String, origens: MutableList<Int>? = null): List<Bloco> 
             linha.isEmpty() -> {}
             podeSerTitulo && Texto.ehTituloCapitulo(linha) && !linha.startsWith("#") -> saida.add(Bloco.Titulo(Texto.tituloLimpo(linha)))
             linha == "* * *" || linha == "***" || linha == "---" || linha == "◆" -> saida.add(Bloco.Separador)
-            com.huryel.novely.data.Fx.lerLinha(linha) != null -> saida.add(Bloco.Efeito(com.huryel.novely.data.Fx.lerLinha(linha)!!))
+            '[' in linha && com.huryel.novely.data.Fx.dividirLinha(linha).any { it is com.huryel.novely.data.FxUso } || com.huryel.novely.data.Fx.lerLinha(linha) != null ->
+                com.huryel.novely.data.Fx.dividirLinha(linha).forEach { pd ->
+                    if (pd is com.huryel.novely.data.FxUso) saida.add(Bloco.Efeito(pd)) else (pd as String).let { saida.add(Bloco.Paragrafo(estilizar(it), ehFala(it))) }
+                }
             linha.startsWith("#") -> saida.add(Bloco.Titulo(linha.trimStart('#').trim()))
             linha.length > 2500 -> {
                 val fala = ehFala(linha)

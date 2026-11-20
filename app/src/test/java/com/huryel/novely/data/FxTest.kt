@@ -43,4 +43,15 @@ class FxTest {
         assertEquals("Ele corou e saiu.", Fx.textoSimples("Ele {cora: corou} e saiu."))
         assertEquals("SISTEMA. Missão aceita.", Fx.textoSimples("[sistema | Missão aceita.]"))
     }
+
+    @Test fun efeitoNoMeioDaLinha() {
+        val ps = Fx.dividirLinha("[live | 327401] visualizações simultâneas")
+        assertEquals(1, ps.size)
+        assertEquals(listOf("327401", "visualizações simultâneas"), (ps[0] as FxUso).campos)
+        val ch = Fx.dividirLinha("[chat | fãs: OBRIGADO AKA!!! / AMO VOCÊ! / MEU HERÓI!] ele pegou o celular.")
+        assertEquals(2, ch.size)
+        assertEquals(listOf("fãs: OBRIGADO AKA!!!", "AMO VOCÊ!", "MEU HERÓI!"), (ch[0] as FxUso).campos)
+        assertEquals("ele pegou o celular.", ch[1])
+        assertEquals(listOf("Ele leu [nota do autor] e riu."), Fx.dividirLinha("Ele leu [nota do autor] e riu."))
+    }
 }
