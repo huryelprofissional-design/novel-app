@@ -565,7 +565,8 @@ private fun TelaLeitorCorpo(capId: Long, nav: NavHostController, consultaInicial
 
     val familia = when (fonte) { "SEM_SERIFA" -> FontFamily.SansSerif; "SERIFA" -> FontFamily.Serif; else -> p.fonteLeitura }
     val estiloBase = TextStyle(fontFamily = familia, fontSize = tamanho.sp, lineHeight = (tamanho * entrelinhas).sp, color = p.texto)
-    val corNarracao = if (destacarFalas) p.texto.copy(alpha = 0.86f) else p.texto
+    // Luar D1: narração em cinza calmo, fala em creme com fio ametista
+    val corNarracao = if (destacarFalas) Color(0xFFB9B2C9) else p.texto
     val q = Texto.normalizar(consulta.trim())
 
     // texto decorado (nomes + capitular): o mesmo que é medido e desenhado
@@ -1053,15 +1054,17 @@ private fun Fala(texto: AnnotatedString, estilo: TextStyle, p: Paleta, extra: Mo
             var fim = 0
             while (fim < t.length && (t[fim] in "—–―-“\"«" || t[fim] == ' ')) fim++
             val cor = if (p.fala == com.huryel.novely.ui.theme.EstiloFala.BALAO) p.destaque3 else p.destaque
-            if (fim > 0) addStyle(SpanStyle(color = cor, fontWeight = FontWeight.ExtraBold), 0, fim)
-            var k = fim
-            while (k < t.length) { if (t[k] == '—') addStyle(SpanStyle(color = cor), k, k + 1); k++ }
+            if (p.fala != com.huryel.novely.ui.theme.EstiloFala.FIO) {
+                if (fim > 0) addStyle(SpanStyle(color = cor, fontWeight = FontWeight.ExtraBold), 0, fim)
+                var k = fim
+                while (k < t.length) { if (t[k] == '—') addStyle(SpanStyle(color = cor), k, k + 1); k++ }
+            }
         }
     }
     when (p.fala) {
         com.huryel.novely.ui.theme.EstiloFala.FIO -> Row(extra.height(IntrinsicSize.Min)) {
-            Box(Modifier.width(2.dp).fillMaxHeight().background(p.destaque))
-            Spacer(Modifier.width(14.dp))
+            Box(Modifier.width(2.dp).fillMaxHeight().padding(vertical = 3.dp).background(p.destaque))
+            Spacer(Modifier.width(12.dp))
             Text(colorido, style = estilo.copy(color = p.texto))
         }
         com.huryel.novely.ui.theme.EstiloFala.BALAO -> Text(colorido, style = estilo.copy(color = p.texto),

@@ -86,7 +86,7 @@ enum class TemaLeitura(val paleta: Paleta) {
         "Luar", "Preto puro e ametista",
         Color(0xFF000000), Color(0xFF120C22), Color(0xFF1C1530), Color(0xFFEFE8FF), Color(0xFF7F7499),
         Color(0xFF9D7BFF), Color(0xFF000000), Color(0xFFCBBCFF), Color(0xFF8DBB83), true,
-        InstrumentSerif, Inter, Newsreader, 1f, false, false, false, EstiloFala.ITALICO, "☾",
+        InstrumentSerif, Inter, Newsreader, 1f, false, false, false, EstiloFala.FIO, "☾",
     )),
 }
 
